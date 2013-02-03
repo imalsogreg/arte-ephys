@@ -3,10 +3,27 @@
 ---
 hosts:
   - name: devel4
-    ip: 1.1.2.54
+    ip: 1.1.2.54  &visIP
 
   - name: devel2
-    ip: 1.1.2.52
+    ip: 1.1.2.52  &backendIP
+
+nodes:
+  - name: commandServer
+    ip: *visIP
+    port: 5223
+
+  - name: spikeDataPub
+    ip: *backendIP
+    port: 5227
+
+  - name: lfpDataPub
+    ip: *backendIP
+    port: 5228
+
+  - name: timeServer
+    ip: *backendIP
+    port: 5229
 
 timer:
   clockSource: ad
