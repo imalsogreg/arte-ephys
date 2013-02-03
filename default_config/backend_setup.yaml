@@ -1,0 +1,60 @@
+# Settings for the backend
+
+---
+hosts:
+  - name: devel4
+    ip: 1.1.2.54
+
+  - name: devel2
+    ip: 1.1.2.52
+
+timer:
+  clockSource: ad
+  devName: Dev1
+  ctrName: Dev/ctr1
+  role: slave
+  freq: 10000
+  niArm: /Dev1/PFI2
+  niSync: /Dev1/port0/line0:7
+
+daqs:
+  - name: Daq A
+    devName: Dev1
+    rawDumpFile: none
+    inFile: none
+    n_chans: 32
+    n_samps: 32
+
+  - name: Daq B
+    devName: Dev2
+    rawDumpFile: none
+    inFile: none
+    n_chans: 32
+    n_samps: 32
+
+filters:
+  - name: spike
+    sections:
+      - numerators: 1 0 -1
+        denominators: 1 -1.917114594856 0.9207349867412
+        inputGain: 0.4149983175607
+
+      - numerators: 1 0 -1
+        denominators: 1 -0.5185051610478 0.2414711382284
+        inputGain: 0.4149983175607
+
+  - name: lfp
+    sections:
+      - numerators: 1 0 -1
+        denominators: 1 -1.999722324596  0.9997223633057
+        inputGain: 0.04514386898425
+
+      - numerators: 1 0 -1
+        denominators: 1 -1.8683272138 0.8764792036923
+        inputGain: 0.04514386898425
+
+  - name: allPass
+    sections:
+      - numerators: 1 0 0
+        denominators: 0 0 0
+        inputGain: 1
