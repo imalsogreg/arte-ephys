@@ -1,5 +1,5 @@
 #include <yaml.h>
-#include "dataSource.cpp"
+#include "dataSource.h"
 
 
 DataSource::DataSource () {

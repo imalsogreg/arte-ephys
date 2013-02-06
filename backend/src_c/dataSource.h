@@ -13,12 +13,12 @@
 class DataSource {
 
  public:
-  DataSource ();
+  DataSource();
 
  private:
-  void init ();
+  void init();
 
-}
+};
 
 
 
