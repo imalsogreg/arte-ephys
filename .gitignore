@@ -1,3 +1,5 @@
+dist/
+
 *.annot
 *.cmo
 *.cma
@@ -7,3 +9,8 @@
 *.cmx
 *.cmxs
 *.cmxa
+
+*.hi
+*.o
+
+*~
