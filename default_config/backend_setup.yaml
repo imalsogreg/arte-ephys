@@ -34,20 +34,20 @@ timer:
   niArm: /Dev1/PFI2
   niSync: /Dev1/port0/line0:7
 
-daqs:
-  - name: Daq A
-    devName: Dev1
-    rawDumpFile: none
-    inFile: none
-    n_chans: 32
-    n_samps: 32
+dataSource:
+  daqs:
+    - name: Daq A
+      devName: Dev1
+      n_chans: 32
+      n_samps: 32
 
-  - name: Daq B
-    devName: Dev2
-    rawDumpFile: none
-    inFile: none
-    n_chans: 32
-    n_samps: 32
+    - name: Daq B
+      devName: Dev2
+      n_chans: 32
+      n_samps: 32
+
+  inFile:  none
+  outFile: none
 
 filters:
   - name: spike

@@ -8,11 +8,11 @@ NIDAQMX_PATH = /usr/local/include/NIDAQmx.h
 
 CFLAGS  = -D__STDC_LIMIT_MACROS -pthread -std=c++0x -O2
 
-SRCS = dataSource.cpp mockNidaqmx.cpp
-OBJS = dataSource.o   mockNidaqmx.o
+SRCS = dataSource.cpp 
+OBJS = dataSource.o   
 
 ifeq ($(wildcard $(NIDAQMX_PATH)),)
-	LDFLAGS := $(LDFLAGS) -lnidaqmx
+	LDFLAGS := $(LDFLAGS) $(LNIDAQ)
 	CFLAGS  := $(CFLAGS)  -DUSE_NIDAQMX
 else
 	CFLAGS  := $(CFLAGS)  -DUSE_MOCK_NIDAQMX
@@ -22,10 +22,14 @@ endif
 .SUFFIXES: .o .c .cpp .cc
 
 dataSource : $(OBJS)
-	$(LD) -o $@ $(OBJS) $(LDFLAGS) $(LNIDAQ)
-
-mockDataSource : $(OBJS)
 	$(LD) -o $@ $(OBJS) $(LDFLAGS)
 
 %.o : %.cpp
 	$(CC) $(CFLAGS) -c $< -o $@
+
+
+.PHONY : clean
+
+clean :
+	rm -f dataSource
+	rm -f dataSource.o
