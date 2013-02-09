@@ -1,0 +1,49 @@
+# Settings for the recording session
+
+---
+
+# an lfpbank is a group of channels on a single daq card to be
+# processed together as LFP signals with the same filter settings
+lfpbanks:
+  - name:     A                                # ID string
+    daq:      DaqA                             # Data source daq
+    chans:    [0, 4, 8, 12, 16, 20, 24, 28]    # Daq chan labels
+    keep_nth: 16                               # Downsampling factor
+    filter:   Lfp                              # Filter settings from setup
+
+  - name:     B                  
+    daq:      DaqB
+    chans:    [0, 4]
+    # additional channels may be selected by tetrode name.channel
+    # by daq and channel.  Be sure that all trodes are from this
+    # lfpbank's daq
+    # In this example, we specify the first 2 chans by daq and chan,
+    # and the other 6 chans by trode name
+    trodes:   [T10.0, T11.0, T12.0, T13.0, T14.0, T15.0]
+    keep_nth: 16
+    filter:   Lfp
+
+default_trode:
+  - name:          Default
+    daq:           DaqA
+    seq:           0
+    site:          CA1
+    ap:            0.0
+    ml:            0.0
+    movements: 
+    filter:        Spike
+    thresholds_uv: [61.0, 61.0, 61.0, 61.0]
+    
+trodes:
+
+  - name: T00
+    daq:  DaqA
+
+  - name: T01
+    daq:  DaqA
+
+  - name: T02
+    daq:  DaqA
+
+  - name: T03
+    daq:  DaqA

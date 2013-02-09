@@ -36,21 +36,23 @@ timer:
 
 dataSource:
   daqs:
-    - name: Daq A
+    - name: DaqA
       devName: Dev1
       n_chans: 32
       n_samps: 32
+      gains:   1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.01.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0
 
-    - name: Daq B
+    - name: DaqB
       devName: Dev2
       n_chans: 32
       n_samps: 32
+      gains:   1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.01.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0
 
-  inFile:  none
-  outFile: none
+  inFile:  none  # Must be 'none' if using any daqs
+  outFile: none  # Value other than 'none' will produce a large file
 
 filters:
-  - name: spike
+  - name: Spike
     sections:
       - numerators: 1 0 -1
         denominators: 1 -1.917114594856 0.9207349867412
@@ -60,7 +62,7 @@ filters:
         denominators: 1 -0.5185051610478 0.2414711382284
         inputGain: 0.4149983175607
 
-  - name: lfp
+  - name: Lfp
     sections:
       - numerators: 1 0 -1
         denominators: 1 -1.999722324596  0.9997223633057
@@ -70,7 +72,7 @@ filters:
         denominators: 1 -1.8683272138 0.8764792036923
         inputGain: 0.04514386898425
 
-  - name: allPass
+  - name: AllPass
     sections:
       - numerators: 1 0 0
         denominators: 0 0 0

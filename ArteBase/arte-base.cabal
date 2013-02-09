@@ -1,0 +1,22 @@
+name:                     arte-base
+version:                  0.1
+homepage:                 http://github.com/ImAlsoGreg/arte-ephys
+synopsis:                 Base types & utilities for arte-ephys
+description:              
+        arte-base is a collection of types and utilities for arte-ephys.
+        Here we define the types for tetrodes, lfpbanks.
+category:                 Science
+license:                  GPL-3
+license-file:             LICENSE
+author:                   Greg Hale
+maintainer:               imalsogreg@gmail.com
+cabal-version:            >= 1.2
+build-type:               Simple
+
+library
+        build-depends:      yaml >= 0.5
+                          , zeromq-haskell
+                          , containers
+                          , base
+        ghc-options:      -Wall
+        exposed-modules:  Arte.Daq
