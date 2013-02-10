@@ -21,9 +21,9 @@ import Daq
 
 main :: IO ()
 main = do
-  Just (Object setup_conf) <- (decodeFile "/home/greghale/.arte-ephys/backend.conf") :: IO (Maybe Value)
-  let daqsP = (parseMaybe (.: pack "daqs") setup_conf) :: Maybe Array
+  Just (Object setup_conf) <- decodeFile "~/.arte-ephys/backend.conf" :: IO (Maybe Value)
+  let daqsP = parseMaybe (.: pack "daqs") setup_conf :: Maybe Array
   case daqsP of
-    Just ds -> putStrLn $ (Prelude.concat ( Prelude.map show $ Data.Vector.toList ds))
-    Just ds -> putStrLn $ show $ Data.Vector.head ds
-    Nothing -> putStrLn "No good"
+    Just ds -> putStrLn $ concatMap show (Data.Vector.toList ds)
+    Just ds -> print (Data.Vector.head ds)
+    Nothing -> print "No good" 

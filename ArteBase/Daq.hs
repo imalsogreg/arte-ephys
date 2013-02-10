@@ -18,11 +18,12 @@ module Daq (
   )
   where
 
-import Control.Applicative
-import Control.Monad
-import Prelude
-import Data.Yaml
-import Data.Text (pack)
+import           Control.Applicative
+import           Control.Monad
+import           Prelude
+import           Data.Yaml
+import           Data.Text (pack)
+import qualified Data.Vector as V
 
 type DaqName = String
 type DevName = String
@@ -41,4 +42,21 @@ instance FromJSON Daq where
                          d  .: pack "nChans" <*>
                          d  .: pack "nSamps" <*>
                          d  .: pack "gains"
-  parseJSON _          = return (Daq  "name" "dev" 32 22 [])
+  parseJSON _          = return (Daq  "errorDaq" "dev" 1 1 [])
+  
+  
+{-
+daqsFromYaml :: Data.Yaml.Value -> [Daq]
+daqsFromYaml val = filter (/= Nothing) mList where
+  mList = V.fromList $ V.map maybeDaqFromYaml val
+  maybeDaqFromYaml :: Value -> (Maybe Daq)
+  maybeDaqFromYaml (Object v) = parseMaybe (.: pack ")
+  daqsYaml <- val
+  case parseMaybe (.: pack "daqs") c of
+    Just (Array ds) -> V.toList $ V.map parseJSON ds
+    Nothing -> []
+daqsFromYaml Nothing = []
+-}
+
+yamlToMaybeDaqs :: Maybe Value -> [Maybe Daq]
+yamlToMaybeDaqs (Maybe Array a)
