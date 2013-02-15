@@ -10,19 +10,19 @@ hosts:
 
 nodes:
   - name: commandServer
-    ip: *visIP
+    ip: 1.1.2.54
     port: 5223
 
   - name: spikeDataPub
-    ip: *backendIP
+    ip: 1.1.2.52
     port: 5227
 
   - name: lfpDataPub
-    ip: *backendIP
+    ip: 1.1.2.52
     port: 5228
 
   - name: timeServer
-    ip: *backendIP
+    ip: 1.1.2.52
     port: 5229
 
 timer:
@@ -40,13 +40,19 @@ dataSource:
       devName: Dev1
       n_chans: 32
       n_samps: 32
-      gains:   1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.01.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0
+      gains:   [1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 
+                1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0
+                1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 
+                1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0]
 
     - name: DaqB
       devName: Dev2
       n_chans: 32
       n_samps: 32
-      gains:   1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.01.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0
+      gains:   [1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 
+                1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0
+                1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 
+                1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0]
 
   inFile:  none  # Must be 'none' if using any daqs
   outFile: none  # Value other than 'none' will produce a large file
