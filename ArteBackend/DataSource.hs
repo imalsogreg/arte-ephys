@@ -19,6 +19,8 @@ module Main where
 import Data.Vector
 import Data.Text
 import Data.Yaml
+import Control.Monad.Trans
+import Control.Monad.Trans.Maybe
 import Data.HashMap.Strict (lookup)
 import DataSourceSettings
 import DaqSettings
@@ -31,16 +33,22 @@ settingsFilename = "/home/greghale/.arte-ephys/backend.conf"
 
 main :: IO ()
 main = do
-  (Just settings) <- decodeFile settingsFilename :: IO (Maybe Object)
-  do 
-    case (lookup "dataSource" settings) of
-      Just (Object r) -> initDataSource r
-      Nothing         -> do putStrLn "Nope."
-                            return $ DataSource 1
-  return ()
+  
+  m_settings <- decodeFile settingsFilename :: IO (Maybe Object)
+  loadSettings m_settings
+--  do 
+--    settings        <- m_settings
+--    dataSourceJSON  <- settings
+--    initDataSource dataSourceJSON
 
-initDataSource :: Object -> IO DataSource
+loadSettings :: String -> MaybeT IO DataSource
+loadSettings settingsFile = 
+  do settings <- decodeFile settingsFile
+     inFile  <- (lookup "inFile"  settingsJSON)
+     outFile <- (lookup "outFile" settingsJSON)
+     return $ DataSource 1
+
+initDataSource :: Object -> Maybe DataSource
 initDataSource obj = 
   do
-    putStrLn $ show obj
     return $ DataSource 1
