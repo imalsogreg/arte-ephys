@@ -33,10 +33,10 @@ main :: IO ()
 main = do
   (Just settings) <- decodeFile settingsFilename :: IO (Maybe Object)
   do 
-    (lookup "dataSource" s) of
-    Just (Object r) -> initDataSource r
-    Nothing         -> do putStrLn "Nope."
-                          return $ DataSource 1
+    case (lookup "dataSource" settings) of
+      Just (Object r) -> initDataSource r
+      Nothing         -> do putStrLn "Nope."
+                            return $ DataSource 1
   return ()
 
 initDataSource :: Object -> IO DataSource
