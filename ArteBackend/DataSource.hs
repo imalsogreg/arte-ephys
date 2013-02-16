@@ -12,18 +12,35 @@
 --
 ----------------------------------------------------------------------
 
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
 import Data.Vector
 import Data.Text
 import Data.Yaml
-import Daq
+import Data.HashMap.Strict (lookup)
+import DataSourceSettings
+import DaqSettings
+import Prelude hiding (lookup)
+
+
+data DataSource = DataSource Int
+
+settingsFilename = "/home/greghale/.arte-ephys/backend.conf"
 
 main :: IO ()
 main = do
-  Just (Object setup_conf) <- decodeFile "~/.arte-ephys/backend.conf" :: IO (Maybe Value)
-  let daqsP = parseMaybe (.: pack "daqs") setup_conf :: Maybe Array
-  case daqsP of
-    Just ds -> putStrLn $ concatMap show (Data.Vector.toList ds)
-    Just ds -> print (Data.Vector.head ds)
-    Nothing -> print "No good" 
+  (Just settings) <- decodeFile settingsFilename :: IO (Maybe Object)
+  do 
+    (lookup "dataSource" s) of
+    Just (Object r) -> initDataSource r
+    Nothing         -> do putStrLn "Nope."
+                          return $ DataSource 1
+  return ()
+
+initDataSource :: Object -> IO DataSource
+initDataSource obj = 
+  do
+    putStrLn $ show obj
+    return $ DataSource 1

@@ -22,12 +22,13 @@ library
                           , text
                           , vector
                           , base
+                          , unordered-containers
         ghc-options:      -Wall
         hs-source-dirs:   ArteBase
-        exposed-modules:  Daq
+        exposed-modules:  DaqSettings, DataSourceSettings
 
 executable arte-backend
            main-is:       DataSource.hs
            ghc-options:   -Wall
            hs-source-dirs: ArteBackend, ArteBase
-           other-modules: Daq
+           other-modules: DaqSettings, DataSourceSettings

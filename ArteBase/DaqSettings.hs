@@ -43,17 +43,18 @@ instance FromJSON DaqSettings where
   parseJSON _          = mzero
   
 
+{-
 loadDaqSettings :: Object -> Either String [DaqSettings]
 loadDaqSettings v = 
   flip parseEither v $ \obj -> do
     dataSource <- obj .: "dataSource"
     daqs       <- (dataSource .: "daqs") :: Parser (V.Vector Object)
     return $ 
+-}
 
 
 
-
-
+{-
 myTest :: IO (Either String Object) -> 
           IO (Either String [DaqSettings])
 myTest the_v = do
@@ -61,4 +62,4 @@ myTest the_v = do
   case x of
     Right b  -> return $ loadDaqSettings b
     Left  s  -> return (Left s)
-  
+  -}
