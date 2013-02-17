@@ -28,7 +28,7 @@ library
         exposed-modules:  DaqSettings, DataSourceSettings
 
 executable arte-backend
-           main-is:       DataSource.hs
+           main-is:       Backend.hs
            ghc-options:   -Wall
            hs-source-dirs: ArteBackend, ArteBase
-           other-modules: DaqSettings, DataSourceSettings
+           other-modules: DaqSettings, DataSourceSettings, DataSource
