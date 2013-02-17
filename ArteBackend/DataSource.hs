@@ -33,15 +33,15 @@ settingsFilename = "/home/greghale/.arte-ephys/backend.conf"
 
 main :: IO ()
 main = do
-  
   m_settings <- decodeFile settingsFilename :: IO (Maybe Object)
-  loadSettings m_settings
---  do 
+  do
+    settings <- loadSettings m_settings
+ 
 --    settings        <- m_settings
 --    dataSourceJSON  <- settings
 --    initDataSource dataSourceJSON
 
-loadSettings :: String -> MaybeT IO DataSource
+loadSettings :: String -> Maybe DataSource
 loadSettings settingsFile = 
   do settings <- decodeFile settingsFile
      inFile  <- (lookup "inFile"  settingsJSON)
@@ -49,6 +49,6 @@ loadSettings settingsFile =
      return $ DataSource 1
 
 initDataSource :: Object -> Maybe DataSource
-initDataSource obj = 
+initDataSource obj  =
   do
     return $ DataSource 1
