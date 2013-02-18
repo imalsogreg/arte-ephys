@@ -14,9 +14,11 @@
 
 module Main where
 
+import Control.Monad
 import System.Environment
 import Data.Yaml
 import DataSource
+import DataSourceSettings
 
 
 settingsFilename :: IO String
@@ -24,12 +26,29 @@ settingsFilename = fmap (++ settingsName) home
   where home = getEnv "HOME"
         settingsName = "/.arte-ephys/backend.conf"
         
+loadSettingsObject :: String -> IO (Either String Object)
+loadSettingsObject fn = do 
+  settings <- decodeFile fn
+  case settings of
+    Nothing          -> return $ Left ("File Error for " ++ fn)
+    Just settingsObj -> return $ Right settingsObj
 
-initDataSource :: Object -> Either String DataSource
-initDataSource obj = 
+extractSettings :: Object -> Maybe DataSourceSettings
+extractSettings _ = undefined
+
+initDataSource :: Object -> IO (Either String DataSource)
+initDataSource obj = return $ Left "test"
   
                   
 main :: IO ()
 main = do
-  
+  fn <- settingsFilename
+  (Right settings) <- loadSettingsObject fn
+  putStrLn $ show settings
+  {-
+return $ case settings of
+             Right obj -> initDataSource obj
+                          return ()
+             Left  e   -> putStrLn e
+  -}
   

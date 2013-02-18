@@ -36,7 +36,4 @@ loadSettings settingsFile =
      return $ DataSource 1
 -}
 
-initDataSource :: Object -> Either String DataSource
-initDataSource obj  =
-  do
     
