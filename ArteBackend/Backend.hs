@@ -43,8 +43,9 @@ initDataSource obj = return $ Left "test"
 main :: IO ()
 main = do
   fn <- settingsFilename
-  (Right settings) <- loadSettingsObject fn
-  putStrLn $ show settings
+  (Right settingsObj) <- loadSettingsObject fn
+  let dsSettings = extractSettings settingsObj
+  putStrLn $ show settingsObj
   {-
 return $ case settings of
              Right obj -> initDataSource obj
