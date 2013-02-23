@@ -12,16 +12,14 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DaqSettings ( 
-  DaqSettings
-  , parseJSON
-  ) where
+module DaqSettings where
 
 import           Control.Applicative
 import           Control.Monad
 import           Prelude
 import           Data.Yaml
 import qualified Data.Vector as V
+import           System.IO.Unsafe
 
 type DaqName = String
 type DevName = String
@@ -30,7 +28,7 @@ data DaqSettings = DaqSettings{ daqName    :: DaqName
                               , devName :: DevName
                               , nChans  :: Int
                               , nSamps  :: Int
-                              , daqGains   :: [Double]
+                              , daqGains   :: Int  -- should be Vector Double
                               } deriving (Show)
 
 instance FromJSON DaqSettings where
@@ -42,15 +40,15 @@ instance FromJSON DaqSettings where
                          d  .: "gains"
   parseJSON _          = mzero
   
-
-{-
 loadDaqSettings :: Object -> Either String [DaqSettings]
-loadDaqSettings v = 
-  flip parseEither v $ \obj -> do
-    dataSource <- obj .: "dataSource"
-    daqs       <- (dataSource .: "daqs") :: Parser (V.Vector Object)
-    return $ 
--}
+loadDaqSettings obj =  do
+    dataSource <- parseEither (.: "dataSource" ) obj
+    daqsList   <- parseEither (.: "daqs") dataSource :: Either String Array
+    let a = V.toList daqsList
+    daqs       <- forM  (V.toList daqsList) 
+                  (parseEither (\obj -> parseJSON obj)) 
+    return daqs
+
 
 
 

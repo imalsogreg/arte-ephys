@@ -17,6 +17,7 @@ module Main where
 import Control.Monad
 import System.Environment
 import Data.Yaml
+import DaqSettings
 import DataSource
 import DataSourceSettings
 
@@ -30,26 +31,20 @@ loadSettingsObject :: String -> IO (Either String Object)
 loadSettingsObject fn = do 
   settings <- decodeFile fn
   case settings of
-    Nothing          -> return $ Left ("File Error for " ++ fn)
+    Nothing          -> return $ Left "File load error"
     Just settingsObj -> return $ Right settingsObj
 
 extractSettings :: Object -> Maybe DataSourceSettings
 extractSettings _ = undefined
 
-initDataSource :: Object -> IO (Either String DataSource)
-initDataSource obj = return $ Left "test"
+initDataSource :: Object -> IO (Maybe DataSource)
+initDataSource obj = return Nothing
   
                   
 main :: IO ()
 main = do
   fn <- settingsFilename
   (Right settingsObj) <- loadSettingsObject fn
-  let dsSettings = extractSettings settingsObj
-  putStrLn $ show settingsObj
-  {-
-return $ case settings of
-             Right obj -> initDataSource obj
-                          return ()
-             Left  e   -> putStrLn e
-  -}
+  let dsSettings = loadDaqSettings settingsObj
+  putStrLn $ show dsSettings
   
