@@ -12,10 +12,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DataSourceSettings (
-  DataSourceSettings
-  , parseJSON
-  ) where
+module DataSourceSettings where
        
 import Control.Applicative
 import Control.Monad
@@ -33,6 +30,20 @@ data DataSourceSettings =
                     , outputFile  :: Maybe FileName
                     }
   
+loadDaqSettings :: Object -> Either String DataSourceSettings
+loadDaqSettings obj =  do
+    dataSource <- parseEither (.: "dataSource" ) obj
+    daqsList   <- parseEither (.: "daqs") dataSource :: Either String Array
+    outFile    <- parseEither (.: "outFile") dataSource :: Either String FileName
+    let a = V.toList daqsList
+    daqs       <- forM  (V.toList daqsList) 
+                  (parseEither (\obj -> parseJSON obj)) 
+    case (daqs, (parseEither (.: "inFile") dataSource))  of
+      ([]  , Right fn) -> return $ DataSourceSettings (File fn) outFile
+      (ds@(_:_), Left _) ->   return $ DataSourceSettings (Hardware daqs) outFile
+      ([], Left s) -> Left $ "loadDaq error " ++ s
+      (_:_, Right fn) -> Left "Data sources must be daqs OR file, not both."
+
 {-  Doesn't compile (wrong number of fields?  
 instance FromJSON DataSourceSettings where
   parseJSON (Object d) = DataSourceSettings <$>

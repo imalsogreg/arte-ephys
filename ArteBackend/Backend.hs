@@ -2,7 +2,7 @@
 -- |
 -- Module     : Main
 -- Copyright  : (c) Greg Hale 2013
--- License    : GPL3
+-- License    : GPL-3
 -- 
 -- Maintainer : imalsogreg@gmail.com
 -- Stability  : unstable
@@ -31,20 +31,15 @@ loadSettingsObject :: String -> IO (Either String Object)
 loadSettingsObject fn = do 
   settings <- decodeFile fn
   case settings of
-    Nothing          -> return $ Left "File load error"
+    Nothing          -> return $ Left ("File load error on " ++ fn)
     Just settingsObj -> return $ Right settingsObj
-
-extractSettings :: Object -> Maybe DataSourceSettings
-extractSettings _ = undefined
-
-initDataSource :: Object -> IO (Maybe DataSource)
-initDataSource obj = return Nothing
-  
                   
 main :: IO ()
 main = do
   fn <- settingsFilename
   (Right settingsObj) <- loadSettingsObject fn
   let dsSettings = loadDaqSettings settingsObj
-  putStrLn $ show dsSettings
+  case dsSettings of
+    Right s ->  putStrLn $ show $ (nChans . head) s
+    Left  p ->  putStrLn $ "Problem " ++ p
   
