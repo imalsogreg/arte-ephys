@@ -27,6 +27,15 @@ import Prelude hiding (lookup)
 
 data DataSource = DataSource Int
 
+        
+loadSettingsObject :: String -> IO (Either String Object)
+loadSettingsObject fn = do 
+  settings <- decodeFile fn
+  case settings of
+    Nothing          -> return $ Left ("File load error on " ++ fn)
+    Just settingsObj -> return $ Right settingsObj
+
+
 {-
 loadSettings :: String -> Maybe DataSource
 loadSettings settingsFile = 

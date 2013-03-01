@@ -26,13 +26,6 @@ settingsFilename :: IO String
 settingsFilename = fmap (++ settingsName) home
   where home = getEnv "HOME"
         settingsName = "/.arte-ephys/backend.conf"
-        
-loadSettingsObject :: String -> IO (Either String Object)
-loadSettingsObject fn = do 
-  settings <- decodeFile fn
-  case settings of
-    Nothing          -> return $ Left ("File load error on " ++ fn)
-    Just settingsObj -> return $ Right settingsObj
                   
 main :: IO ()
 main = do
