@@ -16,7 +16,7 @@
 
 module DataSource where
 
-import Data.Vector
+import Data.Vector hiding ((++))
 import Data.Text
 import Data.Yaml
 import Data.HashMap.Strict (lookup)

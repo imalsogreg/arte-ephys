@@ -24,11 +24,13 @@ type FileName = String
 
 data SourceType = Hardware [DaqSettings]
                 | File     FileName
+                  deriving (Show)
 
 data DataSourceSettings = 
   DataSourceSettings{ source      :: SourceType
                     , outputFile  :: Maybe FileName
                     }
+  deriving (Show)
   
 loadDaqSettings :: Object -> Either String DataSourceSettings
 loadDaqSettings obj =  do

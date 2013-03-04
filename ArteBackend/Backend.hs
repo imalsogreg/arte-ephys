@@ -33,6 +33,6 @@ main = do
   (Right settingsObj) <- loadSettingsObject fn
   let dsSettings = loadDaqSettings settingsObj
   case dsSettings of
-    Right s ->  putStrLn $ show $ (nChans . head) s
+    Right s ->  putStrLn $ show s
     Left  p ->  putStrLn $ "Problem " ++ p
   
