@@ -35,12 +35,12 @@ loadDaqSettings obj =  do
     dataSource <- parseEither (.: "dataSource" ) obj
     daqsList   <- parseEither (.: "daqs") dataSource :: Either String Array
     outFile    <- parseEither (.: "outFile") dataSource :: Either String FileName
-    let a = V.toList daqsList
+    let outParam = if (outFile == "none") then Nothing else Just outFile
     daqs       <- forM  (V.toList daqsList) 
                   (parseEither (\obj -> parseJSON obj)) 
     case (daqs, (parseEither (.: "inFile") dataSource))  of
-      ([]  , Right fn) -> return $ DataSourceSettings (File fn) outFile
-      (ds@(_:_), Left _) ->   return $ DataSourceSettings (Hardware daqs) outFile
+      ([]  , Right fn) -> return $ DataSourceSettings (File fn) outParam
+      (ds@(_:_), Left _) ->   return $ DataSourceSettings (Hardware daqs) outParam
       ([], Left s) -> Left $ "loadDaq error " ++ s
       (_:_, Right fn) -> Left "Data sources must be daqs OR file, not both."
 
