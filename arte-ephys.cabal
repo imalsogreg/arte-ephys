@@ -39,3 +39,9 @@ executable arte-master
            ghc-options:    -Wall
            hs-source-dirs: ArteMaster, ArteBase
            other-modules:  DaqSettings, DataSourceSettings
+
+executable arte-simple
+           build-depends:  gtk, mtl, bytestring, zeromq-haskell
+           main-is:        Simple.hs
+           ghc-options:    -Wall
+           hs-source-dirs: ArteSimple, ArteBase
