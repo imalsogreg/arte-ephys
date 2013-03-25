@@ -14,7 +14,7 @@
 
 module DataSourceSettings where
        
-import Control.Applicative
+--import Control.Applicative
 import Control.Monad
 import Data.Yaml
 import qualified Data.Vector as V
@@ -39,12 +39,12 @@ loadDaqSettings obj =  do
     outFile    <- parseEither (.: "outFile") dataSource :: Either String FileName
     let outParam = if (outFile == "none") then Nothing else Just outFile
     daqs       <- forM  (V.toList daqsList) 
-                  (parseEither (\obj -> parseJSON obj)) 
+                  (parseEither (\obj' -> parseJSON obj')) 
     case (daqs, (parseEither (.: "inFile") dataSource))  of
       ([]  , Right fn) -> return $ DataSourceSettings (File fn) outParam
-      (ds@(_:_), Left _) ->   return $ DataSourceSettings (Hardware daqs) outParam
+      ((_:_), Left _) ->   return $ DataSourceSettings (Hardware daqs) outParam
       ([], Left s) -> Left $ "loadDaq error " ++ s
-      (_:_, Right fn) -> Left "Data sources must be daqs OR file, not both."
+      (_:_, Right _) -> Left "Data sources must be daqs OR file, not both."
 
 {-  Doesn't compile (wrong number of fields?  
 instance FromJSON DataSourceSettings where

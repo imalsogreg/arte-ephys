@@ -14,10 +14,10 @@
 
 module Main where
 
-import Control.Monad
+--import Control.Monad
 import System.Environment
-import Data.Yaml
-import DaqSettings
+--import Data.Yaml
+--import DaqSettings
 import DataSource
 import DataSourceSettings
 

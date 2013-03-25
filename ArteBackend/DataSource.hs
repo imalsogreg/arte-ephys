@@ -16,12 +16,12 @@
 
 module DataSource where
 
-import Data.Vector hiding ((++))
-import Data.Text
+--import Data.Vector hiding ((++))
+--import Data.Text
 import Data.Yaml
-import Data.HashMap.Strict (lookup)
-import DataSourceSettings
-import DaqSettings
+--import Data.HashMap.Strict (lookup)
+--import DataSourceSettings
+--import DaqSettings
 import Prelude hiding (lookup)
 
 

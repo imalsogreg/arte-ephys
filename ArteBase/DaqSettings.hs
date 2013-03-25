@@ -18,8 +18,8 @@ import           Control.Applicative
 import           Control.Monad
 import           Prelude
 import           Data.Yaml
-import qualified Data.Vector as V
-import           System.IO.Unsafe
+--import qualified Data.Vector as V
+--import           System.IO.Unsafe
 
 type DaqName = String
 type DevName = String
