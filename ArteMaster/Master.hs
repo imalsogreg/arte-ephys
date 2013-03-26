@@ -19,7 +19,10 @@ import Graphics.UI.Gtk
 --import Control.Monad
 import Control.Monad.Trans (liftIO)
 import Data.ByteString.Char8 as C hiding (putStrLn)
-import Control.Concurrent.Async
+import Control.Concurrent
+import Control.Concurrent.STM
+import Data.Sequence
+import Data.Map
 import ZmqUtils
 
 -- Load configuration data (possibly just hosts info)
@@ -38,14 +41,15 @@ data MasterCom = MCom { inPort  :: Rep
                       , outPort :: Req
                       }
                  
-data MasterState = MSt { inbox  :: [Object]
-                       , outbox :: [Object]
+data MasterState = MSt { incoming  :: [Object]
+                       , outgoing  :: [Object]
                        }
 
 main :: IO ()
 main = do
-  masterState <- newMVar $ MSt {inbox=[], outbox=[]}
-  runCom masterState
+  heartbeats <- empty :: Map String Integer
+  outgoingMessages <- newFifo :: (TMVar) STM
+  runCom incomingMessages outgoingMessages
   setupWindow
        
 
@@ -79,7 +83,9 @@ runCom masterState = do
         bind servSock servStr
         connect cliSock cliStr
         a1 <- async (receive servSock [])
-        a2 <- 
+        a2 <- async $ do 
+          s <- takeMVar masterState
+          
   where cliStr = zmqStr Tcp "127.0.0,1" "5224"
         servStr = zmqStr Tcp "127.0.0.1" "5223"
 
