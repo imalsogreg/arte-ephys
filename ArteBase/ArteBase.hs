@@ -12,10 +12,11 @@
 --
 ----------------------------------------------------------------------
 
-module Arte.Base where
+module ArteBase where
 
 import ZmqUtils
 
+{-
 type ArteReq = ArteReqSock ZmqSockStr
 type ArteRep = ArteRepSock ZmqSockStr
 type ArtePub = ArtePubSock [ZmqSockStr]
@@ -26,7 +27,7 @@ type ArteSub = ArteSubSock [ZmqSockStr]
 -- What about server that has many clients?
 -- ie - most servers will have only one client (master as client)
 --      but master itself will have several clients w/ different sockStrs..
-type ArteSock = ArteReq ZmqSockStr
+data ArteSock = ArteReq ZmqSockStr
               | ArteRep ZmqSockStr
               | ArtePub [ZmqSockStr]
               | ArteSub [ZmqSockStr]
@@ -73,4 +74,32 @@ data ArteNode = Backend Rep
           | SpikeViewer
           | LFPViewer
           | Tracker
-          | 
+-}            
+
+data ArteMessage = ArteMessage TimeStamp ArteCommand
+
+type TimeStamp = Double
+            
+data ArteCommand = StartAcq
+                 | StopAcq
+                 | StartDisk
+                 | StopDisk
+                 | ResetClocks
+                 | GetActive
+                 | Heartbeat
+                 | SetBackendSetupConfig
+                 | SetBackendSessionConfig
+                 | SetTrodeConfig
+                 | SetLfpConfig
+                 | SetVerbosityLevel VerbosityLevel
+                 | Ping String
+                 | Pong String
+                   deriving (Show)
+                  
+data VerbosityLevel = VerbositySilent
+                    | VerbosityErrors
+                    | VerbosityWarnings
+                    | VerbosityNotices
+                    | VerbosityEverything
+                    | VerbositySpecial -- For debugging
+                      deriving (Eq, Show, Enum, Ord)

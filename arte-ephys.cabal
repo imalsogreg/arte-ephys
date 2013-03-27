@@ -34,11 +34,11 @@ executable arte-backend
            other-modules:  DaqSettings, DataSourceSettings, DataSource
 
 executable arte-master
-           build-depends:  gtk, mtl, async
+           build-depends:  gtk, mtl, stm, async
            main-is:        Master.hs
            ghc-options:    -Wall
            hs-source-dirs: ArteMaster, ArteBase
-           other-modules:  DaqSettings, DataSourceSettings
+           other-modules:  DaqSettings, DataSourceSettings, ArteBase
 
 executable arte-simple
            build-depends:  gtk, mtl, bytestring, zeromq-haskell
