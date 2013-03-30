@@ -77,7 +77,8 @@ data ArteNode = Backend Rep
 -}            
 
 data ArteMessage = ArteMessage TimeStamp ArteCommand
-
+                   deriving (Show)
+                   
 type TimeStamp = Double
             
 data ArteCommand = StartAcq

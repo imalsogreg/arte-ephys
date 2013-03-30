@@ -36,39 +36,25 @@ import ArteBase
 -- Send messages in response to UI (eg, start/stop acq.
 --        reset clocks, set 
                
-data MasterState = MSt { acquiring    :: TVar Bool
-                       , disking      :: TVar Bool
-                       , taskQueue    :: TVar (Seq ArteCommand)
-                       , messageLog   :: TVar (Seq ArteMessage)
-                       }
+data MasterState = MSt { acquiring    :: Bool
+                       , disking      :: Bool
+                       , taskQueue    :: (Seq ArteCommand)
+                       , messageLog   :: (Seq ArteMessage)
+                       } deriving (Show)
 
+--data MasterStateT = TVar MasterState
 
-initStateSTM :: STM MasterState
-initStateSTM = do
-  acq <- newTVar False
-  dsk <- newTVar False
-  tQu <- newTVar Data.Sequence.empty
-  mLg <- newTVar Data.Sequence.empty
-  return $ MSt {acquiring=acq, disking=dsk, taskQueue=tQu, messageLog=mLg}
-
-initState :: IO MasterState
-initState = atomically initStateSTM
-
-showMasterStateSTM :: MasterState -> STM String
-showMasterStateSTM s = do
-  acq <- readTVar $ acquiring s
-  dsk <- readTVar $ disking s
-  tQu <- readTVar $ taskQueue s
-  mLg <- readTVar $ messageLog s
-  return $ "Acquiring: " ++ (show acq)
-  
-  
+initState :: STM (TVar MasterState)
+initState = newTVar $ MSt{ acquiring = False
+                         ,  disking = False
+                         ,  taskQueue = Data.Sequence.empty
+                         ,  messageLog = Data.Sequence.empty
+                         }
 
 main :: IO ()
 main = do
   setupWindow
        
-
 setupWindow :: IO ()
 setupWindow = do
   _ <- initGUI
@@ -91,7 +77,7 @@ setupWindow = do
   mainGUI
   
 
-runCom :: (MVar MasterState) -> IO ()
+runCom :: (TVar MasterState) -> IO ()
 runCom masterState = do
   withContext 1 $ \context -> do
     withSocket context Req $ \cliSock -> do
@@ -103,25 +89,6 @@ runCom masterState = do
   where cliStr = zmqStr Tcp "127.0.0,1" "5224"
         servStr = zmqStr Tcp "127.0.0.1" "5223"
 
-{-
-initCommandServer :: ZmqSockStr -> (MVar MasterState) -> IO ()
-initCommandServer prot host port = withContext 1 $ \context -> do
-  withSocket Rep $ \sock -> do
-    bind sock $ zmqStr prot host port
-    forever $ do
-      putStrLn ("Server")
-  
-initCommandClient :: ZmqSockStr -> (MVar MasterState) -> IO ()
-initCommandClient zmqStr masterState = withContext 1 $ \context -> do
-  withSocket context Req $ \sock -> do
-    connect sock $ zmqStr prot host port
-    return sock
--}
-
-{-
-setupCommandClient :: ZmqProtocol -> ZmqHostStr -> PortName -> IO (Z.Req)
-setupCommandClient = undefined
-  -}
 sendSimpleMessage :: Z.Socket Req -> IO ()
 sendSimpleMessage sock = do
   let req = C.pack "SimpleMessage"
