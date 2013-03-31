@@ -15,12 +15,13 @@
 module Main where
 
 import System.ZMQ as Z
-import Graphics.UI.Gtk
+import Graphics.UI.WX
 import Control.Monad.Trans (liftIO)
 import Data.ByteString.Char8 as C hiding (putStrLn)
 import Control.Concurrent
 import Control.Concurrent.STM
 import Data.Sequence
+import Data.Maybe
 import ZmqUtils
 import ArteBase
 
@@ -36,47 +37,92 @@ import ArteBase
 -- Send messages in response to UI (eg, start/stop acq.
 --        reset clocks, set 
                
-data MasterState = MSt { acquiring    :: Bool
-                       , disking      :: Bool
-                       , taskQueue    :: (Seq ArteCommand)
-                       , messageLog   :: (Seq ArteMessage)
-                       } deriving (Show)
+data MasterState = 
+  MasterState { acquiring    :: Bool
+              , disking      :: Bool
+              , taskQueue    :: (Seq ArteCommand)
+              , messageLog   :: (Seq ArteMessage)
+--              , guiCtrl      :: Maybe MasterWindowCtrl
+              } deriving (Show)
 
 --data MasterStateT = TVar MasterState
 
-initState :: STM (TVar MasterState)
-initState = newTVar $ MSt{ acquiring = False
-                         ,  disking = False
-                         ,  taskQueue = Data.Sequence.empty
-                         ,  messageLog = Data.Sequence.empty
-                         }
+initState :: IO (TVar MasterState)
+initState = atomically $ newTVar 
+            (MasterState{ acquiring = False
+                        ,  disking = False
+                        ,  taskQueue = Data.Sequence.empty
+                        ,  messageLog = Data.Sequence.empty
+--                        ,  guiCtrl = Nothing
+                        })
 
 main :: IO ()
 main = do
-  setupWindow
+  st <- initState
+  start (masterWindow st)
        
-setupWindow :: IO ()
-setupWindow = do
-  _ <- initGUI
-  window <- windowNew
-  hb     <- hBoxNew True 2
-  send_b <- buttonNew
-  buttonSetLabel send_b "Send"
-  quit_b <- buttonNew
-  buttonSetLabel quit_b "Quit"
-  _ <- onClicked send_b ( putStrLn "send clicked")
-  boxPackStart hb send_b PackGrow 0
-  boxPackStart hb quit_b PackGrow 1
-  window `containerAdd` hb
-  _ <- window `on` deleteEvent $ liftIO mainQuit >> return False
-  _ <- window `on` configureEvent $ do
-    (width, height) <- eventSize
-    liftIO (putStrLn (show width ++ " x " ++ show height))
-    return False
-  widgetShowAll window
-  mainGUI
-  
+data MasterWindowCtrl = 
+  MasterWindowCtrl { guiFrame     :: Frame ()
+                   , acqButton    :: Button ()
+                   , diskButton   :: Button ()
+                   , messageList  :: ListCtrl ()
+                   } deriving (Show)
 
+
+masterWindow :: (TVar MasterState) -> IO ()
+masterWindow st = do
+  f     <- frame [visible := False]
+  dskB <- button f [text := "Start Disk", on command := putStrLn "hello"]
+  acqB <- button f [text := "Start Acq", on command := putStrLn "hi"]  
+  rstB <- button f [text := "Reset Clocks", on command := putStrLn "clocks"]
+  qutB <- button f [text := "Quit", on command := putStrLn "quit"]
+  msgL <- listCtrl f [columns := [("Source", AlignCentre, 80)
+                                 ,("Timestamp", AlignCentre, 100)
+                                 ,("Content", AlignCentre, 100)]]    
+  let masterCtrl = MasterWindowCtrl f acqB dskB msgL
+  set dskB [on command := putStrLn "hello"]
+  set acqB [on command := putStrLn "hi"]
+  set rstB [on command := putStrLn "clocks"]
+  set qutB [on command := putStrLn "quit"]
+  set f [layout := margin 8 ( expand (column 2 [ floatCentre (row 4 [ (widget acqB)
+                                                                    , (widget dskB)
+                                                                    , (widget rstB)
+                                                                    , (widget qutB)])
+                                               , expand (widget msgL) ]) ) ]
+  set f [visible := True]
+
+updateGui :: MasterWindowCtrl -> (TVar MasterState) -> IO ()
+updateGui gui stT = do
+  st <- atomically $ readTVar stT
+  case acquiring st of
+    True -> do
+      set (acqButton gui) [text := "Stop Acquisition"]
+      set (diskButton gui) [enabled := True]
+    False -> do
+      set (acqButton gui) [text := "Start Acquisition"]
+      set (diskButton gui) [enabled := True]
+
+acqBHandle :: (TVar MasterState) -> MasterWindowCtrl -> IO ()
+acqBHandle stT gui = do
+  disk_on <- atomically $ do
+    st <- readTVar stT
+    return (disking st)
+  if disk_on then
+    putStrLn "Can't stop acquisition with disk on."
+     else
+    atomically (toggleAcq stT)
+         
+{-
+toggleAcq :: (TVar MasterState) -> STM ()
+toggleAcq stT = do
+  st <- readTVar stT
+  let gui = fromJust (guiCtrl st)
+  set (acqButton gui) [text := "Stop Acquisition"]
+  -}
+
+dskBHandle :: (TVar MasterState) -> IO ()
+dskBHandle = undefined
+    
 runCom :: (TVar MasterState) -> IO ()
 runCom masterState = do
   withContext 1 $ \context -> do
