@@ -45,3 +45,9 @@ executable arte-simple
            main-is:        Simple.hs
            ghc-options:    -Wall
            hs-source-dirs: ArteSimple, ArteBase
+
+executable arte-lfp-viewer
+           build-depends:  zeromq-haskell, GLFW-b, OpenGL, GLURaw
+           main-is:        LfpViewer.hs
+           ghc-options:    -Wall
+           hs-source-dirs: ArteLfpViewer, ArteBase
