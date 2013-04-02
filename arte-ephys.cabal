@@ -34,7 +34,7 @@ executable arte-backend
            other-modules:  DaqSettings, DataSourceSettings, DataSource
 
 executable arte-master
-           build-depends:  wxcore, wx, mtl, stm
+           build-depends:  wxcore, wx, mtl, stm >= 2.4
            main-is:        Master.hs
            ghc-options:    -Wall
            hs-source-dirs: ArteMaster, ArteBase
