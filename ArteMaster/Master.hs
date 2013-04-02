@@ -15,16 +15,19 @@
 module Main where
 
 import System.ZMQ as Z
+import Graphics.UI.WXCore
 import Graphics.UI.WX
-import Control.Monad.Trans (liftIO)
 import Data.ByteString.Char8 as C hiding (putStrLn)
-import Control.Concurrent
 import Control.Concurrent.STM
 import Data.Sequence
-import Data.Maybe
 import ZmqUtils
 import ArteBase
 
+main :: IO ()
+main = do
+  st <- initState
+  start (masterWindow st)
+       
 -- Load configuration data (possibly just hosts info)
 -- (Startup backend executable on other machine?)
 -- (Startup Vis, Tracker on other machine?)
@@ -42,10 +45,7 @@ data MasterState =
               , disking      :: Bool
               , taskQueue    :: (Seq ArteCommand)
               , messageLog   :: (Seq ArteMessage)
---              , guiCtrl      :: Maybe MasterWindowCtrl
               } deriving (Show)
-
---data MasterStateT = TVar MasterState
 
 initState :: IO (TVar MasterState)
 initState = atomically $ newTVar 
@@ -53,35 +53,38 @@ initState = atomically $ newTVar
                         ,  disking = False
                         ,  taskQueue = Data.Sequence.empty
                         ,  messageLog = Data.Sequence.empty
---                        ,  guiCtrl = Nothing
                         })
 
-main :: IO ()
-main = do
-  st <- initState
-  start (masterWindow st)
-       
+
 data MasterWindowCtrl = 
   MasterWindowCtrl { guiFrame     :: Frame ()
                    , acqButton    :: Button ()
                    , diskButton   :: Button ()
+                   , quitButton   :: Button ()
                    , messageList  :: ListCtrl ()
                    } deriving (Show)
 
+entries :: [ (String,String,String) ]
+entries = [ ("Hi", "Hey", "Hello") 
+          , ("Hi", "Hi", "Hi")
+          , ("Yet", "Another", "Entry")
+          , ("Just", "One", "More") 
+          ]
 
 masterWindow :: (TVar MasterState) -> IO ()
-masterWindow st = do
+masterWindow stT = do
   f     <- frame [visible := False]
-  dskB <- button f [text := "Start Disk", on command := putStrLn "hello"]
-  acqB <- button f [text := "Start Acq", on command := putStrLn "hi"]  
-  rstB <- button f [text := "Reset Clocks", on command := putStrLn "clocks"]
-  qutB <- button f [text := "Quit", on command := putStrLn "quit"]
+  dskB <- button f [text := "Start Disk"]
+  acqB <- button f [text := "Start Acq"]
+  rstB <- button f [text := "Reset Clocks"]
+  qutB <- button f [text := "Quit"]
   msgL <- listCtrl f [columns := [("Source", AlignCentre, 80)
                                  ,("Timestamp", AlignCentre, 100)
-                                 ,("Content", AlignCentre, 100)]]    
-  let masterCtrl = MasterWindowCtrl f acqB dskB msgL
-  set dskB [on command := putStrLn "hello"]
-  set acqB [on command := putStrLn "hi"]
+                                 ,("Content", AlignCentre, 100)]
+                      , items := [["Hi","Hey","Hello"], ["Hi again","Hey again","Hello again"]]]
+  let masterCtrl = MasterWindowCtrl f acqB dskB qutB msgL
+  set acqB [on command := acqBHandle stT masterCtrl]
+  set dskB [enabled := False, on command := putStrLn "hi"]
   set rstB [on command := putStrLn "clocks"]
   set qutB [on command := putStrLn "quit"]
   set f [layout := margin 8 ( expand (column 2 [ floatCentre (row 4 [ (widget acqB)
@@ -98,31 +101,28 @@ updateGui gui stT = do
     True -> do
       set (acqButton gui) [text := "Stop Acquisition"]
       set (diskButton gui) [enabled := True]
+      set (quitButton gui) [enabled := False]
     False -> do
       set (acqButton gui) [text := "Start Acquisition"]
-      set (diskButton gui) [enabled := True]
+      set (diskButton gui) [enabled := False]
+      set (quitButton gui) [enabled := True]
+  listCtrlScrollList (messageList gui) (Vector 0 100) >> return ()
 
 acqBHandle :: (TVar MasterState) -> MasterWindowCtrl -> IO ()
-acqBHandle stT gui = do
-  disk_on <- atomically $ do
-    st <- readTVar stT
-    return (disking st)
-  if disk_on then
-    putStrLn "Can't stop acquisition with disk on."
-     else
-    atomically (toggleAcq stT)
+acqBHandle stT gui = do 
+  atomically $ modifyTVar stT (\s -> s {acquiring = not (acquiring s)})
+  newTestItem "A" "Little" "Test" gui
+  updateGui gui stT
          
-{-
-toggleAcq :: (TVar MasterState) -> STM ()
-toggleAcq stT = do
-  st <- readTVar stT
-  let gui = fromJust (guiCtrl st)
-  set (acqButton gui) [text := "Stop Acquisition"]
-  -}
-
 dskBHandle :: (TVar MasterState) -> IO ()
 dskBHandle = undefined
-    
+
+
+newTestItem :: String -> String -> String -> MasterWindowCtrl -> IO ()
+newTestItem src ts content gui = do
+  itemAppend (messageList gui) [src,ts,content]
+
+               
 runCom :: (TVar MasterState) -> IO ()
 runCom masterState = do
   withContext 1 $ \context -> do
