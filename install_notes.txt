@@ -13,7 +13,12 @@ sudo apt-get install libwxgtk2.8-dev
 sudo apt-get install libghc-zeromq-haskell-dev 
 
 sudo cabal install stm --global
-sudo cabal install wx --constraint="wxc < 0.9"
-
+sudo cabal install wx --constraint="wxc < 0.9" --global
 
 sudo cabal install opengl openglraw gluraw glfw-b
+
+Depending on the history, you may have to bring wxc up to date with the new stm:
+sudo cabal install wx --constraint="wxc < 0.9" --global --reinstall
+
+
+OpenGL performance is pretty important.  Use glxgears to make sure that graphics accelleration is running smoothly (~3000 fps).  If things appear jerky, try disabling "Sync to VBlank" under nvidia-settings -> OpenGL Settings

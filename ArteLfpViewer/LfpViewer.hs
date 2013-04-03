@@ -23,21 +23,25 @@ import Control.Monad (liftM, unless, when)
 
 main :: IO ()
 main = do
+  configureDisplay
+  start
+  stop
+  
+configureDisplay :: IO ()
+configureDisplay = do
   _ <- GLFW.initialize
+
   _ <- GLFW.openWindow GLFW.defaultDisplayOptions
       { GLFW.displayOptions_numRedBits   = 8
       , GLFW.displayOptions_numGreenBits = 8
       , GLFW.displayOptions_numBlueBits  = 8
       , GLFW.displayOptions_numDepthBits = 1
-      }
-      
+      }      
   GLFW.setWindowSizeCallback windowSizeCallback
-
   GL.clearColor    GL.$= GL.Color4 0.05 0.05 0.05 1
   GL.depthFunc     GL.$= Just GL.Less
   GL.colorMaterial GL.$= Just (GL.FrontAndBack, GL.AmbientAndDiffuse)
   GL.shadeModel    GL.$= GL.Smooth
-
   GL.lighting              GL.$= GL.Enabled
   GL.lightModelAmbient     GL.$= GL.Color4 0.2 0.2 0.2 1
   GL.position (GL.Light 0) GL.$= GL.Vertex4 (-10) 10 (-10) 0
@@ -51,8 +55,9 @@ windowSizeCallback w h = do
     GLU.gluPerspective 45 (fromIntegral w / fromIntegral h) 0.1 100
 
 start :: IO ()
-start =
-    loop 0 0
+start = do
+  putStrLn "starting"
+  loop 0 0
   where
     loop xa ya = do
         drawD xa ya
@@ -83,8 +88,9 @@ start =
 
 stop :: IO ()
 stop = do
-    GLFW.closeWindow
-    GLFW.terminate
+  putStrLn "closing"
+  GLFW.closeWindow
+  GLFW.terminate
 
 getJoystickDirections :: IO (Float, Float)
 getJoystickDirections = do
