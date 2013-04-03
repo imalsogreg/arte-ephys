@@ -1,6 +1,7 @@
-module LfpTrace where
+module LfpTraceData where
 
 import qualified Graphics.Rendering.OpenGL as GL
+import RenderLfp
 import Data.Vector
 
 data TraceData = TraceData { timeCursor :: Double
@@ -8,7 +9,7 @@ data TraceData = TraceData { timeCursor :: Double
                            } deriving (Show)
 
 data BoundingBox = BoundingBox { boxOrigin :: GL.Vertex3 GL.GLfloat
-                               , boxSize   :: GL.Size
+                               , boxSize   :: GL.Vertex2 GL.GLfloat
                                , pxPerUV   :: Double
                                , boxMargin :: GL.GLfloat
                                }
@@ -20,6 +21,23 @@ data TraceOpts = TraceOpts { traceColor :: (GL.Color4 GL.GLfloat)
                            , sampleFreq :: Double
                            } deriving (Show)
                             
+traceNSamp :: Double -> Double -> Int
+traceNSamp sampHz windowLenSec = floor . (*)
+                                      
+newTraceData :: Double -> Double -> TraceData
+netTraceData sampHz windowLenSec = TraceData { timeCursor = 0
+                                             , dataVec = fromList data0 }
+  where data0 = replicate (traceNSamp sampHz windowLenSec) 0
+  
+newBoundingBox :: (
+        
+newTrace :: Double -> Double -> (TraceData, TraceOpts, BoundingBox)
+newTrace sampHz windowLenSec = 
+  
+  (td, opt, bb)
+
+
+-- This is another module's job.
 draw :: BoundingBox -> TraceOpts -> TraceData -> IO ()
 draw box opts signal = undefined
   
