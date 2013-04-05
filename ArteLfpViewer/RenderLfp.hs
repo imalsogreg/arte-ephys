@@ -34,8 +34,9 @@ renderLfp lfpG = do
       ptColors        = colors lfpG
       olds            = drop cursInd
       news            = take cursInd
-  GL.preservingMatrix $ GL.renderPrimitive GL.LineStrip $ renderPLine pts ptColors {-
-  GL.preservingMatrix $ GL.renderPrimitive GL.Lines $ do
+  GL.preservingMatrix $ GL.renderPrimitive GL.LineStrip $ renderPLine (news pts) (news ptColors)
+  GL.preservingMatrix $ GL.renderPrimitive GL.LineStrip $ renderPLine (olds pts) (olds ptColors)
+{-  GL.preservingMatrix $ GL.renderPrimitive GL.Lines $ do
     renderPLine (olds pts) (olds ptColors)
   GL.preservingMatrix $ GL.renderPrimitive GL.Lines $ do
     renderPLine (news pts) (news ptColors) -}

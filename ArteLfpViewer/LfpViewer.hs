@@ -56,7 +56,7 @@ configureDisplay = do
 
 renderDisplay :: ViewerState -> IO ()
 renderDisplay st = do
-  mapM_ (renderer st) (subTraces st)
+  (renderer st) (subTraces st)
   
 windowSizeCallback :: Int -> Int -> IO ()
 windowSizeCallback w h = do
@@ -93,7 +93,7 @@ start st = do
         numSecondsBetweenFrames = recip (fromIntegral framesPerSecond)
 
         framesPerSecond :: Int
-        framesPerSecond = 200
+        framesPerSecond = 40
 
 stop :: IO ()
 stop = do

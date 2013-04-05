@@ -32,7 +32,7 @@ traceGeometry :: TraceData -> TraceOpts -> BoundingBox -> LfpTraceG
 traceGeometry sb opt bb = LfpTraceG {traceName  = tracesName 
                                     ,trace      = dataToGLPoints sb bb
                                     ,colors     = dataToColors sb opt
-                                    ,oldHeadInd = 1 + (P.length . fst . toScrollParts) sb}
+                                    ,oldHeadInd = (P.length . fst . toScrollParts) sb}
 
                           
 boundingBoxGeometry :: BoundingBox ->  BoundingBoxG
@@ -60,10 +60,12 @@ indToPx i maxI bb = (fromIntegral i) / (fromIntegral  maxI) * (sx-m) + realToFra
                            
 uVoltToPx :: Double -> BoundingBox -> GL.GLfloat
 uVoltToPx v bb 
-  | y > sy/2       = (sy / 2)
-  | y < (-sy/2)    = (-sy/2)
-  | otherwise      = realToFrac y
+  | y > sy/2       = (sy / 2) + plotOffset
+  | y < (-sy/2)    = (-sy/2) + plotOffset
+  | otherwise      = realToFrac y + plotOffset
   where (GL.Vertex2 _ sy) = boxSize bb
+        (GL.Vertex3 _ y0 _) = boxOrigin bb
+        plotOffset  = y0 + sy/2
         y                 = realToFrac v * sy
         
 dataToColors :: TraceData -> TraceOpts -> [GColor]
