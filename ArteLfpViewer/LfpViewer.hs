@@ -19,6 +19,8 @@ import Graphics.Rendering.OpenGL (($=))
 import qualified Graphics.Rendering.OpenGL as GL
 import qualified Graphics.Rendering.GLU.Raw as GLU
 import Control.Concurrent
+import qualified System.ZMQ as Z
+import ZmqUtils
 
 import Control.Monad (liftM, unless, when)
 
@@ -28,10 +30,26 @@ main :: IO ()
 main = do
   st <- defaultTestState
   forkIO (defaultUpdate st)  
+  forkIO (runServer st)
   configureDisplay
   start st
   stop
   
+initZmq 
+  
+connectMasterServer :: IO Req
+connectMaster = Z.withContext 1 $ \context -> do
+  Z.withSocket context Z.Req $ \cliSock -> do
+    Z.connect cliSock cliStr
+    Z.withSocket context Z.Rep $ \srvSock -> do
+    inviteMaster srvPort
+      where cliStr = zmqStr Tcp "127.0.0.1" "5223"
+            srvPort = "4444"
+            srvStr = zmqStr Tcp "127.0.0.1" svrPort
+            inviteMaster = do
+              
+
+
 configureDisplay :: IO ()
 configureDisplay = do
   _ <- GLFW.initialize
