@@ -18,13 +18,18 @@ import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL (($=))
 import qualified Graphics.Rendering.OpenGL as GL
 import qualified Graphics.Rendering.GLU.Raw as GLU
+import Control.Concurrent
 
 import Control.Monad (liftM, unless, when)
 
+import LfpViewerState
+
 main :: IO ()
 main = do
+  st <- defaultTestState
+  forkIO (defaultUpdate st)  
   configureDisplay
-  start
+  start st
   stop
   
 configureDisplay :: IO ()
@@ -49,18 +54,22 @@ configureDisplay = do
   GL.diffuse  (GL.Light 0) GL.$= GL.Color4 0.8 0.8 0.8 1
   GL.light    (GL.Light 0) GL.$= GL.Enabled
 
+renderDisplay :: ViewerState -> IO ()
+renderDisplay st = do
+  mapM_ (renderer st) (subTraces st)
+  
 windowSizeCallback :: Int -> Int -> IO ()
 windowSizeCallback w h = do
     GL.viewport GL.$= (GL.Position 0 0, GL.Size (fromIntegral w) (fromIntegral h))
     GLU.gluPerspective 45 (fromIntegral w / fromIntegral h) 0.1 100
 
-start :: IO ()
-start = do
+start :: ViewerState -> IO ()
+start st = do
   putStrLn "starting"
   loop 0 0
   where
     loop xa ya = do
-        drawD xa ya
+        drawD xa ya st
         GLFW.resetTime
 
         q0 <- GLFW.keyIsPressed GLFW.KeyEsc
@@ -110,15 +119,16 @@ getCursorKeyDirections = do
   where
     toFloat b = if b then 1 else 0
 
-drawD :: Float -> Float -> IO ()
-drawD xa ya = do
+drawD :: Float -> Float -> ViewerState -> IO ()
+drawD xa ya st = do
     GL.clear [GL.ColorBuffer, GL.DepthBuffer]
     GL.loadIdentity
 
     GL.preservingMatrix $ do
         GL.rotate (realToFrac xa) xVector3
         GL.rotate (realToFrac ya) yVector3
-        drawC w
+        renderDisplay st        
+        --drawC w
 
     GLFW.swapBuffers
   where
