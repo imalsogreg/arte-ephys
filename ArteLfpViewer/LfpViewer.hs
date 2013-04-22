@@ -35,7 +35,7 @@ main = do
   start st
   stop
   
-initZmq 
+initZmq :: 
   
 connectMasterServer :: IO Req
 connectMaster = Z.withContext 1 $ \context -> do
