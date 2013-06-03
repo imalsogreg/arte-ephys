@@ -45,14 +45,16 @@ data MasterState =
               , disking      :: Bool
               , taskQueue    :: (Seq ArteCommand)
               , messageLog   :: (Seq ArteMessage)
-              } deriving (Show)
+              , nodePorts    :: [Socket ArteMessage]
+              }
 
 initState :: IO (TVar MasterState)
 initState = atomically $ newTVar 
             (MasterState{ acquiring = False
-                        ,  disking = False
-                        ,  taskQueue = Data.Sequence.empty
-                        ,  messageLog = Data.Sequence.empty
+                        , disking = False
+                        , taskQueue = Data.Sequence.empty
+                        , messageLog = Data.Sequence.empty
+                        , nodePorts = [] 
                         })
 
 

@@ -21,6 +21,7 @@ import System.Environment
 import DataSource
 import DataSourceSettings
 
+initSimple :: IO (Context, Socket Rep, Socket Req)
 
 settingsFilename :: IO String
 settingsFilename = fmap (++ settingsName) home
