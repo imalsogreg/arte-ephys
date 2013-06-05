@@ -12,6 +12,8 @@ import Prelude as P hiding (take, drop)
 type GPoint = GL.Vertex3 GL.GLfloat
 type GColor = GL.Color4  GL.GLfloat
 
+temp a = a + 1
+
 data LfpTraceG = LfpTraceG { traceName  :: GL.Name
                            , trace      :: [GPoint]
                            , oldHeadInd :: Int
