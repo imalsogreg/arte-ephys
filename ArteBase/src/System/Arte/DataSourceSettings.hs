@@ -1,6 +1,6 @@
 ----------------------------------------------------------------------
 -- |
--- Module      : DataSourceSettings
+-- Module      : System.Arte.DataSourceSettings
 -- Copyright   : (c) Greg Hale
 -- License     : GPL-3
 -- 
@@ -12,13 +12,13 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DataSourceSettings where
+module System.Arte.DataSourceSettings where
        
 --import Control.Applicative
 import Control.Monad
 import Data.Yaml
 import qualified Data.Vector as V
-import DaqSettings
+import System.Arte.DaqSettings
 
 type FileName = String
 

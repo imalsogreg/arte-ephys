@@ -1,4 +1,4 @@
-module ZmqUtils where
+module System.Arte.ZmqUtils where
 
 type ZmqHost    = String
 type ZmqPort    = String

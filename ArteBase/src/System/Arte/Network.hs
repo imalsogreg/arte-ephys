@@ -10,12 +10,12 @@
 --
 ----------------------------------------------------------------------
 
-module Arte.Network where
+module System.Arte.Network where
 
 type HostName = String
 type IPAddy   = String
 type Port     = String
 
-type NodeID   = 
+--type NodeID   = 
 
-data ArteNetworkTopology = [(HostName
+--data ArteNetworkTopology = [(HostName

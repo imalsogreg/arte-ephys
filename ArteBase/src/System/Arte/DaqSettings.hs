@@ -1,6 +1,6 @@
 ----------------------------------------------------------------------
 -- |
--- Module      : DaqSettings
+-- Module      : System.Arte.DaqSettings
 -- Copyright   : (c) Greg Hale
 -- License     : GPL-3
 -- 
@@ -12,7 +12,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DaqSettings where
+module System.Arte.DaqSettings where
 
 import           Control.Applicative
 import           Control.Monad

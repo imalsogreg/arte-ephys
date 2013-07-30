@@ -1,0 +1,31 @@
+Name:                     arte-base
+Version:                  0.1
+Homepage:                 http://github.com/ImAlsoGreg/arte-ephys
+Synopsis:                 A soft-realtime tetrode recording system
+Description:              
+        arte-ephys is a soft-realtime tetrode recording system.
+        It collects data in small (~1ms) buffers for filtering,
+        spike detection, network transfer, viewing, and
+        online feedback.  The base library provides utilities and
+	settings common to arte programs, but not appropriate for
+        haskell-tetrode-ephys.
+Category:                 Science
+License:                  GPL-3
+License-File:             LICENSE
+Author:                   Greg Hale
+Maintainer:               imalsogreg@gmail.com
+Cabal-Version:            >= 1.2
+Build-Type:               Simple
+
+Library
+        Build-Depends:      yaml >= 0.5
+                          , zeromq-haskell
+                          , containers
+                          , text
+                          , vector
+                          , base
+                          , unordered-containers
+        Ghc-Options:      -Wall
+        Hs-Source-Dirs:   src
+        Exposed-Modules:    System.Arte.DaqSettings
+                          , System.Arte.DataSourceSettings

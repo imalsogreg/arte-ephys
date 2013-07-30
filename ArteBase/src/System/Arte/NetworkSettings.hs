@@ -1,4 +1,4 @@
-module NetworkSettings where
+module System.Arte.NetworkSettings where
 
 import Data.Text
 import Control.Applicative
