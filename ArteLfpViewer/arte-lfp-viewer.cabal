@@ -1,0 +1,22 @@
+name:                     arte-lfp-viewer
+version:                  0.1
+homepage:                 http://github.com/ImAlsoGreg/arte-ephys
+synopsis:                 Scrolling LFP viewer for arte-ephys system
+description:              
+        arte-ephys is a soft-realtime tetrode recording system.
+        It collects data in small (~1ms) buffers for filtering,
+        spike detection, network transfer, viewing, and
+        online feedback.  arte-lfp-viewer displays streaming
+        local-field-potential data.
+category:                 Science
+license:                  GPL-3
+license-file:             LICENSE
+author:                   Greg Hale
+maintainer:               imalsogreg@gmail.com
+cabal-version:            >= 1.8
+build-type:               Simple
+executable arte-lfp-viewer
+           build-depends:  zeromq-haskell, GLFW-b, OpenGL, GLURaw, scrollbuffer, time
+           main-is:        LfpViewer.hs
+           ghc-options:    -Wall
+           hs-source-dirs: src
