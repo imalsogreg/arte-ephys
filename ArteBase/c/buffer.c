@@ -87,7 +87,7 @@ bool append_shapes_ok( struct linear_buffer   *in_buffer,
 }
 
 void print_linear_buffer( struct linear_buffer *buffer){
-  // TODO
+  
 }
 
 void print_circular_buffer( struct circular_buffer *buffer ){
