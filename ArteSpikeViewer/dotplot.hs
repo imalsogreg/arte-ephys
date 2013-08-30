@@ -32,12 +32,12 @@ data Mem = Mem (Ptr Float) (BufferObject) Int deriving (Show)
 --THERE IS SOMETHING WRONG HERE IDK MAN
 
 plotList :: [Plot]
-plotList =  [Plot (0, (1/2)) (1,2) (0, 0, 0, 0)
-            ,Plot ((1/3), (1/2)) (1,3) (0, 0, 1, 0)
-            ,Plot ((2/3), (1/2)) (1,4) (0, 1, 0, 0)
-            ,Plot (0, 0) (2,3) (0, 1, 1, 0)
-            ,Plot ((1/3), 0) (2,4) (1, 0, 0, 0)
-            ,Plot ((2/3), 0) (3,4) (1, 1, 0, 0)]
+plotList =  [Plot (0, (1/2)) (1,1) (0, 0, 0, 0)
+            ,Plot ((1/3), (1/2)) (1,1) (0, 0, 1, 0)
+            ,Plot ((2/3), (1/2)) (1,1) (0, 1, 0, 0)
+            ,Plot (0, 0) (1,1) (0, 1, 1, 0)
+            ,Plot ((1/3), 0) (1,1) (1, 0, 0, 0)
+            ,Plot ((2/3), 0) (1,1) (1, 1, 0, 0)]
   
 drawVBO :: Mem -> IO ()
 drawVBO (Mem ptr buff size) = do
@@ -49,6 +49,7 @@ drawVBO (Mem ptr buff size) = do
     Just a -> do
               arrayPointer VertexArray $= vxDesc
               drawArrays Points 0 $ fromIntegral ((size `div` 2))
+              GL.flush
               case ((size `div` 2) `mod` 600) of
                 0 -> print (size `div` 2)
                 otherwise -> return ()
@@ -60,6 +61,30 @@ drawVBO (Mem ptr buff size) = do
   unmapBuffer ArrayBuffer
   bindBuffer ArrayBuffer $= Nothing
   GL.clientState VertexArray $= Disabled
+
+  
+drawVBO' :: [(Float, Float)] -> IO ()
+drawVBO' ls = do
+  renderPrimitive Points $ do
+    forM_ ls $ (\(x, y) -> do
+               vertex $ (Vertex3 ((realToFrac x) :: GLfloat) (realToFrac y) 0))
+                 
+  {-case size `mod` 100 of
+    0 -> print size
+    otherwise -> return-} 
+
+
+
+
+
+drawArrays' :: Ptr Int -> PrimitiveMode -> ArrayIndex -> NumArrayIndices -> IO ()
+drawArrays' ptr mode first num = do
+  renderPrimitive mode $ do
+  forM_ [0, 2 ..num] (\i -> do
+                     x <- peekMem ptr (fromIntegral i)
+                     y <- peekMem ptr $ fromIntegral (i+1)
+                     vertex $ (Vertex3 ((realToFrac x):: GLfloat) (realToFrac y) 0)) 
+                       
 
 tetrodeView1 :: TetrodeView --test tetrode view. Future will have user input
 tetrodeView1 = TetrodeView 0.9 0.7 (0,0)
@@ -146,6 +171,23 @@ updateMem :: TVar (TetFill) -> [Float] -> TetrodeView -> IO ()
 updateMem t ls view= do
   mapM_ (updateIndivPlot t ls view) plotList
 
+updateMem' :: TVar ([(Float, Float)])  -> [Float] -> TetrodeView -> IO ()
+updateMem' t ls view = mapM_ (updateIndivPlot' t ls view) plotList
+
+updateIndivPlot' :: TVar [(Float, Float)] -> [Float] -> TetrodeView -> Plot -> IO ()
+updateIndivPlot' t ls view p@(Plot (posx, posy) (idx, idy) (col1, col2, col3, col4)) = do
+  ls <- readTVarIO t
+  case (x, y) of
+    (Nothing, Nothing) -> return ()
+    (Nothing , _) -> return ()
+    (_ , Nothing) -> return ()
+    (Just a, Just b) -> do
+      let newLS = (a, b) : ls
+      --print ((a,b), p)
+      atomically $ writeTVar t (newLS)
+  where x = changeToFitx view posx $ (!!) ls (idx-1)
+        y = changeToFity view posy $ (!!) ls (idy-1)
+
 updateIndivPlot :: TVar TetFill -> [Float] -> TetrodeView -> Plot ->IO ()
 updateIndivPlot t ls view p@(Plot (posx, posy) (idx, idy) (col1, col2, col3, col4)) = do
   (arr, mem) <- readTVarIO t
@@ -189,18 +231,11 @@ pokeMem m@(Mem ptr buff size) val = do
 incrementSize :: Mem -> Mem
 incrementSize (Mem ptr buff size) = Mem ptr buff (size +1)
     
-peekMem :: Mem -> IO ()
-peekMem (Mem ptr buff size) = do
-  bindBuffer ArrayBuffer $= Just buff
-  ptr1 <- mapBuffer ArrayBuffer ReadOnly
-  case ptr1 of
-        Just a -> do
-          num <- peekByteOff a (((size-1)*4)) :: IO Float
-          print (num, (plusPtr a ((size-1)*4)), ((size-1)*4)) 
-        Nothing -> error "nothing"
-  unmapBuffer ArrayBuffer
-  bindBuffer ArrayBuffer $= Nothing
-  
+peekMem :: Ptr Int -> Int -> IO Float
+peekMem ptr1  elem = do
+  num <- peekByteOff ptr1 ((elem)*4) :: IO Float
+  print (num, (plusPtr ptr1 ((elem)*4)), ((elem-1)*4)) 
+  return num        
   
 vboInit :: Int -> IO (Mem)
 vboInit size = 
@@ -243,6 +278,30 @@ drawScene t recs _ = do
   (arr, mem) <- readTVarIO t
   drawVBO mem
   GL.flush
+
+drawScene' :: TVar ([(Float, Float)]) -> [RecSpike] -> GLFW.Window-> IO ()
+drawScene' t recs _ = do
+  glClear $ fromIntegral  $  gl_COLOR_BUFFER_BIT
+                         .|. gl_DEPTH_BUFFER_BIT
+  let TetrodeView w' h' (x',y') = tetrodeView1
+      w = realToFrac w'
+      h = realToFrac h'
+      x = realToFrac x'
+      y = realToFrac y'
+  GL.loadIdentity
+  GL.translate $ Vector3 (x) (y) (0::GLfloat)
+  GL.scale (h) (h) (1.0 :: GLfloat)
+  drawGrid
+  GL.translate $ Vector3 (1) (1/2) (0:: GLfloat)
+  GL.translate $ Vector3 (((w-h)/16)) 0 0
+  sequence $ map (drawSpike (w-h)) recs
+  GL.translate $ Vector3 (-(w-h)) 0 (0::GLfloat)
+  GL.translate $ Vector3 (-(1 + ((w-h)/16))) (-1/2) 0
+  GL.scale (realToFrac (1/h)) (1/h) (1.0 :: GLfloat)
+  GL.translate $ Vector3 (-x) (-y) (0::GLfloat)
+  ls <- readTVarIO t
+  drawVBO' ls
+  GL.flush
   
   
 main :: IO ()
@@ -257,7 +316,8 @@ main = withContext 1 $ \context -> do
     mem <- vboInit (10000000)
     arr <- Data.Array.IO.newArray ((0,0), (720,480)) False 
     t <- newTVarIO ((arr, mem) :: TetFill)
-    let initrecs = [[(0,0)], [(0,0)], [(0,0)], [(0,0)]] :: [[(Double,Double)]]
+    --t <- newTVarIO ([]) 
+    --let initrecs = [[(0,0)], [(0,0)], [(0,0)], [(0,0)]] :: [[(Double,Double)]]
     --first check
     -- select type of display mode:
     -- Double buffer
@@ -267,7 +327,7 @@ main = withContext 1 $ \context -> do
     GLFW.defaultWindowHints
     --second check
     -- register the function to do all our OpenGL drawing
-    GLFW.setWindowRefreshCallback win (Just (drawScene t initrecs))
+    GLFW.setWindowRefreshCallback win (Just (drawScene t []))
     -- register the function called when our window is zed
     GLFW.setFramebufferSizeCallback win (Just resizeScene)
     -- register the function called when the keyboard is pressed.
@@ -283,6 +343,7 @@ main = withContext 1 $ \context -> do
       GLFW.pollEvents
       drawScene t recs win --draw the scene
       GLFW.swapBuffers win
+
   
 getLargest :: [RecSpike] -> [Double] --take a list of RecSpikes and get the largest value to plot (we plot the max height of the spikes)
 getLargest recs = map maximum (sepLists recs)
