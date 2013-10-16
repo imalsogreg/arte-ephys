@@ -1,0 +1,24 @@
+Name:               arte-mock-spikes
+Version:            0.1
+Homepage:           http://github.com/ImAlsoGreg/arte-ephys
+Synopsis:           Stream data from arte or MWL spike files to the network
+Description:
+       arte-mock-spike reads timestamped spike descriptions from a set of arte 
+       files and MWL spike files and writes them to the network.  For use in
+       testing display, cluster-membership, etc.
+Category:           Science
+License:            BSD3
+License-File:       LICENSE
+Author:             Greg Hale
+Maintainer:         imalsogreg@gmail.com
+Cabal-Version:      >= 1.8
+Build-Type:         Simple
+
+executable arte-mock-spikes
+  Build-Depends:    base,
+                    zeromq-haskell,
+                    pipes (>= 4.0),
+                    pipes-rt,
+                    tetrode-ephys
+  Main-Is:          ArteMockSpikes.hs
+  hs-source-dirs:   src
