@@ -1,4 +1,4 @@
-Name:                     arte-base
+Name:                     arte-common
 Version:                  0.1
 Homepage:                 http://github.com/ImAlsoGreg/arte-ephys
 Synopsis:                 A soft-realtime tetrode recording system
@@ -27,5 +27,6 @@ Library
                           , unordered-containers
         Ghc-Options:      -Wall
         Hs-Source-Dirs:   src
-        Exposed-Modules:    System.Arte.DaqSettings
-                          , System.Arte.DataSourceSettings
+        Exposed-Modules:    Arte.DaqSettings
+                          , Arte.DataSourceSettings
+                          , Arte.Common
