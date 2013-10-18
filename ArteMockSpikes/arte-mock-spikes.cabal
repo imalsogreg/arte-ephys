@@ -16,9 +16,13 @@ Build-Type:         Simple
 
 executable arte-mock-spikes
   Build-Depends:    base,
+                    arte-common,
                     zeromq-haskell,
                     pipes (>= 4.0),
                     pipes-rt,
-                    tetrode-ephys
+                    tetrode-ephys,
+                    cmdargs,
+                    directory,
+                    yaml
   Main-Is:          ArteMockSpikes.hs
   hs-source-dirs:   src

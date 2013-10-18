@@ -27,6 +27,4 @@ Library
                           , unordered-containers
         Ghc-Options:      -Wall
         Hs-Source-Dirs:   src
-        Exposed-Modules:    Arte.DaqSettings
-                          , Arte.DataSourceSettings
-                          , Arte.Common
+        Exposed-Modules:  Arte.Common

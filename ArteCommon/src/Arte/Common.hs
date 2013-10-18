@@ -1,6 +1,6 @@
 ----------------------------------------------------------------------
 -- |
--- Module      : Arte.Base
+-- Module      : Arte.Common
 -- Copyright   : (c) Greg Hale
 -- License     : GPL-3
 -- 
@@ -8,15 +8,13 @@
 -- Stability   : unstable 
 -- Portability :
 --
--- Arte.Base A module containing base values for all arte programs
+-- Arte.Common A module containing base values for all arte programs
 --
 ----------------------------------------------------------------------
 
-module Common where
+module Arte.Common where
 
 import System.ZMQ
-import ZmqUtils
-
 
 data ArteMessage = ArteMessage TimeStamp ArteCommand
                    deriving (Show)
