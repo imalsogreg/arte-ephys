@@ -1,4 +1,4 @@
-module Paths_arte_ephys  where
+module Paths_arte_mock_spikes  where
 import Data.Version
 
 version :: Version

@@ -27,7 +27,7 @@ cArgs = CArgs { immediateStart = def &= help "Stream immediately" &= opt False
               , baseNames = def &= opt ([] :: [String]) &= args
               }
 
-main = undefined
+main = print =<< cmdArgs cArgs
 {-                     
 main :: IO ()
 main = do
