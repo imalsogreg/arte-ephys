@@ -11,23 +11,25 @@ import System.Directory
 import System.Environment
 import System.Console.CmdArgs
 
-data CArgs = CArgs { immediateStart    :: Bool
-                   , mwlFileExtension  :: String
-                   , arteFileExtension :: String
-                   , baseDirectory     :: String
-                   , searchDepth       :: Int
-                   , baseNames         :: [String]
-} deriving (Show, Data, Typeable)
+data ArteMockSpikes = MockCmd
+                      { immediateStart    :: Bool
+                      , mwlFileExtension  :: String
+                      , arteFileExtension :: String
+                      , baseDirectory     :: String
+                      , searchDepth       :: Int
+                      , files             :: [String]
+                      } deriving (Show, Data, Typeable)
 
-cArgs = CArgs { immediateStart = def &= help "Stream immediately" &= opt False
-              , mwlFileExtension = def &= opt "tt"
-              , arteFileExtension = def &= opt "data"
-              , baseDirectory = def &= opt "./"
-              , searchDepth = def &= opt (0 :: Int)
-              , baseNames = def &= opt ([] :: [String]) &= args
-              }
+mockCmd =
+  MockCmd { immediateStart = True &= help "Immediate mode"
+          , mwlFileExtension = ".tt" &= typ "EXT"
+          , arteFileExtension = ".data" &= typ "EXT"
+          , baseDirectory = "." &= help "(default \".\")"
+          , searchDepth = 0 &= help "Recursion depth for file search"
+          , files = [] &= help "List of files to draw spikes from"
+          }
 
-main = print =<< cmdArgs cArgs
+main = print =<< cmdArgs mockCmd
 {-                     
 main :: IO ()
 main = do
