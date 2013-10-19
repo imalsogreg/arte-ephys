@@ -9,18 +9,6 @@ import Control.Monad.Trans.Writer.Strict
 
 type FileExtention = String
 
-getNonDots :: FilePath -> IO [FilePath]
-getNonDots baseDir = filter notDot `liftM` getDirectoryContents baseDir
-  where notDot a = a /= "." && a /= ".."
-
-getDirs :: FilePath -> IO [FilePath]
-getDirs baseDir = do
-  fs <- getNonDots baseDir
-  filterM doesDirectoryExist (map (baseDir </>) fs)
-  
-getRegularFiles :: FilePath -> IO [FilePath]
-getRegularFiles bp = liftM2 (\\) (getNonDots bp) (getDirs bp)
-
 getFilesAndDirs :: FilePath -> IO ([FilePath],[FilePath])
 getFilesAndDirs basePath =
   let notDot = (\p -> (p /= ".") && (p /= ".."))
@@ -44,5 +32,5 @@ getFilesRec baseDir extn searchDepth = do
     liftIO $ print ("Dirs to search: " ++ show dirs)
     forM_ dirs $ \d -> getFilesRec (baseDir </> d) extn (searchDepth - 1) 
 
-getFilesByExtention :: FilePath -> FileExtention -> Int -> IO [FilePath]
-getFilesByExtention p e d = execWriterT $ getFilesRec p e d
+getFilesByExtention :: FilePath -> Int -> FileExtention -> IO [FilePath]
+getFilesByExtention p d e = execWriterT $ getFilesRec p e d
