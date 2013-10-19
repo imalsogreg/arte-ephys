@@ -23,6 +23,7 @@ executable arteMockSpikes
                     tetrode-ephys,
                     cmdargs,
                     directory,
-                    yaml
+                    yaml,
+                    transformers
   Main-Is:          ArteMockSpikes.hs
   hs-source-dirs:   src

@@ -10,6 +10,8 @@ import Data.Yaml
 import System.Directory
 import System.Environment
 import System.Console.CmdArgs
+import System.FilePath ((</>))
+import Control.Monad.Trans.Writer.Strict
 
 data ArteMockSpikes = MockCmd
                       { immediateStart    :: Bool
@@ -29,6 +31,9 @@ mockCmd =
           , files = [] &= help "List of files to draw spikes from"
           }
 
+
+  
+  
 main = print =<< cmdArgs mockCmd
 {-                     
 main :: IO ()

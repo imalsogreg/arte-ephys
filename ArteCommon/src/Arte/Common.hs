@@ -12,9 +12,15 @@
 --
 ----------------------------------------------------------------------
 
-module Arte.Common where
+module Arte.Common (
+  FileUtils(..),               
+  ArteMessage(..),
+  ArteCommand(..),
+  TimeStamp
+  ) where
 
 import System.ZMQ
+import Arte.Common.FileUtils
 
 data ArteMessage = ArteMessage TimeStamp ArteCommand
                    deriving (Show)
