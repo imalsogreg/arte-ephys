@@ -13,7 +13,7 @@
 ----------------------------------------------------------------------
 
 module Arte.Common (
-  FileUtils(..),               
+  module Arte.Common.FileUtils,               
   ArteMessage(..),
   ArteCommand(..),
   TimeStamp

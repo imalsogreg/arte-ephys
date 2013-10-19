@@ -25,6 +25,9 @@ Library
                           , vector
                           , base
                           , unordered-containers
+                          , transformers
+                          , filepath
+                          , directory
         Ghc-Options:      -Wall
         Hs-Source-Dirs:   src
         Exposed-Modules:  Arte.Common
