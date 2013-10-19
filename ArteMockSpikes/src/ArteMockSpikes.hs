@@ -31,15 +31,25 @@ mockCmd =
           , files = [] &= help "List of files to draw spikes from"
           }
 
+--main = print =<< cmdArgs mockCmd
 
-  
-  
-main = print =<< cmdArgs mockCmd
-{-                     
+
 main :: IO ()
 main = do
+  
+  opts <- cmdArgs mockCmd
+  
   (Just netSettings) <- parse =<< readFile (getEnv "HOME")
+  
   let (Just spikeSettings) = lookup netSettings "spkes"
       (myHostname myPortnum) = Vector.head spikeSettings
-  fileNames <-
--}
+      mwlExt = mwlFileExtention opts
+      arteExt = arteFileExtention opts          
+      sDepth = searchDepth opts
+      baseDir = baseDirectory opts
+  mwlFileNames  <- FUtils.getFilesByExtention baseDir mwlExt  sDepth
+  arteFileNames <- FUtils.getFilesByExtention baseDir arteExt sDepth
+  
+  spikeQueue <- newTQueueIO
+  
+  

@@ -28,3 +28,4 @@ Library
         Ghc-Options:      -Wall
         Hs-Source-Dirs:   src
         Exposed-Modules:  Arte.Common
+                         ,Arte.Common.FileUtils
