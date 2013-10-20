@@ -18,7 +18,10 @@ Cabal-Version:            >= 1.2
 Build-Type:               Simple
 
 Library
-        Build-Depends:      yaml >= 0.5
+        Build-Depends:      yaml-light
+                          , yaml-light-lens
+                          , yaml
+                          , lens
                           , zeromq-haskell
                           , containers
                           , text
@@ -28,7 +31,9 @@ Library
                           , transformers
                           , filepath
                           , directory
+                          , bytestring
         Ghc-Options:      -Wall
         Hs-Source-Dirs:   src
         Exposed-Modules:  Arte.Common
                          ,Arte.Common.FileUtils
+                         ,Arte.Common.Network

@@ -24,6 +24,7 @@ executable arteMockSpikes
                     cmdargs,
                     directory,
                     yaml,
-                    transformers
+                    transformers,
+                    filepath
   Main-Is:          ArteMockSpikes.hs
   hs-source-dirs:   src
