@@ -2,7 +2,8 @@
 
 module Arte.Common.Network where
 
-import Data.Text
+import Data.Text hiding (unwords)
+import Data.Maybe (catMaybes)
 import Control.Applicative
 import Control.Monad
 import Control.Lens
@@ -17,20 +18,15 @@ type HostName = String
 type IPAddy   = String
 type Port     = String
 
-{-
 getAppNode :: String -> String -> FilePath -> IO (Either String Node)
 getAppNode nodeType appName fn = do
-  yObj <- parseYamlFile fn
-  case yObj ^? key "spikes" of
-    Nothing    -> return $ Left "Malformed network config file."
-    Just (YSeq ys) ->
-      case Prelude.filter (\y -> y ^? key "name" == Just (YStr $ BS.pack appName)) ys of
-        [] -> return $ Left ("No node found named " ++ appName)
-        matches -> case matches ^? nth 0 . _Yaml of
-          Just node -> return $ Right node
-          Nothing   -> return $ Left "Couldn't decode node."
---        matches -> return $ parseEither (parseJSON $ Prelude.head matches)
--}
+  f <- BS.readFile fn
+  let yObj =  Data.Yaml.decode fn :: Maybe Value
+      os = yObj & catMaybes . toListOf (key nodeType . traverseArray) :: [Node]
+  case Prelude.filter (\n -> nodeName n == appName) os of
+    [] -> return $ Left (unwords ["Couldn't find",appName,"in",nodeType])
+    (m:atches) -> return $ Right m
+
 data Host = Host 
             { hostName :: Text
             , hostIP   :: String

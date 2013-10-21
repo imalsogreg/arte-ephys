@@ -22,7 +22,7 @@ Library
                           , aeson
                           , yaml
                           , lens
-                          , zeromq3-haskell
+                          , zeromq-haskell
                           , containers
                           , text
                           , vector

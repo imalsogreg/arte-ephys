@@ -20,7 +20,7 @@ module Arte.Common (
   TimeStamp
   ) where
 
-import System.ZMQ3
+import System.ZMQ
 import Arte.Common.FileUtils
 import Arte.Common.Network
 
