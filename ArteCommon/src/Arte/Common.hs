@@ -14,13 +14,15 @@
 
 module Arte.Common (
   module Arte.Common.FileUtils,               
+  module Arte.Common.Network,
   ArteMessage(..),
   ArteCommand(..),
   TimeStamp
   ) where
 
-import System.ZMQ
+import System.ZMQ3
 import Arte.Common.FileUtils
+import Arte.Common.Network
 
 data ArteMessage = ArteMessage TimeStamp ArteCommand
                    deriving (Show)

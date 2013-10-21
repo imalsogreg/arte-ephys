@@ -18,11 +18,11 @@ Cabal-Version:            >= 1.2
 Build-Type:               Simple
 
 Library
-        Build-Depends:      yaml-light
-                          , yaml-light-lens
+        Build-Depends:      aeson-lens
+                          , aeson
                           , yaml
                           , lens
-                          , zeromq-haskell
+                          , zeromq3-haskell
                           , containers
                           , text
                           , vector

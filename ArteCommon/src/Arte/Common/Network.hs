@@ -5,10 +5,10 @@ module Arte.Common.Network where
 import Data.Text
 import Control.Applicative
 import Control.Monad
-import Data.Yaml
-import Data.Yaml.YamlLight
-import Data.Yaml.YamlLight.Lens
 import Control.Lens
+import Data.Aeson
+import Data.Yaml
+import Data.Aeson.Lens
 import qualified Data.ByteString.Char8 as BS
 import Control.Monad.Trans.Class
 import qualified Data.HashMap.Strict as HashMap
@@ -17,6 +17,7 @@ type HostName = String
 type IPAddy   = String
 type Port     = String
 
+{-
 getAppNode :: String -> String -> FilePath -> IO (Either String Node)
 getAppNode nodeType appName fn = do
   yObj <- parseYamlFile fn
@@ -29,12 +30,15 @@ getAppNode nodeType appName fn = do
           Just node -> return $ Right node
           Nothing   -> return $ Left "Couldn't decode node."
 --        matches -> return $ parseEither (parseJSON $ Prelude.head matches)
-
+-}
 data Host = Host 
             { hostName :: Text
             , hostIP   :: String
             } deriving (Show)
                        
+a :: Node
+a = Node "sampleNodeName" (Host "HostName" "HostIP") "nodePort"
+
 data Node = Node 
             {  nodeName :: Text
             ,  nodeHost :: Host
