@@ -25,6 +25,8 @@ executable arteMockSpikes
                     directory,
                     yaml,
                     transformers,
-                    filepath
+                    filepath,
+                    stm,
+                    bytestring
   Main-Is:          ArteMockSpikes.hs
   hs-source-dirs:   src

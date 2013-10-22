@@ -25,11 +25,8 @@ getFilesAndDirs basePath =
 getFilesRec :: FilePath -> FileExtension -> Int -> WriterT [FilePath] IO ()
 getFilesRec baseDir extn searchDepth = do
   (fs,dirs) <- liftIO $ getFilesAndDirs baseDir
-  liftIO $ print ("Searching in " ++ baseDir)
-  liftIO $ forM_ fs $ print
   tell (map (baseDir </>) . filter (extn `isSuffixOf`) $ fs)
   when (searchDepth > 0) $ do
-    liftIO $ print ("Dirs to search: " ++ show dirs)
     forM_ dirs $ \d -> getFilesRec (baseDir </> d) extn (searchDepth - 1) 
 
 getFilesByExtension :: FilePath -> Int -> FileExtension -> IO [FilePath]

@@ -2,16 +2,24 @@
 
 module Main where
 
+import Data.Ephys.Spike
+import Data.Ephys.OldMWL.FileInfo
+import Data.Ephys.OldMWL.Parse
 import Arte.Common
 
+import Pipes.RealTime
+
+import qualified Data.ByteString.Lazy as BSL
 import qualified System.ZMQ as ZMQ
-import qualified Pipes as PP
+import Pipes ( (>->), lift )
+import qualified Pipes as P
 import Data.Yaml
 import System.Directory
-import System.Environment
 import System.Console.CmdArgs
 import System.FilePath ((</>))
 import Control.Monad.Trans.Writer.Strict
+import Control.Concurrent.STM
+import Control.Concurrent.STM.TQueue
 
 data ArteMockSpikes = MockCmd
                       { immediateStart    :: Bool
@@ -31,25 +39,32 @@ mockCmd =
           , files = [] &= help "List of files to draw spikes from"
           }
 
---main = print =<< cmdArgs mockCmd
+publishFromQueue :: TQueue TrodeSpike -> ZMQ.Socket ZMQ.Pub -> IO ()
+publishFromQueue q sock = do
+  s <- atomically readTQueue q
+  ZMQ.send sock (encode s) []
 
+pushFileSpikesToQueue :: FilePath -> TQueue TrodeSpike -> IO ()
+pushFileSpikesToQueue fp q = do
+  f <- BSL.readFile fp
+  fi <- getFileInfo fp
+  P.runEffect $ produceMWLSpikes' fi f >->
+    relativeTimeCat >->
+    (P.lift . atomically $ writeTQueue)
 
 main :: IO ()
 main = do
   
   opts <- cmdArgs mockCmd
   
-  (Just netSettings) <- parse =<< readFile (getEnv "HOME")
-  
-  let (Just spikeSettings) = lookup netSettings "spkes"
-      (myHostname myPortnum) = Vector.head spikeSettings
-      mwlExt = mwlFileExtention opts
-      arteExt = arteFileExtention opts          
+  Right myNode <- getAppNode "spikesA" Nothing
+    
+  let mwlExt = mwlFileExtension opts
+      arteExt = arteFileExtension opts          
       sDepth = searchDepth opts
       baseDir = baseDirectory opts
-  mwlFileNames  <- FUtils.getFilesByExtention baseDir mwlExt  sDepth
-  arteFileNames <- FUtils.getFilesByExtention baseDir arteExt sDepth
+  mwlFileNames  <- getFilesByExtension baseDir sDepth mwlExt
+  arteFileNames <- getFilesByExtension baseDir sDepth arteExt
   
   spikeQueue <- newTQueueIO
-  
-  
+
