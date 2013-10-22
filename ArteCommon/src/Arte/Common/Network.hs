@@ -14,10 +14,12 @@ import qualified Data.ByteString.Char8 as BS
 import Control.Monad.Trans.Class
 import qualified Data.HashMap.Strict as HashMap
 
+import Data.Maybe
+
 type HostName = String
 type IPAddy   = String
 type Port     = String
-
+{-
 getAppNode :: String -> String -> FilePath -> IO (Either String Node)
 getAppNode nodeType appName fn = do
   f <- BS.readFile fn
@@ -28,24 +30,36 @@ getAppNode nodeType appName fn = do
       case Prelude.filter (\n -> nodeName n == (pack appName)) nodes of
         [] -> return $ Left (unwords ["Couldn't find",appName,"in",nodeType])
         (m:atches) -> return $ Right m
+-}
 
-data Host = Host 
-            { hostName :: Text
-            , hostIP   :: String
-            } deriving (Eq, Show)
-                       
 a :: Node
 a = Node "sampleNodeName" (Host "HostName" "HostIP") "nodePort"
 
+getF :: IO BS.ByteString
+getF = BS.readFile "/home/greghale/.arte-ephys/network.conf"
+
+getV :: IO (Maybe Value)
+getV = Data.Yaml.decode `liftM` getF
+
+getObjs :: IO [Value]
+getObjs = do
+  v <- getV
+  return $ v ^. key "spikes" . folded :: IO [Value]
+
+data Host = Host 
+            { hostName :: String
+            , hostIP   :: String
+            } deriving (Eq, Show)
+                       
 data Node = Node 
-            {  nodeName :: Text
+            {  nodeName :: String
             ,  nodeHost :: Host
             ,  nodePort :: String
             } deriving (Eq, Show)
 
 instance FromJSON Host where
   parseJSON (Object v) = Host <$> 
-                         v .: ("name" :: Text) <*>
+                         v .: "name" <*>
                          v .: "ip"
   parseJSON _  = mzero
   
@@ -59,7 +73,7 @@ instance FromJSON Node where
 instance ToJSON Host where
   toJSON (Host hName hIP) =
     object ["name" .= hName
-           ,"hIP"  .= hIP
+           ,"ip"   .= hIP
            ]
 
 instance ToJSON Node where
