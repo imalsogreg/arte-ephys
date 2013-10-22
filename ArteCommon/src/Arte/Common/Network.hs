@@ -6,7 +6,7 @@ import Data.Text hiding (unwords)
 import Data.Maybe (catMaybes)
 import Control.Applicative
 import Control.Monad
-import Control.Lens
+import Control.Lens hiding ((.=))
 import Data.Aeson
 import Data.Yaml
 import Data.Aeson.Lens
@@ -21,16 +21,18 @@ type Port     = String
 getAppNode :: String -> String -> FilePath -> IO (Either String Node)
 getAppNode nodeType appName fn = do
   f <- BS.readFile fn
-  let yObj =  Data.Yaml.decode fn :: Maybe Value
-      os = yObj & catMaybes . toListOf (key nodeType . traverseArray) :: [Node]
-  case Prelude.filter (\n -> nodeName n == appName) os of
-    [] -> return $ Left (unwords ["Couldn't find",appName,"in",nodeType])
-    (m:atches) -> return $ Right m
+  let v =  Data.Yaml.decode f :: Maybe Value
+  case v ^. key (pack nodeType) :: Maybe [Value] of
+    Nothing -> return $ Left ("No node type " ++ nodeType)
+    Just nodes ->
+      case Prelude.filter (\n -> nodeName n == (pack appName)) nodes of
+        [] -> return $ Left (unwords ["Couldn't find",appName,"in",nodeType])
+        (m:atches) -> return $ Right m
 
 data Host = Host 
             { hostName :: Text
             , hostIP   :: String
-            } deriving (Show)
+            } deriving (Eq, Show)
                        
 a :: Node
 a = Node "sampleNodeName" (Host "HostName" "HostIP") "nodePort"
@@ -39,7 +41,7 @@ data Node = Node
             {  nodeName :: Text
             ,  nodeHost :: Host
             ,  nodePort :: String
-            }
+            } deriving (Eq, Show)
 
 instance FromJSON Host where
   parseJSON (Object v) = Host <$> 
@@ -54,4 +56,14 @@ instance FromJSON Node where
                          v .: "port"
   parseJSON _          = mzero
 
+instance ToJSON Host where
+  toJSON (Host hName hIP) =
+    object ["name" .= hName
+           ,"hIP"  .= hIP
+           ]
 
+instance ToJSON Node where
+  toJSON (Node nName nHost nPort) =
+    object ["name" .= nName
+           ,"host" .= nHost
+           ,"port" .= nPort]
