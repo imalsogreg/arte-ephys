@@ -11,13 +11,15 @@ import Data.Yaml
 import Data.Aeson.Lens
 import qualified Data.ByteString.Char8 as BS
 import Data.Map (Map, keys, member)
+import System.Environment (lookupEnv)
 
 type HostName = String
 type IPAddy   = String
 type Port     = String
 
-getAppNode :: String -> FilePath -> IO (Either String Node)
-getAppNode nodeName fn = do
+getAppNode :: String -> Maybe FilePath -> IO (Either String Node)
+getAppNode nodeName fn' = do
+  fn <- netConfOrDefaultPath fn'
   f <- BS.readFile fn
   let v =  Data.Yaml.decode f :: Maybe Value
   case v ^. key "nodes" . key (pack nodeName) :: Maybe Node of
@@ -35,6 +37,16 @@ getAppNode nodeName fn = do
             False -> return $ Left
                      ("Node '" ++ nodeName ++ "' not in node list: " ++
                       (unwords . keys  $ nodeMap))
+
+netConfOrDefaultPath :: Maybe FilePath -> IO FilePath
+netConfOrDefaultPath (Just fp) = return fp
+netConfOrDefaultPath Nothing   = do
+  homeName <- lookupEnv "HOME"
+  case homeName of
+    Nothing -> error "Couldn't find $HOME"
+    Just h  -> return $ h ++ "/.arte-ephys/network.conf"
+  
+  
 
 data Host = Host 
             { hostIP   :: String
