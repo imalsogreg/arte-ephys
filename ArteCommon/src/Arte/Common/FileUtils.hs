@@ -7,7 +7,7 @@ import Data.List
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Writer.Strict
 
-type FileExtention = String
+type FileExtension = String
 
 getFilesAndDirs :: FilePath -> IO ([FilePath],[FilePath])
 getFilesAndDirs basePath =
@@ -22,7 +22,7 @@ getFilesAndDirs basePath =
   (dirs,files) <- partitionM fullDExists fs
   return (files, dirs)                    
                        
-getFilesRec :: FilePath -> FileExtention -> Int -> WriterT [FilePath] IO ()
+getFilesRec :: FilePath -> FileExtension -> Int -> WriterT [FilePath] IO ()
 getFilesRec baseDir extn searchDepth = do
   (fs,dirs) <- liftIO $ getFilesAndDirs baseDir
   liftIO $ print ("Searching in " ++ baseDir)
@@ -32,5 +32,5 @@ getFilesRec baseDir extn searchDepth = do
     liftIO $ print ("Dirs to search: " ++ show dirs)
     forM_ dirs $ \d -> getFilesRec (baseDir </> d) extn (searchDepth - 1) 
 
-getFilesByExtention :: FilePath -> Int -> FileExtention -> IO [FilePath]
-getFilesByExtention p d e = execWriterT $ getFilesRec p e d
+getFilesByExtension :: FilePath -> Int -> FileExtension -> IO [FilePath]
+getFilesByExtension p d e = execWriterT $ getFilesRec p e d
