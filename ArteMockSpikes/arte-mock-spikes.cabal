@@ -29,6 +29,7 @@ executable arteMockSpikes
                     stm,
                     bytestring,
                     text,
-                    cereal
+                    cereal,
+                    lens
   Main-Is:          ArteMockSpikes.hs
   hs-source-dirs:   src

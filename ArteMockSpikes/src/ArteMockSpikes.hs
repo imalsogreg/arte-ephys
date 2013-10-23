@@ -25,6 +25,7 @@ import Control.Concurrent.STM
 import Control.Monad
 import Data.Text (Text,pack)
 import qualified Data.Serialize as S
+import Control.Lens
 
 data ArteMockSpikes = MockCmd
                       { immediateStart    :: Bool
@@ -87,3 +88,8 @@ main = do
   
   forM_ mwlFileNames $ \fn ->
     forkIO $ pushMWLFileSpikesToQueue fn spikeQueue
+
+  ZMQ.withContext 1 $ \ctx -> do
+    ZMQ.withSocket ctx ZMQ.Pub $ \pub -> do
+      ZMQ.bind pub ("tcp://*:" ++ show (myNode ^. nodePort))
+      forever $ publishFromQueue spikeQueue pub
