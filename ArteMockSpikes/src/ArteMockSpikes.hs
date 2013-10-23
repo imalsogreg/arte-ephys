@@ -13,13 +13,18 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified System.ZMQ as ZMQ
 import Pipes ( (>->), lift )
 import qualified Pipes as P
+import qualified Pipes.Prelude as PP
 import Data.Yaml
 import System.Directory
 import System.Console.CmdArgs
 import System.FilePath ((</>))
 import Control.Monad.Trans.Writer.Strict
+import Control.Concurrent
 import Control.Concurrent.STM
-import Control.Concurrent.STM.TQueue
+--import Control.Concurrent.STM.TQueue
+import Control.Monad
+import Data.Text (Text,pack)
+import qualified Data.Serialize as S
 
 data ArteMockSpikes = MockCmd
                       { immediateStart    :: Bool
@@ -30,6 +35,7 @@ data ArteMockSpikes = MockCmd
                       , files             :: [String]
                       } deriving (Show, Data, Typeable)
 
+mockCmd :: ArteMockSpikes
 mockCmd =
   MockCmd { immediateStart = True &= help "Immediate mode"
           , mwlFileExtension = ".tt" &= typ "EXT"
@@ -41,16 +47,27 @@ mockCmd =
 
 publishFromQueue :: TQueue TrodeSpike -> ZMQ.Socket ZMQ.Pub -> IO ()
 publishFromQueue q sock = do
-  s <- atomically readTQueue q
-  ZMQ.send sock (encode s) []
+  s <- atomically $ readTQueue q
+  ZMQ.send sock (S.encode s) []
 
-pushFileSpikesToQueue :: FilePath -> TQueue TrodeSpike -> IO ()
-pushFileSpikesToQueue fp q = do
+pushMWLFileSpikesToQueue :: FilePath -> TQueue TrodeSpike -> IO ()
+pushMWLFileSpikesToQueue fp q = do
   f <- BSL.readFile fp
   fi <- getFileInfo fp
-  P.runEffect $ produceMWLSpikes' fi f >->
+  let tName = trodeNameFromPath fp
+  P.runEffect $ dropResult (produceMWLSpikes fi f) >->
+    PP.map (mwlToArteSpike fi tName) >->
     relativeTimeCat >->
-    (P.lift . atomically $ writeTQueue)
+    pipeToQueue q
+
+-- "path/to/0224.tt" -> "24"
+trodeNameFromPath :: String -> Text
+trodeNameFromPath = pack . reverse . take 2 . drop 3 . reverse
+
+pipeToQueue :: TQueue TrodeSpike -> P.Consumer TrodeSpike IO r
+pipeToQueue q = forever $ do
+  s <- P.await
+  P.lift . atomically $ writeTQueue q s
 
 main :: IO ()
 main = do
@@ -67,4 +84,6 @@ main = do
   arteFileNames <- getFilesByExtension baseDir sDepth arteExt
   
   spikeQueue <- newTQueueIO
-
+  
+  forM_ mwlFileNames $ \fn ->
+    forkIO $ pushMWLFileSpikesToQueue fn spikeQueue

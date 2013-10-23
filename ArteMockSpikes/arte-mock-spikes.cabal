@@ -27,6 +27,8 @@ executable arteMockSpikes
                     transformers,
                     filepath,
                     stm,
-                    bytestring
+                    bytestring,
+                    text,
+                    cereal
   Main-Is:          ArteMockSpikes.hs
   hs-source-dirs:   src
