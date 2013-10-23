@@ -21,6 +21,7 @@ import System.FilePath ((</>))
 import Control.Monad.Trans.Writer.Strict
 import Control.Concurrent
 import Control.Concurrent.STM
+import Control.Concurrent.Async
 --import Control.Concurrent.STM.TQueue
 import Control.Monad
 import Data.Text (Text,pack)
@@ -46,10 +47,17 @@ mockCmd =
           , files = [] &= help "List of files to draw spikes from"
           }
 
-publishFromQueue :: TQueue TrodeSpike -> ZMQ.Socket ZMQ.Pub -> IO ()
-publishFromQueue q sock = do
-  s <- atomically $ readTQueue q
-  ZMQ.send sock (S.encode s) []
+publishFromQueue :: TQueue TrodeSpike -> Node -> IO ()
+publishFromQueue q node = do
+  let port    = node ^. nodePort
+      portStr = "tcp://*:" ++ show port
+  ZMQ.withContext 1 $ \ctx -> do
+    ZMQ.withSocket ctx ZMQ.Pub $ \pubSock -> forever $ do
+      ZMQ.bind pubSock portStr
+      print "wait for queue"
+      s <- atomically $ readTQueue q
+      print s
+      ZMQ.send pubSock (S.encode s) []
 
 pushMWLFileSpikesToQueue :: FilePath -> TQueue TrodeSpike -> IO ()
 pushMWLFileSpikesToQueue fp q = do
@@ -86,10 +94,12 @@ main = do
   
   spikeQueue <- newTQueueIO
   
-  forM_ mwlFileNames $ \fn ->
-    forkIO $ pushMWLFileSpikesToQueue fn spikeQueue
+  fileHandles <- forM mwlFileNames $ \fn ->
+    async $ pushMWLFileSpikesToQueue fn spikeQueue
 
-  ZMQ.withContext 1 $ \ctx -> do
-    ZMQ.withSocket ctx ZMQ.Pub $ \pub -> do
-      ZMQ.bind pub ("tcp://*:" ++ show (myNode ^. nodePort))
-      forever $ publishFromQueue spikeQueue pub
+  pubHandle <- async $ publishFromQueue spikeQueue myNode
+
+  mapM_ wait fileHandles
+  _ <- wait pubHandle
+
+  print "Done waiting"
