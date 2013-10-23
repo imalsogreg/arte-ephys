@@ -10,6 +10,7 @@ import Arte.Common
 import Pipes.RealTime
 
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString as BS
 import qualified System.ZMQ as ZMQ
 import Pipes ( (>->), lift )
 import qualified Pipes as P
@@ -47,27 +48,29 @@ mockCmd =
           , files = [] &= help "List of files to draw spikes from"
           }
 
-publishFromQueue :: TQueue TrodeSpike -> Node -> IO ()
-publishFromQueue q node = do
+queueToNetwork :: TQueue TrodeSpike -> Node -> IO ()
+queueToNetwork q node = do
   let port    = node ^. nodePort
       portStr = "tcp://*:" ++ show port
   ZMQ.withContext 1 $ \ctx -> do
-    ZMQ.withSocket ctx ZMQ.Pub $ \pubSock -> forever $ do
+    ZMQ.withSocket ctx ZMQ.Pub $ \pubSock -> do
       ZMQ.bind pubSock portStr
-      print "wait for queue"
-      s <- atomically $ readTQueue q
-      print s
-      ZMQ.send pubSock (S.encode s) []
+      forever $ do
+        s <- atomically $ readTQueue q
+        ZMQ.send pubSock (S.encode s) []
 
 pushMWLFileSpikesToQueue :: FilePath -> TQueue TrodeSpike -> IO ()
 pushMWLFileSpikesToQueue fp q = do
   f <- BSL.readFile fp
-  fi <- getFileInfo fp
   let tName = trodeNameFromPath fp
-  P.runEffect $ dropResult (produceMWLSpikes fi f) >->
-    PP.map (mwlToArteSpike fi tName) >->
-    relativeTimeCat >->
-    pipeToQueue q
+  eFi <- getFileInfo fp
+  case eFi of
+    Left e -> putStrLn ("Error with file " ++ fp ++ " : " ++ e)
+    Right fi -> 
+      P.runEffect $ dropResult (produceMWLSpikes fi f) >->
+      PP.map (mwlToArteSpike fi tName) >->
+      relativeTimeCat >->
+      pipeToQueue q
 
 -- "path/to/0224.tt" -> "24"
 trodeNameFromPath :: String -> Text
@@ -97,7 +100,7 @@ main = do
   fileHandles <- forM mwlFileNames $ \fn ->
     async $ pushMWLFileSpikesToQueue fn spikeQueue
 
-  pubHandle <- async $ publishFromQueue spikeQueue myNode
+  pubHandle <- async $ queueToNetwork spikeQueue myNode
 
   mapM_ wait fileHandles
   _ <- wait pubHandle
