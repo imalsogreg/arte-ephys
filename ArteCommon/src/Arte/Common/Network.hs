@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, TemplateHaskell #-}
 
 module Arte.Common.Network where
 
@@ -16,6 +16,19 @@ import System.Environment (lookupEnv)
 type HostName = String
 type IPAddy   = String
 type Port     = String
+
+data Host = Host 
+            { _hostIP   :: String
+            } deriving (Eq, Show)
+
+$(makeLenses ''Host)
+
+data Node = Node 
+            {  _nodeHost :: Host
+            ,  _nodePort :: Int
+            } deriving (Eq, Show)
+
+$(makeLenses ''Node)
 
 getAppNode :: String -> Maybe FilePath -> IO (Either String Node)
 getAppNode nodeName fn' = do
@@ -48,14 +61,6 @@ netConfOrDefaultPath Nothing   = do
   
   
 
-data Host = Host 
-            { hostIP   :: String
-            } deriving (Eq, Show)
-                       
-data Node = Node 
-            {  nodeHost :: Host
-            ,  nodePort :: Int
-            } deriving (Eq, Show)
 
 instance FromJSON Host where
   parseJSON (Object v) = Host <$> v .: "ip"
