@@ -59,9 +59,6 @@ netConfOrDefaultPath Nothing   = do
     Nothing -> error "Couldn't find $HOME"
     Just h  -> return $ h ++ "/.arte-ephys/network.conf"
   
-  
-
-
 instance FromJSON Host where
   parseJSON (Object v) = Host <$> v .: "ip"
   parseJSON _  = mzero
