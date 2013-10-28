@@ -14,3 +14,6 @@ dist/
 *.o
 
 *~
+
+.cabal-sandbox
+cabal.sandbox.config
