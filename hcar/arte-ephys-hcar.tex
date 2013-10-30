@@ -7,33 +7,31 @@
 
 \begin{document}
 
-\begin{hcarentry}{(arte-ephys)}
-\report{(Greg Hale)}
-\status{(Work in progress)}
-\participants{(Alex Chen, Sarah Walker)}% optional
+\begin{hcarentry}{arte-ephys: Real-time electrophysiology}
+\report{Greg Hale}
+\status{Work in progress}
+\participants{Alex Chen, Sarah Walker}
 \makeheader
 
-arte-ephys is a soft realtime neural recording system for tetrodes.  
+Arte-ephys is a soft real-time neural recording system for experimental systems neuroscientists.
 
-Several labs implant electrodes into animals to record the signals emitted by neurons.  These signals are often recorded from ten to thirty electrodes in parallel in people and freely moving animals; and the raw data go through manual analysis to decode the activity of roughly one hundred neurons whose signals reach the electrodes, and to determine how these neurons encode stimuli in the environment.
+Our lab uses electrode arrays for brain recording in freely moving animals, to determine how these neurons build, remember, and use spatial maps.
+
+We previously recorded and analyzed our data in two separate stages.  We are now building a recording system focused on streaming instead of offline analysis, for real-time feedback experiments.  For example, we found that activity in the brain of resting rats often wanders back to representations of specific parts of a recently-learned maze, and we would now like to automatically detect these events and reward the rat immediately for expressing them, to see if this influences either the speed of learning of a specific part of the maze or the nature of later spatial information coding.
+
+We have a working (though outdated) backend system written in c++ that communicates with analog signal acquisition boards, performs simple signal conditioning, and broadcasts nearly-raw data through ZMQ.  Our work on real-time neuron extraction, position-tracking, and neural information decoding in Haskell is still preliminary.  Our immediate goal is to implement the high-level decoding system (which we can test using already-recorded data), and then to implement the lower-level data acquisition components piece-by-piece.
+
+\includegraphics[scale=0.22]{arte_screenshot2}
 
 
-
-Put the text here. 
-If you want to include Haskell code, consider using lhs2tex syntax (\url{http://people.cs.uu.nl/andres/lhs2tex/}).
-
-What's following are suggestions for the content of an entry.
-
-(WHAT IS IT?)
-
-(WHAT IS ITS STATUS? / WHAT HAS HAPPENED SINCE LAST TIME?)
-
-(CAN OTHERS GET IT?)
-
-(WHAT ARE THE IMMEDIATE PLANS?)
+We enthusiastically welcome participation from anyone interested in seeing Haskell creep into the domain of wet-lab science.
 
 \FurtherReading
-  \url{(PROJECT URL)}
+\begin{compactitem}
+\item \url{http://github.com/ImAlsoGreg/arte-ephys}
+\item \url{http://github.com/ImAlsoGreg/haskell-tetrode-ephys}
+\item \url{http://web.mit.edu/wilsonlab/html/research.html}
+\end{compactitem}
 \end{hcarentry}
 
 \end{document}
