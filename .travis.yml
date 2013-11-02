@@ -1,0 +1,25 @@
+# from hvr's multi-ghc-travis template
+
+env:
+ - GHCVER=7.4.1
+ - GHCVER=7.4.2
+ - GHCVER=7.6.1
+ - GHCVER=7.6.3
+
+before_install:
+ - sudo add-apt-repository -y ppa:hvr/ghc
+ - sudo apt-get update
+ - sudo apt-get install cabal-install-1.18 ghc-$GHCVER happy
+ - export PATH=/opt/ghc/$GHCVER/bin:$PATH
+
+install:
+ - cabal-1.18 update
+ - cabal-1.18 install --only-dependencies --enable-tests --enable-benchmarks
+
+script:
+ - cd ArteCommon
+ - cabal-1.18 configure --enable-tests --enable-benchmarks -v2
+ - cabal-1.18 build
+ - cd ../ArteMockSpikes
+ - cabal-1.18 configure --enable-tests --enable-benchmarks -v2
+ - cabal-1.18 build
