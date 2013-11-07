@@ -1,0 +1,39 @@
+Name:               arte-decode
+Version:            0.1
+Homepage:           http://github.com/ImAlsoGreg/arte-ephys
+Synopsis:           Stream data from arte or MWL spike files to the network
+Description:
+       arte-decode subscribes to spike and position sources, 
+       listens for instructions about setting cluster bounds, 
+       performs cluster-cutting, accumulates occupancy and
+       place-field maps, and ultimately performs positoin 
+       reconstruction and sequence-finding.  Most of the raw
+       functionality is implemented in haskell-tetrode-ephys
+Category:           Science
+License:            BSD3
+License-File:       LICENSE
+Author:             Greg Hale
+Maintainer:         imalsogreg@gmail.com
+Cabal-Version:      >= 1.8
+Build-Type:         Simple
+
+executable arteMockSpikes
+  Build-Depends:    base,
+                    arte-common,
+                    zeromq-haskell,
+                    pipes (>= 4.0),
+                    pipes-rt,
+                    tetrode-ephys,
+                    cmdargs,
+                    directory,
+                    yaml,
+                    transformers,
+                    filepath,
+                    stm,
+                    bytestring,
+                    text,
+                    cereal,
+                    lens,
+                    async
+  Main-Is:          ArteDecode.hs
+  hs-source-dirs:   src
