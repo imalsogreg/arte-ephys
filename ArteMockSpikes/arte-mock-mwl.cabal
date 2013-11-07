@@ -1,11 +1,11 @@
-Name:               arte-mock-spikes
+Name:               arte-mock-mwl
 Version:            0.1
 Homepage:           http://github.com/ImAlsoGreg/arte-ephys
-Synopsis:           Stream data from arte or MWL spike files to the network
+Synopsis:           Stream data from arte or MWL to the network
 Description:
-       arte-mock-spike reads timestamped spike descriptions from a set of arte 
-       files and MWL spike files and writes them to the network.  For use in
-       testing display, cluster-membership, etc.
+       arte-mock-spike reads timestamped spikes, position, cluster 
+       definitions, and eeg traces from a set of MWL files and writes 
+       them to the network.  For use in testing
 Category:           Science
 License:            BSD3
 License-File:       LICENSE
@@ -32,5 +32,5 @@ executable arteMockSpikes
                     cereal,
                     lens,
                     async
-  Main-Is:          ArteMockSpikes.hs
+  Main-Is:          ArteMockMWL.hs
   hs-source-dirs:   src
