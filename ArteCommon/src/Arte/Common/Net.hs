@@ -12,7 +12,7 @@ import Data.Aeson.Lens
 import qualified Data.ByteString.Char8 as BS
 import Data.Map (Map, keys, member)
 import System.Environment (lookupEnv)
-
+import Network
 import System.IO
 
 type IPAddy   = String
@@ -31,9 +31,9 @@ data Node = Node
 
 $(makeLenses ''Node)
 
-connectToMaster :: Node -> IO (N.HostName, (Handle,N.PortNumber), (Handle,N.PortNumber))
+connectToMaster :: Node -> IO (HostName, (Handle,PortNumber), (Handle,PortNumber))
 connectToMaster node = do
-  hToMaster <- N.connectTo (node^.nodeHost.hostIP) (N.PortNumber . fromIntegral $ node^.nodePort)
+  hToMaster <- connectTo (node^.nodeHost.hostIP) (PortNumber . fromIntegral $ node^.nodePort)
 --  sock <- N.listenOn (PortNumber 
 --  (hFromMaster, fromHost, fromPort) <- accept
   error "Ok"

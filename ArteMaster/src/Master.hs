@@ -21,7 +21,7 @@ import Data.ByteString.Char8 as C hiding (putStrLn)
 import Control.Concurrent.STM
 import Data.Sequence
 import ZmqUtils
-import ArteBase
+import ArteCommon
 
 
 
