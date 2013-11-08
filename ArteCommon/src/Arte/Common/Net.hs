@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, TemplateHaskell #-}
 
-module Arte.Common.Network where
+module Arte.Common.Net where
 
 import Data.Text hiding (unwords)
 import Control.Applicative
@@ -13,7 +13,8 @@ import qualified Data.ByteString.Char8 as BS
 import Data.Map (Map, keys, member)
 import System.Environment (lookupEnv)
 
-type HostName = String
+import System.IO
+
 type IPAddy   = String
 type Port     = String
 
@@ -29,6 +30,14 @@ data Node = Node
             } deriving (Eq, Show)
 
 $(makeLenses ''Node)
+
+connectToMaster :: Node -> IO (N.HostName, (Handle,N.PortNumber), (Handle,N.PortNumber))
+connectToMaster node = do
+  hToMaster <- N.connectTo (node^.nodeHost.hostIP) (N.PortNumber . fromIntegral $ node^.nodePort)
+--  sock <- N.listenOn (PortNumber 
+--  (hFromMaster, fromHost, fromPort) <- accept
+  error "Ok"
+  
 
 getAppNode :: String -> Maybe FilePath -> IO (Either String Node)
 getAppNode nodeName fn' = do

@@ -18,22 +18,24 @@ Cabal-Version:            >= 1.2
 Build-Type:               Simple
 
 Library
-        Build-Depends:      aeson-lens
-                          , aeson
-                          , yaml
-                          , lens
-                          , zeromq-haskell
-                          , containers
-                          , text
-                          , vector
-                          , base
-                          , unordered-containers
-                          , transformers
-                          , filepath
-                          , directory
-                          , bytestring
-        Ghc-Options:      -Wall
-        Hs-Source-Dirs:   src
-        Exposed-Modules:  Arte.Common
-                         ,Arte.Common.FileUtils
-                         ,Arte.Common.Network
+ Build-Depends:      aeson-lens
+                   , aeson
+                   , yaml
+                   , lens
+                   , zeromq-haskell
+                   , containers
+                   , text
+                   , vector
+                   , base
+                   , unordered-containers
+                   , transformers
+                   , filepath
+                   , directory
+                   , bytestring
+                   , network
+ Ghc-Options:      -Wall
+ Hs-Source-Dirs:   src
+ Exposed-Modules:   Arte.Common
+                  , Arte.Common.FileUtils
+                  , Arte.Common.Net
+                  , Arte.Common.NetMessage

@@ -23,6 +23,8 @@ import Data.Sequence
 import ZmqUtils
 import ArteBase
 
+
+
 main :: IO ()
 main = do
   st <- initState

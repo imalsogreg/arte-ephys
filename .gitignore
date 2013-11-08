@@ -18,4 +18,6 @@ dist/
 .cabal-sandbox
 cabal.sandbox.config
 
+Paths*
+
 hcar/arte_screenshot2.jpg
