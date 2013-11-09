@@ -33,6 +33,7 @@ Library
                    , directory
                    , bytestring
                    , network
+                   , cereal
  Ghc-Options:      -Wall
  Hs-Source-Dirs:   src
  Exposed-Modules:   Arte.Common
