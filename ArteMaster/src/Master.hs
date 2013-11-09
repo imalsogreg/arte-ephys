@@ -1,12 +1,14 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 ----------------------------------------------------------------------
 -- |
 -- Module     : Main
 -- Copyright  : (c) Greg Hale 2013
--- License    : GPL-3
+-- License    : BSD3
 -- 
 -- Maintainer : imalsogreg@gmail.com
 -- Stability  : unstable
--- Portability: not portable. Tries to launch 
+-- Portability: 
 --
 -- ArteMaster, A user interface for issuing commands to Arte
 --
@@ -15,24 +17,33 @@
 module Main where
 
 import System.ZMQ as Z
-import Graphics.UI.WXCore
-import Graphics.UI.WX
 import Data.ByteString.Char8 as C hiding (putStrLn)
 import Control.Concurrent.STM
-import Data.Sequence
-import ZmqUtils
+import Control.Concurrent.STM.TChan
 import Arte.Common.Net
+import Arte.Common.NetMessage
+import System.IO
+import Network
+import Control.Lens
+import Control.Concurrent
+import Control.Monad
 
-acceptClients :: Node -> IO ()
-acceptClients me = forever $ do
-  sock <- 
-  (handle,host,port) <- accept 
-  
+acceptClients :: Node -> TChan NetRequest -> IO ()
+acceptClients me requestChan = forever $ do
+  sock <- listenOn (PortNumber . fromIntegral $ me^.nodePort)
+  (handle,host,port) <- accept sock
+  print $ "Accepted host " ++ show host ++ " on port " ++ show port
+  forkFinally (talk handle requestChan) (\_ -> hClose handle)
+    
+talk :: Handle -> TChan NetRequest -> IO ()
+talk h c = do
+  hSetBuffering h LineBuffering
+  error "placeholder"
 
 main :: IO ()
-main = do
-  st <- initState
-  start (masterWindow st)
+main = undefined
+--  st <- initState
+--  start (masterWindow st)
        
 -- Load configuration data (possibly just hosts info)
 -- (Startup backend executable on other machine?)
@@ -45,7 +56,7 @@ main = do
 -- Display received messages
 -- Send messages in response to UI (eg, start/stop acq.
 --        reset clocks, set 
-               
+{-               
 data MasterState = 
   MasterState { acquiring    :: Bool
               , disking      :: Bool
@@ -62,8 +73,8 @@ initState = atomically $ newTVar
                         , messageLog = Data.Sequence.empty
                         , nodePorts = [] 
                         })
-
-
+-}
+{-
 data MasterWindowCtrl = 
   MasterWindowCtrl { guiFrame     :: Frame ()
                    , acqButton    :: Button ()
@@ -149,3 +160,4 @@ sendSimpleMessage sock = do
   send sock req []
   rep <- receive sock []
   putStrLn $ "Got response: " ++ C.unpack rep
+-}

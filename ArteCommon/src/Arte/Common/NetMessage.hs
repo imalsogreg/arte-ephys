@@ -2,8 +2,8 @@ module Arte.Common.NetMessage where
 
 import qualified Network as N
 
-data MasterRequest = MRPing
-                   deriving (Eq, Show)
+data NetRequest = NetPing
+                deriving (Eq, Show)
 
-data ClientResponse = CRPong
-                    deriving (Eq, Show)
+data NetResponse = NetPong
+                 deriving (Eq, Show)
