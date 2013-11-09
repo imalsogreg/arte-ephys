@@ -1,4 +1,4 @@
-module Arte.Common.NetworkMessage where
+module Arte.Common.NetMessage where
 
 import qualified Network as N
 

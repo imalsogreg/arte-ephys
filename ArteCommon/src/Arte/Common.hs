@@ -14,7 +14,7 @@
 
 module Arte.Common (
   module Arte.Common.FileUtils,               
-  module Arte.Common.Network,
+  module Arte.Common.Net,
   ArteMessage(..),
   ArteCommand(..),
   TimeStamp
@@ -22,7 +22,7 @@ module Arte.Common (
 
 import System.ZMQ
 import Arte.Common.FileUtils
-import Arte.Common.Network
+import Arte.Common.Net
 
 data ArteMessage = ArteMessage TimeStamp ArteCommand
                    deriving (Show)

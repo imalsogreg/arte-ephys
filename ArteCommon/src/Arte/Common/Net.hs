@@ -14,6 +14,7 @@ import Data.Map (Map, keys, member)
 import System.Environment (lookupEnv)
 import Network
 import System.IO
+import qualified System.ZMQ as ZMQ
 
 type IPAddy   = String
 type Port     = String
@@ -31,13 +32,18 @@ data Node = Node
 
 $(makeLenses ''Node)
 
-connectToMaster :: Node -> IO (HostName, (Handle,PortNumber), (Handle,PortNumber))
-connectToMaster node = do
-  hToMaster <- connectTo (node^.nodeHost.hostIP) (PortNumber . fromIntegral $ node^.nodePort)
---  sock <- N.listenOn (PortNumber 
---  (hFromMaster, fromHost, fromPort) <- accept
-  error "Ok"
-  
+withMaster :: Node -> ((Handle,ZMQ.Socket ZMQ.Sub) -> IO a) -> IO a
+withMaster masterNode f = do
+  let masterIP   = masterNode^.nodeHost.hostIP
+      masterPort = masterNode^.nodePort
+  hToMaster <- connectTo (masterNode^.nodeHost.hostIP) 
+               (PortNumber . fromIntegral $ masterNode^.nodePort)
+  ZMQ.withContext 1 $ \ctx -> do
+    ZMQ.withSocket ctx ZMQ.Sub $ \hFromMaster -> do
+      let pubStr = "tcp://" ++ masterIP ++ ":" ++ show masterPort
+      ZMQ.connect hFromMaster pubStr
+      ZMQ.subscribe hFromMaster ""
+      f (hToMaster,hFromMaster)
 
 getAppNode :: String -> Maybe FilePath -> IO (Either String Node)
 getAppNode nodeName fn' = do

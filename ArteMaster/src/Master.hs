@@ -21,9 +21,13 @@ import Data.ByteString.Char8 as C hiding (putStrLn)
 import Control.Concurrent.STM
 import Data.Sequence
 import ZmqUtils
-import ArteCommon
+import Arte.Common.Net
 
-
+acceptClients :: Node -> IO ()
+acceptClients me = forever $ do
+  sock <- 
+  (handle,host,port) <- accept 
+  
 
 main :: IO ()
 main = do
