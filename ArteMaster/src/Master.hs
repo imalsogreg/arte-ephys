@@ -17,7 +17,8 @@
 module Main where
 
 import System.ZMQ as Z
-import Data.ByteString.Char8 as C hiding (putStrLn)
+import qualified Data.ByteString.Char8 as C hiding (putStrLn)
+import qualified Data.ByteString as BS
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TChan
 import Arte.Common.Net
@@ -27,21 +28,38 @@ import Network
 import Control.Lens
 import Control.Concurrent
 import Control.Monad
+import Data.Serialize
+import Control.Concurrent.Async
 
-acceptClients :: Node -> TChan NetRequest -> IO ()
+acceptClients :: Node -> TChan (Node,NetRequest) -> IO ()
 acceptClients me requestChan = forever $ do
   sock <- listenOn (PortNumber . fromIntegral $ me^.nodePort)
   (handle,host,port) <- accept sock
   print $ "Accepted host " ++ show host ++ " on port " ++ show port
-  forkFinally (talk handle requestChan) (\_ -> hClose handle)
+  print $ unwords ["Accepted client ", show host, show port]
+  forkFinally (listenToClient handle requestChan)
+    (\_ -> hClose handle)
     
-talk :: Handle -> TChan NetRequest -> IO ()
-talk h c = do
-  hSetBuffering h LineBuffering
-  error "placeholder"
+listenToClient :: Handle -> TChan (Node,NetRequest) -> IO ()
+listenToClient h c = do
+  hSetBuffering h NoBuffering
+  nBytesToRead <- fmap decode $ BS.hGet h 2
+  case nBytesToRead of
+    Left e  -> error $ "Master couldn't decode message size. " ++ e
+    Right s -> do
+      message <- fmap decode $ BS.hGet h s
+      case message of
+        Left e -> error $ "Master couldn't decode message." ++ e
+        Right m -> atomically $ writeTChan c m
 
 main :: IO ()
-main = undefined
+main = do
+  reqChan <- newTChanIO
+--  withAsync acceptClients $ \serverAsync -> do
+  error "Ok"
+
+
+
 --  st <- initState
 --  start (masterWindow st)
        
