@@ -2,11 +2,18 @@
 
 module Arte.Common.NetMessage where
 
-import Data.Serialize
+import Data.Ephys.Cluster
+
 import GHC.Generics (Generic)
+import Data.Serialize
+import Data.Time
 
-import qualified Network as N
-
+data ArteMessage = ArteMessage { msgTime :: UTCTime
+                               , msgFrom :: String
+                               , msgTo   :: Maybe String
+                               , msgBody :: NetRequest
+                               } deriving (Generic, Eq, Show)
+  
 data NetRequest = NetPing
                 deriving (Generic,Eq, Show)
 

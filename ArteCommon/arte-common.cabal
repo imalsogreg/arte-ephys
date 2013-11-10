@@ -34,6 +34,8 @@ Library
                    , bytestring
                    , network
                    , cereal
+                   , time
+                   , tetrode-ephys
  Ghc-Options:      -Wall
  Hs-Source-Dirs:   src
  Exposed-Modules:   Arte.Common
