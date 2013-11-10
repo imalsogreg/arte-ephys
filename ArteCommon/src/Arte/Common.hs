@@ -15,22 +15,24 @@
 module Arte.Common (
   module Arte.Common.FileUtils,               
   module Arte.Common.Net,
-  module Arte.Common.NetMessage,
-  ArteMessage(..),
-  ArteCommand(..),
-  TimeStamp
+  module Arte.Common.NetMessage
   ) where
 
-import System.ZMQ
 import Arte.Common.FileUtils
 import Arte.Common.Net
 import Arte.Common.NetMessage
 
+                 
+{- This is defined in haskell-tetrode-ephys
+   as ExperimentTime = Double
+type TimeStamp = Double
+-}            
+
+{- Move these to NetMessage.hs
+
 data ArteMessage = ArteMessage TimeStamp ArteCommand
                    deriving (Show)
-                   
-type TimeStamp = Double
-            
+  
 data ArteCommand = StartAcq
                  | StopAcq
                  | StartDisk
@@ -46,7 +48,8 @@ data ArteCommand = StartAcq
                  | Ping String
                  | Pong String
                    deriving (Show)
-                  
+-}                  
+
 data VerbosityLevel = VerbositySilent
                     | VerbosityErrors
                     | VerbosityWarnings
@@ -55,13 +58,13 @@ data VerbosityLevel = VerbositySilent
                     | VerbositySpecial -- For debugging
                       deriving (Eq, Show, Enum, Ord)
                                
-                               
+{- Old attempt                               
 connectToMasterServer :: Context -> ZmqSockStr -> IO (Socket Req)
 connectToMasterServer ctx masterStr = do
   cliSocket <- socket ctx Req
   connect cliSocket masterStr
   return cliSocket
-  
+  -}
 
 
 type ZmqHost    = String
@@ -74,6 +77,6 @@ instance Show ZmqProtocol where
   show Ipc = "ipc"
 
 zmqStr :: ZmqProtocol -> ZmqHost -> ZmqPort -> ZmqSockStr
-zmqStr prot host port = 
-  show prot ++ "://" ++ host ++ ":" ++ port
+zmqStr prot h p = 
+  show prot ++ "://" ++ h ++ ":" ++ p
   

@@ -55,8 +55,8 @@ listenToClient h c = do
 main :: IO ()
 main = do
   reqChan <- newTChanIO
---  withAsync acceptClients $ \serverAsync -> do
-  error "Ok"
+  forkIO $ acceptClients $ \serverAsync -> do
+    handleRequests
 
 
 
