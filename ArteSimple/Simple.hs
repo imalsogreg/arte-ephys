@@ -17,47 +17,47 @@ module Main where
 
 {-# LANGUAGE OverloadedStringss #-}
 
+import Arte.Common
+import Arte.Common.Net
+import Ante.Common.NetMessage
+
 import Prelude as P
 import Data.ByteString
 import Data.ByteString.Char8 as C
 import System.Environment
 import System.ZMQ
 import Control.Monad
-import ZmqUtils
+import Control.Concurrent
+import Control.Concurrent.Async
 
 main :: IO ()
 main = do
-  args <- getArgs
-  if (P.length args == 2) 
-    then do 
-        [ip,port] <- (liftM $ P.take 2) getArgs
-        runServer $ zmqStr Tcp ip port
-    else helpMessage
+  masterNode' <- getAppNode "master"  Nothing
+  myNode'     <- getAppNode "spikesA" Nothing
+  case (masterNode',myNode') of
+    (masterN,meN) -> withMaster masterN $ \(toMaster,fromMaster) -> do
+      a  <- async $ sendMessages toMaster
+      receiveMessages fromMaster
+      wait a
 
-respOfReq :: ByteString -> ByteString
-respOfReq s = C.pack "Response for :" `append` s
+receiveMessages :: ZMQ.Socket -> IO ()
+receiveMessages sock = forever $ do
+  m' <- receive sock []
+  case m' of
+    Left e  -> putStrLn $ "Bad response: " ++ e
+    Right m -> putStrLn $ "Got response "  ++ show m
 
-handlePackets :: Socket Rep -> IO ()
-handlePackets sock = do
-  reqStr <- receive sock []
-  let resp = respOfReq reqStr
-  send sock resp []
-  P.putStrLn $ "Got [" ++ C.unpack reqStr ++ 
-    "] and sent [" ++ C.unpack resp ++ "]"
-  if reqStr == C.pack "Quit" 
-    then return ()
-    else handlePackets sock
-  
-
-runServer :: String -> IO ()
-runServer s = withContext 1 $ \context -> do
-  withSocket context Rep $ \sock -> do
-    bind sock s 
-    handlePackets sock
-
-helpMessage :: IO ()
-helpMessage = do
-  n <- getProgName
-  P.putStrLn (helpStr n) where
-  helpStr n = "Call " ++ n ++ " with two arguments, " ++
-            "ip address and port number for this server."
+sendMessages :: Handle -> IO ()
+sendMessages h = hSetBuffering NoBuffering >> loop
+  where
+    loop = do
+      line <- getLine
+      message <- case line of
+            "ping" -> return NetPing
+            "quit" -> return ForceQuit
+      sendWithSize h message
+      case message of
+        ForceQuit -> return ()
+        _         -> loop
+        
+    

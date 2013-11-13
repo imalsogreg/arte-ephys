@@ -1,4 +1,4 @@
-name:                     arte-master
+name:                     arte-simple
 version:                  0.1
 homepage:                 http://github.com/ImAlsoGreg/arte-ephys
 synopsis:                 A soft-realtime tetrode recording system
@@ -19,8 +19,6 @@ build-type:               Simple
 
 executable arte-master
            build-depends:  base
-                         , threepenny-gui
-                         , mtl
                          , stm >= 2.4
                          , network
                          , arte-common
@@ -29,5 +27,5 @@ executable arte-master
                          , lens
                          , cereal
                          , async
-           main-is:        Master.hs
+           main-is:        Simple.hs
            hs-source-dirs: src
