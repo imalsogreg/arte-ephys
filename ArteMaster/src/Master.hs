@@ -16,13 +16,15 @@
 
 module Main where
 
+import Arte.Common
+import Arte.Common.Net
+import Arte.Common.NetMessage
+
 import System.ZMQ as Z
 import qualified Data.ByteString.Char8 as C hiding (putStrLn)
 import qualified Data.ByteString as BS
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TChan
-import Arte.Common.Net
-import Arte.Common.NetMessage
 import System.IO
 import Network
 import Control.Lens
@@ -30,35 +32,70 @@ import Control.Concurrent
 import Control.Monad
 import Data.Serialize
 import Control.Concurrent.Async
+import Text.Printf
+import qualified Data.ByteString.Char8 as C
 
-acceptClients :: Node -> TChan (Node,NetRequest) -> IO ()
-acceptClients me requestChan = forever $ do
-  sock <- listenOn (PortNumber . fromIntegral $ me^.nodePort)
-  (handle,host,port) <- accept sock
-  print $ "Accepted host " ++ show host ++ " on port " ++ show port
-  print $ unwords ["Accepted client ", show host, show port]
-  forkFinally (listenToClient handle requestChan)
-    (\_ -> hClose handle)
-    
-listenToClient :: Handle -> TChan (Node,NetRequest) -> IO ()
-listenToClient h c = do
+acceptClients :: Node -> TChan NetRequest -> IO ()
+acceptClients masterNode requestChan = case masterNode^.inPort of
+    Nothing -> error "Configuration error, master node has no inPort field"
+    Just p  -> do
+      print $ "Awaiting connections, listening on " ++ show p
+      sock <- listenOn (PortNumber . fromIntegral $ p)
+      forever $ do
+        (handle,clientHost,clientPort) <- accept sock
+        print $ "Accepted host " ++ clientHost ++ " on port " ++ show clientPort
+        forkFinally (listenToClient handle requestChan)
+          (\_ -> hClose handle)
+
+listenToClient :: Handle -> TChan NetRequest -> IO ()
+listenToClient h rChan = do
   hSetBuffering h NoBuffering
-  nBytesToRead <- fmap decode $ BS.hGet h 2
-  case nBytesToRead of
-    Left e  -> error $ "Master couldn't decode message size. " ++ e
-    Right s -> do
-      message <- fmap decode $ BS.hGet h s
-      case message of
-        Left e -> error $ "Master couldn't decode message." ++ e
-        Right m -> atomically $ writeTChan c m
+  forever $ do
+    print $ "About to hGet"
+    hop <- hIsOpen h
+    hread <- hIsReadable h
+    putStrLn $ unwords ["Open",show hop," Readable",show hread]
+    m' <- receiveWithSize h
+    case m' of
+      Left e  -> putStrLn $ "Got a bad value. " ++ e
+      Right m -> (atomically $ writeTChan rChan m)
+
+handleRequests :: Node -> TChan NetRequest -> IO ()
+handleRequests masterNode reqChan =
+  Z.withContext 1 $ \ctx -> do
+    Z.withSocket ctx Z.Pub $ \mPubSock -> do
+      let pubStr = zmqStr Tcp "*" (show $ masterNode^.port)
+      print $ "About to bind pub port: " ++ pubStr
+      Z.bind mPubSock $ pubStr
+      loop mPubSock
+  where
+    loop mPubSock =  do
+      print $ "Waiting for a value to come to the reqChan"
+      req <- atomically $ readTChan reqChan
+      print $ "Got a value"
+      response <- respondTo req
+      print $ "About to send response " ++ (show response)
+      Z.send mPubSock (encode response) []
+      print $ "Sent response"
+      case req of
+        ForceQuit -> print "Master: Bye!"
+        _         -> loop mPubSock
+
+respondTo :: NetRequest -> IO NetResponse
+respondTo req = case req of
+  NetPing   -> return NetPong
+  ForceQuit -> return EmptyResponse
 
 main :: IO ()
 main = do
   reqChan <- newTChanIO
-  forkIO $ acceptClients $ \serverAsync -> do
-    handleRequests
-
-
+  m <- getAppNode "master" Nothing
+  case m of
+    Left e -> error $ "Couldn't read configuration data.  Error detail" ++ e
+    Right masterNode -> async (acceptClients masterNode reqChan) >>= \a ->
+                        handleRequests masterNode reqChan >>
+                        wait a
+                        
 
 --  st <- initState
 --  start (masterWindow st)

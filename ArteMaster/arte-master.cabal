@@ -30,5 +30,4 @@ executable arte-master
                          , cereal
                          , async
            main-is:        Master.hs
-           ghc-options:    -Wall
            hs-source-dirs: src
