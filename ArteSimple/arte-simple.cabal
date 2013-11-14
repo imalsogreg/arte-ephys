@@ -17,7 +17,7 @@ maintainer:               imalsogreg@gmail.com
 cabal-version:            >= 1.8
 build-type:               Simple
 
-executable arte-master
+executable arte-simple
            build-depends:  base
                          , stm >= 2.4
                          , network
