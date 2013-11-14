@@ -19,38 +19,41 @@ module Main where
 
 import Arte.Common
 import Arte.Common.Net
-import Ante.Common.NetMessage
+import Arte.Common.NetMessage
 
 import Prelude as P
-import Data.ByteString
-import Data.ByteString.Char8 as C
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as C
 import System.Environment
-import System.ZMQ
+import System.IO
+import qualified System.ZMQ as ZMQ
 import Control.Monad
 import Control.Concurrent
 import Control.Concurrent.Async
+import qualified Data.Serialize as S
 
 main :: IO ()
 main = do
   masterNode' <- getAppNode "master"  Nothing
   myNode'     <- getAppNode "spikesA" Nothing
   case (masterNode',myNode') of
-    (masterN,meN) -> withMaster masterN $ \(toMaster,fromMaster) -> do
+    (Right masterN, Right myN) -> withMaster masterN $ \(toMaster,fromMaster) -> do
       a  <- async $ sendMessages toMaster
       receiveMessages fromMaster
       wait a
 
-receiveMessages :: ZMQ.Socket -> IO ()
+receiveMessages :: ZMQ.Socket ZMQ.Sub -> IO ()
 receiveMessages sock = forever $ do
-  m' <- receive sock []
-  case m' of
+  m' <- ZMQ.receive sock []
+  case S.decode m' :: Either String NetResponse of
     Left e  -> putStrLn $ "Bad response: " ++ e
     Right m -> putStrLn $ "Got response "  ++ show m
 
 sendMessages :: Handle -> IO ()
-sendMessages h = hSetBuffering NoBuffering >> loop
+sendMessages h = hSetBuffering h NoBuffering >> loop
   where
     loop = do
+      putStrLn $ "Enter a command (ping or quit)"
       line <- getLine
       message <- case line of
             "ping" -> return NetPing

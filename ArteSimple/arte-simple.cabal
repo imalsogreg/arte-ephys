@@ -28,4 +28,3 @@ executable arte-master
                          , cereal
                          , async
            main-is:        Simple.hs
-           hs-source-dirs: src
