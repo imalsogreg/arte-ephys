@@ -91,16 +91,13 @@ sendWithSize :: (S.Serialize a) => Handle -> a -> IO ()
 sendWithSize h a = do
   let a'     = S.encode a
       a'size = BS.length a'
-  putStrLn $ "a'size encoded is: " ++ show (S.encode a'size)
   BS.hPut h (S.encode a'size)
   BS.hPut h a'
   hFlush h
-  putStrLn $ unwords ["Encoded value to size",show a'size]
 
 receiveWithSize :: (S.Serialize a) => Handle -> IO (Either String a)
 receiveWithSize h = do
   let intEncodedSize = BS.length (S.encode (1 :: Int))
-  putStrLn $ "Reading " ++ show intEncodedSize ++ " bytes."
   s' <- BS.hGet h intEncodedSize
   case S.decode s' of
     Left e  -> return . Left $ "Couldn't decode to a size. " ++ e

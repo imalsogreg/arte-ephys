@@ -41,20 +41,19 @@ acceptClients masterNode requestChan = case masterNode^.inPort of
     Just p  -> do
       print $ "Awaiting connections, listening on " ++ show p
       sock <- listenOn (PortNumber . fromIntegral $ p)
-      forever $ do
-        (handle,clientHost,clientPort) <- accept sock
-        print $ "Accepted host " ++ clientHost ++ " on port " ++ show clientPort
-        forkFinally (listenToClient handle requestChan)
-          (\_ -> hClose handle)
+      loop sock
+        where
+          loop s = do
+            (handle,clientHost,clientPort) <- accept s
+            print $ "Accepted host " ++ clientHost ++ " on port " ++ show clientPort
+            withAsync (listenToClient handle requestChan) (const $ loop s)
+--            forkFinally (listenToClient handle requestChan)
+--            (\_ -> hClose handle)
 
 listenToClient :: Handle -> TChan NetRequest -> IO ()
 listenToClient h rChan = do
   hSetBuffering h NoBuffering
   forever $ do
-    print $ "About to hGet"
-    hop <- hIsOpen h
-    hread <- hIsReadable h
-    putStrLn $ unwords ["Open",show hop," Readable",show hread]
     m' <- receiveWithSize h
     case m' of
       Left e  -> putStrLn $ "Got a bad value. " ++ e
@@ -65,18 +64,13 @@ handleRequests masterNode reqChan =
   Z.withContext 1 $ \ctx -> do
     Z.withSocket ctx Z.Pub $ \mPubSock -> do
       let pubStr = zmqStr Tcp "*" (show $ masterNode^.port)
-      print $ "About to bind pub port: " ++ pubStr
       Z.bind mPubSock $ pubStr
       loop mPubSock
   where
     loop mPubSock =  do
-      print $ "Waiting for a value to come to the reqChan"
       req <- atomically $ readTChan reqChan
-      print $ "Got a value"
       response <- respondTo req
-      print $ "About to send response " ++ (show response)
       Z.send mPubSock (encode response) []
-      print $ "Sent response"
       case req of
         ForceQuit -> print "Master: Bye!"
         _         -> loop mPubSock
@@ -92,10 +86,8 @@ main = do
   m <- getAppNode "master" Nothing
   case m of
     Left e -> error $ "Couldn't read configuration data.  Error detail" ++ e
-    Right masterNode -> async (acceptClients masterNode reqChan) >>= \a ->
-                        handleRequests masterNode reqChan >>
-                        wait a
-                        
+    Right masterNode -> withAsync (acceptClients masterNode reqChan)
+                        (const $ handleRequests masterNode reqChan)
 
 --  st <- initState
 --  start (masterWindow st)

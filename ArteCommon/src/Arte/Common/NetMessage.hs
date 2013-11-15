@@ -9,6 +9,7 @@ import GHC.Generics (Generic)
 import Data.Serialize
 import Data.Time
 import Data.Time.Clock
+import qualified Data.Map as Map
 
 data ArteMessage = ArteMessage { msgTime :: ExperimentTime
                                , msgFrom :: String
@@ -20,6 +21,8 @@ instance Serialize ArteMessage
                                           
 data NetRequest = NetPing
                 | ForceQuit
+                | SetAllClusters String (Map.Map Int ClusterMethod)
+                | StartAcquisition
                 deriving (Generic,Eq, Show)
 
 instance Serialize NetRequest
