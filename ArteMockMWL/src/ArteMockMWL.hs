@@ -143,7 +143,7 @@ main = do
             Right fi -> do
               case clusts' of
                 Left  _      -> print $ "Didn't request any clusters for " ++ fn
-                Right clusts -> sendWithSize toMaster $ SetAllClusters fn clusts
+                Right clusts -> atomically $ writeTQueue toMaster (ArteMessage 0 "" Nothing (Request $ SetAllClusters fn clusts))
               async . P.runEffect $ (dropResult $ produceTrodeSpikes tName fi f) >->
                 seekAndWait goSign spikeTime (startExperimentTime opts)
                 (relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts))) >->
@@ -167,12 +167,10 @@ main = do
 
     _ -> error $ "Problem loading configuration data."
 
-handleEvents :: ZMQ.Socket ZMQ.Sub -> TMVar () -> IO ()
+handleEvents :: TQueue ArteMessage -> TMVar () -> IO ()
 handleEvents sub goSign = do
-  m' <- ZMQ.receive sub []
-  case S.decode m' of
-    Left e -> error $ "Got a bad message. " ++ e
-    Right m -> case msgBody m of
-      StartAcquisition -> putStrLn "Got Go signal!" >> atomically (putTMVar goSign ())
-      _ -> putStrLn $ "Got and ignored a message: " ++ show m
+  m <- atomically $ readTQueue sub
+  case msgBody m of
+    Request StartAcquisition -> putStrLn "Got Go signal!" >> atomically (putTMVar goSign ())
+    _ -> putStrLn $ "Got and ignored a message: " ++ show m
        

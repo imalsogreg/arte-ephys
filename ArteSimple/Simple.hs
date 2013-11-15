@@ -29,6 +29,8 @@ import System.IO
 import qualified System.ZMQ as ZMQ
 import Control.Monad
 import Control.Concurrent
+import Control.Concurrent.STM
+import Control.Concurrent.STM.TQueue
 import Control.Concurrent.Async
 import qualified Data.Serialize as S
 
@@ -42,23 +44,22 @@ main = do
       receiveMessages fromMaster
       wait a
 
-receiveMessages :: ZMQ.Socket ZMQ.Sub -> IO ()
-receiveMessages sock = forever $ do
-  m' <- ZMQ.receive sock []
-  case S.decode m' :: Either String NetResponse of
-    Left e  -> putStrLn $ "Bad response: " ++ e
-    Right m -> putStrLn $ "Got response "  ++ show m
+receiveMessages :: TQueue ArteMessage -> IO ()
+receiveMessages queue = forever $ do
+  m' <- atomically $ readTQueue queue
+  putStrLn $ "Got response "  ++ show m'
 
-sendMessages :: Handle -> IO ()
-sendMessages h = hSetBuffering h NoBuffering >> loop
+sendMessages :: TQueue ArteMessage -> IO ()
+sendMessages queue = loop
   where
     loop = do
       putStrLn $ "Enter a command (ping or quit)"
       line <- getLine
       message <- case line of
-            "ping" -> return NetPing
-            "quit" -> return ForceQuit
-      sendWithSize h message
+            "ping"   -> return NetPing
+            "quit"   -> return ForceQuit
+            "hangup" -> return ServerHangup
+      atomically $ writeTQueue queue (ArteMessage 0 "" Nothing (Request message))
       case message of
         ForceQuit -> return ()
         _         -> loop

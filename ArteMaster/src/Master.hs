@@ -35,8 +35,8 @@ import Control.Concurrent.Async
 import Text.Printf
 import qualified Data.ByteString.Char8 as C
 
-acceptClients :: Node -> TChan NetRequest -> IO ()
-acceptClients masterNode requestChan = case masterNode^.inPort of
+acceptClients :: Node -> TQueue ArteMessage -> IO ()
+acceptClients masterNode requestQueue = case masterNode^.inPort of
     Nothing -> error "Configuration error, master node has no inPort field"
     Just p  -> do
       print $ "Awaiting connections, listening on " ++ show p
@@ -46,21 +46,22 @@ acceptClients masterNode requestChan = case masterNode^.inPort of
           loop s = do
             (handle,clientHost,clientPort) <- accept s
             print $ "Accepted host " ++ clientHost ++ " on port " ++ show clientPort
-            withAsync (listenToClient handle requestChan) (const $ loop s)
---            forkFinally (listenToClient handle requestChan)
---            (\_ -> hClose handle)
+            withAsync (listenToClient handle requestQueue) (const $ loop s)
 
-listenToClient :: Handle -> TChan NetRequest -> IO ()
-listenToClient h rChan = do
-  hSetBuffering h NoBuffering
-  forever $ do
-    m' <- receiveWithSize h
-    case m' of
-      Left e  -> putStrLn $ "Got a bad value. " ++ e
-      Right m -> (atomically $ writeTChan rChan m)
+listenToClient :: Handle -> TQueue ArteMessage -> IO ()
+listenToClient h rQueue = loop
+  where loop = do
+          m' <- receiveWithSize h
+          case m' of
+            Left e  -> putStrLn $ "Got a bad value. " ++ e
+            Right m -> do (atomically $ writeTQueue rQueue m)
+                          putStrLn $ "Got message: " ++ show m
+                          case m of
+                            ArteMessage _ _ _ (Request ServerHangup) -> return ()
+                            _ -> loop
 
-handleRequests :: Node -> TChan NetRequest -> IO ()
-handleRequests masterNode reqChan =
+handleRequests :: Node -> TQueue ArteMessage -> IO ()
+handleRequests masterNode reqQueue =
   Z.withContext 1 $ \ctx -> do
     Z.withSocket ctx Z.Pub $ \mPubSock -> do
       let pubStr = zmqStr Tcp "*" (show $ masterNode^.port)
@@ -68,26 +69,31 @@ handleRequests masterNode reqChan =
       loop mPubSock
   where
     loop mPubSock =  do
-      req <- atomically $ readTChan reqChan
-      response <- respondTo req
-      Z.send mPubSock (encode response) []
-      case req of
-        ForceQuit -> print "Master: Bye!"
-        _         -> loop mPubSock
+      req <- atomically $ readTQueue reqQueue
+      case msgBody req of
+        Response _ -> loop mPubSock
+        Request  r -> do
+          response <- respondTo r
+          let msg = ArteMessage 0 "" Nothing (Response response) -- TODO FIX
+          Z.send mPubSock (encode msg) []
+          case r of
+            ForceQuit -> print "Master: Bye!"
+            _         -> loop mPubSock
 
 respondTo :: NetRequest -> IO NetResponse
 respondTo req = case req of
-  NetPing   -> return NetPong
-  ForceQuit -> return EmptyResponse
+  NetPing      -> return NetPong
+  ServerHangup -> return EmptyResponse
+  ForceQuit    -> return EmptyResponse
 
 main :: IO ()
 main = do
-  reqChan <- newTChanIO
+  reqQueue <- newTQueueIO
   m <- getAppNode "master" Nothing
   case m of
     Left e -> error $ "Couldn't read configuration data.  Error detail" ++ e
-    Right masterNode -> withAsync (acceptClients masterNode reqChan)
-                        (const $ handleRequests masterNode reqChan)
+    Right masterNode -> withAsync (acceptClients masterNode reqQueue)
+                        (const $ handleRequests masterNode reqQueue)
 
 --  st <- initState
 --  start (masterWindow st)

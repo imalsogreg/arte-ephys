@@ -35,6 +35,7 @@ Library
                    , network
                    , cereal
                    , time
+                   , stm
                    , tetrode-ephys
  Ghc-Options:      -Wall
  Hs-Source-Dirs:   src
