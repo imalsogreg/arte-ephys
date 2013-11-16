@@ -18,6 +18,7 @@ import System.Environment (lookupEnv)
 import Network
 import System.IO
 import Control.Concurrent
+import Control.Concurrent.Async
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TQueue
@@ -26,7 +27,7 @@ import qualified Data.Vector as V
 import qualified System.ZMQ as ZMQ
 import Text.Printf
 import qualified Data.Serialize as S
-
+import Control.Exception
 
 type IPAddy   = String
 type Port     = Int
@@ -65,14 +66,18 @@ withMaster masterNode f = case masterInPort' of
                    --(Service $ show masterInPort)
                    (PortNumber . fromIntegral $ masterInPort)
       qToMaster <- newTQueueIO
-      _ <- forkFinally (forever $ do
+--      _ <- forkFinally (forever $ do
+      async . forever $ do
                            arteMsg <- atomically $ readTQueue qToMaster
                            putStrLn $ "About to send: " ++ (Prelude.take 80 . show $ arteMsg)
-                           sendWithSize hToMaster arteMsg)
-        (\_ -> do
+                           sendWithSize hToMaster arteMsg
+
+{-
+           (\_ -> do
             print "FORK FINALLY!"
             sendWithSize hToMaster (ArteMessage 0 "" Nothing (Request ServerHangup))
-            hClose hToMaster)
+            hClose hToMaster
+        )-}
       _ <- printf "Successfully connected to masterInPort"
       
       -- Subscription to master 'pub' port

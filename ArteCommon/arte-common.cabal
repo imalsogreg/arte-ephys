@@ -21,6 +21,7 @@ Library
  Build-Depends:      lens-aeson
                    , aeson
                    , yaml
+                   , async
                    , lens
                    , zeromq-haskell
                    , containers

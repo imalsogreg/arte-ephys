@@ -133,7 +133,7 @@ main = do
                                   [spikeExt,eegExt,pExt,arteExt]
   let clustFiles = map (cbNameFromTTPath opts) (spikeFiles) :: [Text]
   
-  nodes <- mapM (flip getAppNode Nothing) ["spikesA","lfps","pos","master"]
+  nodes <- mapM (flip getAppNode Nothing) ["spikesA","lfpsA","pos","master"]
   case nodes of
     [Right spikeNode, Right eegNode, Right pNode, Right masterNode] -> do
 
@@ -177,7 +177,8 @@ main = do
 
 
         print "About to wait for spike Asyncs"
-        mapM_ wait spikeAsyncs
+        rs <- mapM waitCatch spikeAsyncs
+        print rs
         print "Done waiting"
 
     _ -> error $ "Problem loading configuration data."
