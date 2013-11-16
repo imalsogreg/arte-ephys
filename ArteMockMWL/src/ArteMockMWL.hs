@@ -157,7 +157,8 @@ main = do
                 seekAndWait goSign spikeTime (startExperimentTime opts)
                 (relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts))) >->
                 pipeToQueue spikeQ
-                
+
+                {-
 --        let track = circularTrack (0,0) 0.57 0.5 0.25 0.15
         let p0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
                  ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
@@ -169,6 +170,7 @@ main = do
                     seekAndWait goSign _posTime (startExperimentTime opts)
                     (relativeTimeCat (\p -> (_posTime p - startExperimentTime opts))) >->
                     pipeToQueue posQ
+-}
 
         print "About to hondle events"
         handleEvents fromMaster goSign
