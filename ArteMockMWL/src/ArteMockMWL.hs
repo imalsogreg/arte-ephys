@@ -103,7 +103,18 @@ seekAndWait goSignal toTime target produce = do
   lift $ print "Seek and wait ready."
   () <- lift . atomically . readTMVar $ goSignal  -- Block here
   produce
-  
+
+orderClusters :: TQueue ArteMessage -> FilePath -> FilePath -> IO ()
+orderClusters queue cFile ttFile = do 
+  let trodeName = unpack $ trodeNameFromPath ttFile
+  cExists <- doesFileExist cFile
+  when cExists $ do
+    clusters' <- getClusters cFile ttFile
+    case clusters' of
+      Left _         -> return ()
+      Right clusts -> atomically . writeTQueue queue $
+                      (ArteMessage 0 "" Nothing (Request $ SetAllClusters trodeName clusts))
+
 main :: IO ()
 main = do
   
@@ -135,15 +146,13 @@ main = do
   
         spikeAsyncs <- forM spikeFiles $ \fn -> do
           let tName = trodeNameFromPath fn
+              cName = cbNameFromTTPath opts fn
           fi' <- getFileInfo fn
           f  <- BSL.readFile fn
-          clusts' <- getClusters (Data.Text.unpack $ cbNameFromTTPath opts fn) fn
           case fi' of
             Left e -> error $ "Bad fileinfo for file " ++ fn ++ " error: " ++ e
             Right fi -> do
-              case clusts' of
-                Left  _      -> print $ "Didn't request any clusters for " ++ fn
-                Right clusts -> atomically $ writeTQueue toMaster (ArteMessage 0 "" Nothing (Request $ SetAllClusters fn clusts))
+              orderClusters toMaster (unpack cName) fn 
               async . P.runEffect $ (dropResult $ produceTrodeSpikes tName fi f) >->
                 seekAndWait goSign spikeTime (startExperimentTime opts)
                 (relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts))) >->
@@ -161,9 +170,11 @@ main = do
                     (relativeTimeCat (\p -> (_posTime p - startExperimentTime opts))) >->
                     pipeToQueue posQ
 
+        print "About to hondle events"
         handleEvents fromMaster goSign
-
+        print "About to wait for spike Asyncs"
         mapM_ wait spikeAsyncs
+        print "Done waiting"
 
     _ -> error $ "Problem loading configuration data."
 
