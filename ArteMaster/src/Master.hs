@@ -34,6 +34,7 @@ import Data.Serialize
 import Control.Concurrent.Async
 import Text.Printf
 import qualified Data.ByteString.Char8 as C
+import qualified Data.Text as Text
 
 acceptClients :: Node -> TQueue ArteMessage -> IO ()
 acceptClients masterNode requestQueue = case masterNode^.inPort of
@@ -55,7 +56,7 @@ listenToClient h rQueue = loop
           case m' of
             Left e  -> putStrLn $ "Got a bad value. " ++ e
             Right m -> do (atomically $ writeTQueue rQueue m)
-                          putStrLn $ "Got message: " ++ show m
+                          putStrLn $ "Got message: " ++ (take 20 . show . msgBody $ m)
                           case m of
                             ArteMessage _ _ _ (Request ServerHangup) -> return ()
                             _ -> loop
@@ -68,24 +69,33 @@ handleRequests masterNode reqQueue =
       Z.bind mPubSock $ pubStr
       loop mPubSock
   where
+    loop :: Z.Socket Z.Pub -> IO ()
     loop mPubSock =  do
       req <- atomically $ readTQueue reqQueue
       case msgBody req of
         Response _ -> loop mPubSock
         Request  r -> do
-          response <- respondTo r
-          let msg = ArteMessage 0 "" Nothing (Response response) -- TODO FIX
-          Z.send mPubSock (encode msg) []
-          case r of
-            ForceQuit -> print "Master: Bye!"
-            _         -> loop mPubSock
+          continue <- respondTo r mPubSock
+          case continue of
+            False -> print "Master: Bye!"
+            True  -> loop mPubSock
 
-respondTo :: NetRequest -> IO NetResponse
-respondTo req = case req of
-  NetPing      -> return NetPong
-  ServerHangup -> return EmptyResponse
-  ForceQuit    -> return EmptyResponse
+respondTo :: NetRequest -> Z.Socket Z.Pub -> IO Bool
+respondTo req outbox = do
+  let tNow  = 0 -- TODO : Fix
+      nFrom = "master"
+      msgs = case req of
+        NetPing        -> [ArteMessage tNow nFrom Nothing (Response NetPong)]
+        ServerHangup   -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse)]
+        ForceQuit      -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse)]
+        SetAllClusters n cs -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse),
+                           ArteMessage tNow nFrom (Just "decoder") (Request $ SetAllClusters n cs)]
+  mapM_ (\m -> Z.send outbox (encode m) []) msgs
+  case req of
+    ServerHangup -> return False
+    _            -> return True
 
+  
 main :: IO ()
 main = do
   reqQueue <- newTQueueIO

@@ -65,11 +65,14 @@ withMaster masterNode f = case masterInPort' of
                    --(Service $ show masterInPort)
                    (PortNumber . fromIntegral $ masterInPort)
       qToMaster <- newTQueueIO
-      _ <- forkFinally (forever $ atomically (readTQueue qToMaster) >>= \arteMsg ->
-                    sendWithSize hToMaster arteMsg)
+      _ <- forkFinally (forever $ do
+                           arteMsg <- atomically $ readTQueue qToMaster
+                           putStrLn $ "About to send: " ++ (Prelude.take 80 . show $ arteMsg)
+                           sendWithSize hToMaster arteMsg)
         (\_ -> do
+            print "FORK FINALLY!"
             sendWithSize hToMaster (ArteMessage 0 "" Nothing (Request ServerHangup))
-            hClose hToMaster) 
+            hClose hToMaster)
       _ <- printf "Successfully connected to masterInPort"
       
       -- Subscription to master 'pub' port
