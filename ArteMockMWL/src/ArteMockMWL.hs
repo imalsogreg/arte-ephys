@@ -143,7 +143,10 @@ main = do
       goSign <- newEmptyTMVarIO 
 
       withMaster masterNode $ \(toMaster,fromMaster) -> do
-  
+
+        print "About to hondle events"
+        forkIO $ handleEvents fromMaster goSign  
+
         spikeAsyncs <- forM spikeFiles $ \fn -> do
           let tName = trodeNameFromPath fn
               cName = cbNameFromTTPath opts fn
@@ -172,8 +175,7 @@ main = do
                     pipeToQueue posQ
 -}
 
-        print "About to hondle events"
-        handleEvents fromMaster goSign
+
         print "About to wait for spike Asyncs"
         mapM_ wait spikeAsyncs
         print "Done waiting"
