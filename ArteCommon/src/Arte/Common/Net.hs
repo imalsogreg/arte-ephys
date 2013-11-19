@@ -2,6 +2,9 @@
 
 module Arte.Common.Net where
 
+import Data.Ephys.EphysDefs
+import Arte.Common.NetMessage
+
 import Data.Text hiding (unwords,filter,head)
 import Control.Applicative
 import Control.Monad
@@ -14,12 +17,17 @@ import Data.Map (Map, keys, member)
 import System.Environment (lookupEnv)
 import Network
 import System.IO
-import qualified Data.Map as Map
+import Control.Concurrent
+import Control.Concurrent.Async
+import Control.Concurrent.STM
+import Control.Concurrent.STM.TVar
+import Control.Concurrent.STM.TQueue
+import qualified Data.Map as Map 
 import qualified Data.Vector as V
 import qualified System.ZMQ as ZMQ
 import Text.Printf
 import qualified Data.Serialize as S
-
+import Control.Exception
 
 type IPAddy   = String
 type Port     = Int
@@ -42,29 +50,50 @@ data NetConfig = NetConfig
                  } deriving (Eq, Show)
 $(makeLenses ''NetConfig)
 
-withMaster :: Node -> ((Handle,ZMQ.Socket ZMQ.Sub) -> IO a) -> IO a
+mkMsg :: String -> Maybe String -> TVar ExperimentTime -> MessageBody -> IO ArteMessage
+mkMsg fromN toN time' body = do
+  t <- atomically . readTVar $ time' :: IO Double
+  return $ ArteMessage t fromN toN body
+
+withMaster :: Node -> ((TQueue ArteMessage,TQueue ArteMessage) -> IO a) -> IO a
 withMaster masterNode f = case masterInPort' of
     Nothing           -> error "Bad configuration file - master has no inPort."
     Just masterInPort -> do
 
       -- Connection to master 'in' port
-      printf "Connecting to %s %s\n" (masterNode^.host.ip) (show masterInPort)
+      _ <- printf "Connecting to %s %s\n" (masterNode^.host.ip) (show masterInPort)
       hToMaster <- connectTo (masterNode ^. host.ip)
                    --(Service $ show masterInPort)
                    (PortNumber . fromIntegral $ masterInPort)
-      printf "Successfully connected to masterInPort"
+      qToMaster <- newTQueueIO
+--      _ <- forkFinally (forever $ do
+      async . forever $ do
+                           arteMsg <- atomically $ readTQueue qToMaster
+                           putStrLn $ "About to send: " ++ (Prelude.take 80 . show $ arteMsg)
+                           sendWithSize hToMaster arteMsg
+
+{-
+           (\_ -> do
+            print "FORK FINALLY!"
+            sendWithSize hToMaster (ArteMessage 0 "" Nothing (Request ServerHangup))
+            hClose hToMaster
+        )-}
+      _ <- printf "Successfully connected to masterInPort"
       
       -- Subscription to master 'pub' port
-      printf "Connecting to master pub port %s %s\n" masterIP (show masterInPort)
+      _ <- printf "Connecting to master pub port %s %s\n" masterIP (show masterInPort)
       ZMQ.withContext 1 $ \ctx -> do
         ZMQ.withSocket ctx ZMQ.Sub $ \hFromMaster -> do
           let pubStr = "tcp://" ++ masterIP ++ ":" ++ show masterPubPort
-          print $ "About to connect to pubport: " ++ pubStr
           ZMQ.connect hFromMaster pubStr
-          print $ "About to subscribe to pubport"
           ZMQ.subscribe hFromMaster ""
-          print $ "Subscribed, running function argument"
-          f (hToMaster,hFromMaster)
+          qFromMaster <- newTQueueIO
+          sendId <- forkIO (forever $ do
+                     m' <- ZMQ.receive hFromMaster []
+                     case S.decode m' of
+                       Left e  -> print $ "Couldn't decode ZMQ message. " ++ e
+                       Right m -> atomically $ writeTQueue qFromMaster m)
+          f (qToMaster,qFromMaster)
   where masterIP      = masterNode^.host.ip
         masterPubPort = masterNode^.port
         masterInPort' = masterNode^.inPort
@@ -91,16 +120,13 @@ sendWithSize :: (S.Serialize a) => Handle -> a -> IO ()
 sendWithSize h a = do
   let a'     = S.encode a
       a'size = BS.length a'
-  putStrLn $ "a'size encoded is: " ++ show (S.encode a'size)
   BS.hPut h (S.encode a'size)
   BS.hPut h a'
   hFlush h
-  putStrLn $ unwords ["Encoded value to size",show a'size]
 
 receiveWithSize :: (S.Serialize a) => Handle -> IO (Either String a)
 receiveWithSize h = do
   let intEncodedSize = BS.length (S.encode (1 :: Int))
-  putStrLn $ "Reading " ++ show intEncodedSize ++ " bytes."
   s' <- BS.hGet h intEncodedSize
   case S.decode s' of
     Left e  -> return . Left $ "Couldn't decode to a size. " ++ e

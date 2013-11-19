@@ -21,6 +21,7 @@ Library
  Build-Depends:      lens-aeson
                    , aeson
                    , yaml
+                   , async
                    , lens
                    , zeromq-haskell
                    , containers
@@ -35,6 +36,7 @@ Library
                    , network
                    , cereal
                    , time
+                   , stm
                    , tetrode-ephys
  Ghc-Options:      -Wall
  Hs-Source-Dirs:   src

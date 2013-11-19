@@ -19,7 +19,7 @@ executable arteMockSpikes
                     arte-common,
                     zeromq-haskell,
                     pipes (>= 4.0),
-                    pipes-rt,
+                    pipes-rt (>= 0.4),
                     tetrode-ephys,
                     cmdargs,
                     directory,

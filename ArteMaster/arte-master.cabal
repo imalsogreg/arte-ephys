@@ -29,5 +29,6 @@ executable arte-master
                          , lens
                          , cereal
                          , async
+                         , text
            main-is:        Master.hs
            hs-source-dirs: src

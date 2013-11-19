@@ -34,68 +34,76 @@ import Data.Serialize
 import Control.Concurrent.Async
 import Text.Printf
 import qualified Data.ByteString.Char8 as C
+import qualified Data.Text as Text
 
-acceptClients :: Node -> TChan NetRequest -> IO ()
-acceptClients masterNode requestChan = case masterNode^.inPort of
+acceptClients :: Node -> TQueue ArteMessage -> IO ()
+acceptClients masterNode requestQueue = case masterNode^.inPort of
     Nothing -> error "Configuration error, master node has no inPort field"
     Just p  -> do
       print $ "Awaiting connections, listening on " ++ show p
       sock <- listenOn (PortNumber . fromIntegral $ p)
-      forever $ do
-        (handle,clientHost,clientPort) <- accept sock
-        print $ "Accepted host " ++ clientHost ++ " on port " ++ show clientPort
-        forkFinally (listenToClient handle requestChan)
-          (\_ -> hClose handle)
+      loop sock
+        where
+          loop s = do
+            (handle,clientHost,clientPort) <- accept s
+            print $ "Accepted host " ++ clientHost ++ " on port " ++ show clientPort
+            withAsync (listenToClient handle requestQueue) (const $ loop s)
 
-listenToClient :: Handle -> TChan NetRequest -> IO ()
-listenToClient h rChan = do
-  hSetBuffering h NoBuffering
-  forever $ do
-    print $ "About to hGet"
-    hop <- hIsOpen h
-    hread <- hIsReadable h
-    putStrLn $ unwords ["Open",show hop," Readable",show hread]
-    m' <- receiveWithSize h
-    case m' of
-      Left e  -> putStrLn $ "Got a bad value. " ++ e
-      Right m -> (atomically $ writeTChan rChan m)
+listenToClient :: Handle -> TQueue ArteMessage -> IO ()
+listenToClient h rQueue = loop
+  where loop = do
+          m' <- receiveWithSize h
+          case m' of
+            Left e  -> putStrLn $ "Got a bad value. " ++ e
+            Right m -> do (atomically $ writeTQueue rQueue m)
+                          putStrLn $ "Got message: " ++ (take 20 . show . msgBody $ m)
+                          case m of
+                            ArteMessage _ _ _ (Request ServerHangup) -> return ()
+                            _ -> loop
 
-handleRequests :: Node -> TChan NetRequest -> IO ()
-handleRequests masterNode reqChan =
+handleRequests :: Node -> TQueue ArteMessage -> IO ()
+handleRequests masterNode reqQueue =
   Z.withContext 1 $ \ctx -> do
     Z.withSocket ctx Z.Pub $ \mPubSock -> do
       let pubStr = zmqStr Tcp "*" (show $ masterNode^.port)
-      print $ "About to bind pub port: " ++ pubStr
       Z.bind mPubSock $ pubStr
       loop mPubSock
   where
+    loop :: Z.Socket Z.Pub -> IO ()
     loop mPubSock =  do
-      print $ "Waiting for a value to come to the reqChan"
-      req <- atomically $ readTChan reqChan
-      print $ "Got a value"
-      response <- respondTo req
-      print $ "About to send response " ++ (show response)
-      Z.send mPubSock (encode response) []
-      print $ "Sent response"
-      case req of
-        ForceQuit -> print "Master: Bye!"
-        _         -> loop mPubSock
+      req <- atomically $ readTQueue reqQueue
+      case msgBody req of
+        Response _ -> loop mPubSock
+        Request  r -> do
+          continue <- respondTo r mPubSock
+          case continue of
+            False -> print "Master: Bye!"
+            True  -> loop mPubSock
 
-respondTo :: NetRequest -> IO NetResponse
-respondTo req = case req of
-  NetPing   -> return NetPong
-  ForceQuit -> return EmptyResponse
+respondTo :: NetRequest -> Z.Socket Z.Pub -> IO Bool
+respondTo req outbox = do
+  let tNow  = 0 -- TODO : Fix
+      nFrom = "master"
+      msgs = case req of
+        NetPing        -> [ArteMessage tNow nFrom Nothing (Response NetPong)]
+        ServerHangup   -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse)]
+        ForceQuit      -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse)]
+        SetAllClusters n cs -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse),
+                           ArteMessage tNow nFrom (Just "decoder") (Request $ SetAllClusters n cs)]
+  mapM_ (\m -> Z.send outbox (encode m) []) msgs
+  case req of
+    ServerHangup -> return False
+    _            -> return True
 
+  
 main :: IO ()
 main = do
-  reqChan <- newTChanIO
+  reqQueue <- newTQueueIO
   m <- getAppNode "master" Nothing
   case m of
     Left e -> error $ "Couldn't read configuration data.  Error detail" ++ e
-    Right masterNode -> async (acceptClients masterNode reqChan) >>= \a ->
-                        handleRequests masterNode reqChan >>
-                        wait a
-                        
+    Right masterNode -> withAsync (acceptClients masterNode reqQueue)
+                        (const $ handleRequests masterNode reqQueue)
 
 --  st <- initState
 --  start (masterWindow st)
