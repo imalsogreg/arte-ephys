@@ -84,8 +84,9 @@ pushMWLFileSpikesToQueue fp q = do
       pipeToQueue q
 
 -- "path/to/0224.tt" -> "24"
+-- TODO : Fix.  Only drop 5 when extention has 2 letters.
 trodeNameFromPath :: String -> Text
-trodeNameFromPath = pack . reverse . take 2 . drop 3 . reverse
+trodeNameFromPath = pack . reverse . take 2 . drop 5 . reverse  
 
 -- "path/to/0224.tt" -> "path/to/cbfile-run"
 cbNameFromTTPath :: ArteMockSpikes -> String -> Text
@@ -97,9 +98,17 @@ pipeToQueue q = forever $ do
   s <- P.await
   P.lift . atomically $ writeTQueue q s
 
-seekAndWait :: TMVar () -> (a -> Double) -> Double -> P.Pipe a a IO () -> P.Pipe a a IO ()
+dropWhile' :: (Monad m) => (a -> Bool) -> P.Pipe a a m ()
+dropWhile' p = do
+  v <- P.await
+  case p v of
+    True  -> dropWhile' p
+    False -> P.yield v
+  
+seekAndWait :: (Show a) => TMVar () -> (a -> Double) -> Double -> P.Pipe a a IO () -> P.Pipe a a IO ()
 seekAndWait goSignal toTime target produce = do
-  PP.dropWhile ((< target) . toTime)
+  dropWhile' ((< target) . toTime)
+--  PP.chain (\s -> putStrLn $ unwords ["Time:", (show . toTime) s, " Target:",show target])
   lift $ print "Seek and wait ready."
   () <- lift . atomically . readTMVar $ goSignal  -- Block here
   produce
@@ -119,7 +128,9 @@ main :: IO ()
 main = do
   
   opts <- cmdArgs mockCmd
-    
+
+  --print opts
+
   let spikeExt = spikeFileExtension opts
       eegExt   = eegFileExtention opts
       pExt     = pFileExtention opts
@@ -145,7 +156,7 @@ main = do
       withMaster masterNode $ \(toMaster,fromMaster) -> do
 
         print "About to hondle events"
-        forkIO $ handleEvents fromMaster goSign  
+        forkFinally (handleEvents fromMaster goSign) (\_ -> print "Handle Events forkFinally")
 
         spikeAsyncs <- forM spikeFiles $ \fn -> do
           let tName = trodeNameFromPath fn
@@ -156,7 +167,7 @@ main = do
             Left e -> error $ "Bad fileinfo for file " ++ fn ++ " error: " ++ e
             Right fi -> do
               orderClusters toMaster (unpack cName) fn 
-              async . P.runEffect $ (dropResult $ produceTrodeSpikes tName fi f) >->
+              async .P.runEffect $ (dropResult $ produceTrodeSpikes tName fi f) >->
                 seekAndWait goSign spikeTime (startExperimentTime opts)
                 (relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts))) >->
                 pipeToQueue spikeQ
@@ -175,7 +186,8 @@ main = do
                     pipeToQueue posQ
 -}
 
-
+        print "Spanwed asyncs.  Thread delay 3 secs."
+        threadDelay 3000000
         print "About to wait for spike Asyncs"
         rs <- mapM waitCatch spikeAsyncs
         print rs
@@ -184,9 +196,9 @@ main = do
     _ -> error $ "Problem loading configuration data."
 
 handleEvents :: TQueue ArteMessage -> TMVar () -> IO ()
-handleEvents sub goSign = do
+handleEvents sub goSign = forever $ do
   m <- atomically $ readTQueue sub
   case msgBody m of
     Request StartAcquisition -> putStrLn "Got Go signal!" >> atomically (putTMVar goSign ())
-    _ -> putStrLn $ "Got and ignored a message: " ++ show m
+    _ -> putStrLn $ "Got and ignored a message: " ++ (take 40 . show . msgBody $ m)
        

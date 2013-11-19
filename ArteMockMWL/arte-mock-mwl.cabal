@@ -33,4 +33,5 @@ executable arteMockSpikes
                     lens,
                     async
   Main-Is:          ArteMockMWL.hs
+  ghc-options:      -threaded "-with-rtsopts=-N9"
   hs-source-dirs:   src

@@ -54,9 +54,9 @@ listenToClient h rQueue = loop
   where loop = do
           m' <- receiveWithSize h
           case m' of
-            Left e  -> putStrLn $ "Got a bad value. " ++ e
+            Left e  -> putStrLn $ unwords ["Got a bad value. error:",e]
             Right m -> do (atomically $ writeTQueue rQueue m)
-                          putStrLn $ "Got message: " ++ (take 20 . show . msgBody $ m)
+                          putStrLn $ "Got message: " ++ (take 40 . show . msgBody $ m)
                           case m of
                             ArteMessage _ _ _ (Request ServerHangup) -> return ()
                             _ -> loop
@@ -88,9 +88,10 @@ respondTo req outbox = do
         NetPing        -> [ArteMessage tNow nFrom Nothing (Response NetPong)]
         ServerHangup   -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse)]
         ForceQuit      -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse)]
-        SetAllClusters n cs -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse),
-                           ArteMessage tNow nFrom (Just "decoder") (Request $ SetAllClusters n cs)]
-  mapM_ (\m -> Z.send outbox (encode m) []) msgs
+        SetAllClusters n cs -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse)
+                               , ArteMessage tNow nFrom (Just "decoder") (Request $ SetAllClusters n cs)]
+        StartAcquisition -> [ArteMessage tNow nFrom Nothing (Request StartAcquisition)]
+  mapM_ (\m -> Z.send outbox (encode m) [] >> print ("Sent a message:" ++ (take 40 . show . msgBody $ m))) msgs
   case req of
     ServerHangup -> return False
     _            -> return True
@@ -101,9 +102,15 @@ main = do
   reqQueue <- newTQueueIO
   m <- getAppNode "master" Nothing
   case m of
-    Left e -> error $ "Couldn't read configuration data.  Error detail" ++ e
-    Right masterNode -> withAsync (acceptClients masterNode reqQueue)
-                        (const $ handleRequests masterNode reqQueue)
+    Left e -> error $ "Couldn't read configuration data.  Error detail " ++ e
+    Right masterNode ->
+      withAsync (acceptClients  masterNode reqQueue) $ \a1 -> do
+        withAsync (handleRequests masterNode reqQueue) $ \a2 -> do
+          putStrLn $ "Type something and hit enter to send StartAcquision out."
+          _ <- getLine
+          atomically $ writeTQueue reqQueue (ArteMessage 0 "master" Nothing (Request StartAcquisition))
+          waitBoth a1 a2
+          return ()
 
 --  st <- initState
 --  start (masterWindow st)

@@ -31,4 +31,5 @@ executable arte-master
                          , async
                          , text
            main-is:        Master.hs
+           ghc-options:    -threaded "-with-rtsopts=-N4"
            hs-source-dirs: src

@@ -60,17 +60,17 @@ withMaster masterNode f = case masterInPort' of
     Nothing           -> error "Bad configuration file - master has no inPort."
     Just masterInPort -> do
 
-      -- Connection to master 'in' port
+      -- Connection to master's 'in' port
       _ <- printf "Connecting to %s %s\n" (masterNode^.host.ip) (show masterInPort)
       hToMaster <- connectTo (masterNode ^. host.ip)
                    --(Service $ show masterInPort)
                    (PortNumber . fromIntegral $ masterInPort)
       qToMaster <- newTQueueIO
 --      _ <- forkFinally (forever $ do
-      async . forever $ do
-                           arteMsg <- atomically $ readTQueue qToMaster
-                           putStrLn $ "About to send: " ++ (Prelude.take 80 . show $ arteMsg)
-                           sendWithSize hToMaster arteMsg
+      toMasterA <- async . forever $ do
+        arteMsg <- atomically $ readTQueue qToMaster
+        putStrLn $ "About to send: " ++ (Prelude.take 20 . show . msgBody $ arteMsg)
+        sendWithSize hToMaster arteMsg
 
 {-
            (\_ -> do
@@ -88,12 +88,15 @@ withMaster masterNode f = case masterInPort' of
           ZMQ.connect hFromMaster pubStr
           ZMQ.subscribe hFromMaster ""
           qFromMaster <- newTQueueIO
-          sendId <- forkIO (forever $ do
+          fromMasterA <- async (forever $ do
                      m' <- ZMQ.receive hFromMaster []
                      case S.decode m' of
                        Left e  -> print $ "Couldn't decode ZMQ message. " ++ e
                        Right m -> atomically $ writeTQueue qFromMaster m)
-          f (qToMaster,qFromMaster)
+          r <- f (qToMaster,qFromMaster)
+          putStrLn "Finished F!!  Now wait for asyncs in Net.hs" -- TODO debugging
+          ((),()) <- waitBoth toMasterA fromMasterA
+          return r
   where masterIP      = masterNode^.host.ip
         masterPubPort = masterNode^.port
         masterInPort' = masterNode^.inPort
@@ -129,7 +132,7 @@ receiveWithSize h = do
   let intEncodedSize = BS.length (S.encode (1 :: Int))
   s' <- BS.hGet h intEncodedSize
   case S.decode s' of
-    Left e  -> return . Left $ "Couldn't decode to a size. " ++ e
+    Left e  -> print s' >> (return . Left $ "Couldn't decode to a size. " ++ e)
     Right s -> do
       a' <- BS.hGet h s
       case S.decode a' of
