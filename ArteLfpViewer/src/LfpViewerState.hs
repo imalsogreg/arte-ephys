@@ -1,9 +1,10 @@
-module LfpViewerState where
+module Arte.LfpViewer.LfpViewerState where
+
+import Arte.LfpViewer.LfpTraceData
+import Arte.LfpViewer.TraceGeometry
+import Arte.LfpViewer.RenderLfp
 
 import Control.Concurrent.STM
-import LfpTraceData
-import TraceGeometry
-import RenderLfp
 import Graphics.Rendering.OpenGL as GL
 import Graphics.UI.GLFW
 import Control.Monad
@@ -17,12 +18,10 @@ data SubTrace = SubTrace { traceData   :: (TVar TraceData)
                          , traceOpts   :: TraceOpts
                          }
 
-data ViewerState = ViewerState { renderer   :: [SubTrace] -> IO ()
-                              , subTraces  :: [SubTrace]
+data ViewerState = ViewerState { renderer :: [SubTrace] -> IO ()
+                              , subTraces :: [SubTrace]
                               }
                   
-
-
 defaultUpdate :: ViewerState -> IO ()
 defaultUpdate st = forever $ do
   threadDelay $ 1000
@@ -31,8 +30,6 @@ defaultUpdate st = forever $ do
     forM_ (subTraces st) 
       (\t -> modifyTVar (traceData t)
        (\sb -> advanceOne sb (0.1 * sin (realToFrac tDiff * 2 * 3.14))) )
-      
-
 
 defaultRenderer :: [SubTrace] -> IO ()
 defaultRenderer subTs = do
