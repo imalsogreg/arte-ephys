@@ -5,23 +5,27 @@ Find buyable hardware
 ---------------------
 
 - [ ] Backend computer
+- [ ] Visualization computer
+- [ ] Router & some ethernet cables
+- [ ] [Camera](http://www.ptgreystore.com/firefly-mv-03-mp-mono-firewire), [Lens](http://www.ptgreystore.com/fujinon-yv28x28sa-2-hd-vari-focal-lens), and long [cable](http://www.ptgreystore.com/products/212-45-meter-6-pin-to-6-pin-ieee-1394a-cable.aspx)
+- [ ] PCI firewire [adapter card](http://www.ptgreystore.com/ieee-1394a-ohci-pci-host-adapter-3-port-400-mbps-card)
 
 * Two to four PCI slots
 * Intel i7 processor
 * Link to tested motherboards, NI cards
 
-- [ ] Visualization computer
+
 
 * Less strict, just needs a fast processor, nVidia card (need link), and a PCI port.
 
 * We might try some [System76 machines](http://www.system76.com) for this.  Do any meet the specs?
 
-- [ ] Router & some ethernet cables
 
-- [ ] [Camera](http://www.ptgreystore.com/firefly-mv-03-mp-mono-firewire), [Lens](http://www.ptgreystore.com/fujinon-yv28x28sa-2-hd-vari-focal-lens
-), and long [cable](http://www.ptgreystore.com/products/212-45-meter-6-pin-to-6-pin-ieee-1394a-cable.aspx)
 
-- [ ] PCI firewire [adapter card](http://www.ptgreystore.com/ieee-1394a-ohci-pci-host-adapter-3-port-400-mbps-card)
+
+
+
+
 
 
 Hardware to build
