@@ -4,77 +4,77 @@ Installing an ArtE System in a Wilson-Lab recording Room
 Find buyable hardware
 ---------------------
 
-( ) Backend computer
+- [ ] Backend computer
 
 * Two to four PCI slots
 * Intel i7 processor
 * Link to tested motherboards, NI cards
 
-( ) Visualization computer
+- [ ] Visualization computer
 
 * Less strict, just needs a fast processor, nVidia card (need link), and a PCI port.
 
 * We might try some [System76 machines](http://www.system76.com) for this.  Do any meet the specs?
 
-( ) Router & some ethernet cables
+- [ ] Router & some ethernet cables
 
-( ) [Camera](http://www.ptgreystore.com/firefly-mv-03-mp-mono-firewire), [Lens](http://www.ptgreystore.com/fujinon-yv28x28sa-2-hd-vari-focal-lens
+- [ ] [Camera](http://www.ptgreystore.com/firefly-mv-03-mp-mono-firewire), [Lens](http://www.ptgreystore.com/fujinon-yv28x28sa-2-hd-vari-focal-lens
 ), and long [cable](http://www.ptgreystore.com/products/212-45-meter-6-pin-to-6-pin-ieee-1394a-cable.aspx)
 
-( ) PCI firewire [adapter card](http://www.ptgreystore.com/ieee-1394a-ohci-pci-host-adapter-3-port-400-mbps-card)
+- [ ] PCI firewire [adapter card](http://www.ptgreystore.com/ieee-1394a-ohci-pci-host-adapter-3-port-400-mbps-card)
 
 
 Hardware to build
 -----------------
 
-( ) Move old PCB123 Preamp chip to Eagle
+- [ ] Move old PCB123 Preamp chip to Eagle
 
-( ) Add ground plane to preamp
+- [ ] Add ground plane to preamp
 
-( ) Add connector for shared power
+- [ ] Add connector for shared power
 
-( ) Add proper mounts for always-on LED's
+- [ ] Add proper mounts for always-on LED's
 
-( ) Move old PCB123 EIB to Eagle, add two TT's and a ground plane
+- [ ] Move old PCB123 EIB to Eagle, add two TT's and a ground plane
 
-( ) Buy opamp chips, Hirose connectors, LED's for the preamps, assemble.
+- [ ] Buy opamp chips, Hirose connectors, LED's for the preamps, assemble.
 
-( ) 32-tt finewire
+- [ ] 32-tt finewire
 
-( ) Update Stuart's patch-box for 32 TT's.
+- [ ] Update Stuart's patch-box for 32 TT's.
 
-( ) Preamp test chip
+- [ ] Preamp test chip
 
 
 Computer Setup
 --------------
 
-( ) Install CentOS 5 on backend computer
+- [ ] Install CentOS 5 on backend computer
 
-( ) Setup ethernet teathering through vis computer
+- [ ] Setup ethernet teathering through vis computer
 
-( ) Build arte-ephys.googlecode.com code on backend
+- [ ] Build arte-ephys.googlecode.com code on backend
 
-( ) Build arte-ephys.googlecode.com vis. code on vis computer
+- [ ] Build arte-ephys.googlecode.com vis. code on vis computer
 
-( ) Build arte-ephys github code on vis computer and backend,
+- [ ] Build arte-ephys github code on vis computer and backend,
 
 
 Unfinshed necessary features in new arte
 ----------------------------------------
 
-( ) Forward old-arte network spikes to arte
+- [ ] Forward old-arte network spikes to arte
 
-( ) forward old-arte network eeg to arte
+- [ ] forward old-arte network eeg to arte
 
-( ) Move to new common clock
+- [ ] Move to new common clock
 
-( ) Finish old arte tracker enough to get by
+- [ ] Finish old arte tracker enough to get by
 
-( ) Make a rough spike-viewer for adjusting at least
+- [ ] Make a rough spike-viewer for adjusting at least
 
 
 Documentation
 -------------
 
-Take very thorough notes at each step.  Goal is to have a presentable 
+- [ ] Take very thorough notes at each step.  Goal is to have a presentable instruction manual (that gets the history of the development / changes, and looks presentable and easy to follow when everything stabilizes)
