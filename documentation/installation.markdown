@@ -24,25 +24,25 @@ Find buyable hardware
 Hardware to build
 -----------------
 
-- [ ] (Now)    Either get old amps from Rat1 and build another of Stuart's patch-boxes
+- [ ] Now - Either get old amps from Rat1 and build another of Stuart's patch-boxes
 
-- [ ] (Now)    or make our own inamp boards
+- [ ] Now - or make our own inamp boards
 
-- [ ] (Future) Move old PCB123 Preamp chip to Eagle
+- [ ] Future - Move old PCB123 Preamp chip to Eagle
 
-- [ ] (Future) Add ground plane to preamp
+- [ ] Future - Add ground plane to preamp
 
-- [ ] (Future) Add connector for shared power
+- [ ] Future - Add connector for shared power
 
-- [ ] (Future) Add proper mounts for always-on LED's
+- [ ] Future -  Add proper mounts for always-on LED's
 
-- [ ] (Future) Move old PCB123 EIB to Eagle, add two TT's and a ground plane
+- [ ] Future - Move old PCB123 EIB to Eagle, add two TT's and a ground plane
 
-- [ ] (Future) Buy opamp chips, Hirose connectors, LED's for the preamps, assemble.
+- [ ] Future - Buy opamp chips, Hirose connectors, LED's for the preamps, assemble.
 
-- [ ] (Future) 32-tt finewire
+- [ ] Future - 32-tt finewire
 
-- [ ] (Future) Update Stuart's patch-box for 32 TT's.
+- [ ] Future - Update Stuart's patch-box for 32 TT's.
 
 - [ ] Preamp test chip
 
