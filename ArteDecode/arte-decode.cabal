@@ -17,8 +17,9 @@ Maintainer:         imalsogreg@gmail.com
 Cabal-Version:      >= 1.8
 Build-Type:         Simple
 
-executable arteMockSpikes
+executable arteDecode
   Build-Depends:    base,
+                    containers,
                     arte-common,
                     zeromq-haskell,
                     pipes (>= 4.0),
