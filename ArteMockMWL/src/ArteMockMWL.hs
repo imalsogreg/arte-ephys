@@ -69,6 +69,7 @@ queueToNetwork q node = do
       forever $ do
         s <- atomically $ readTQueue q
         ZMQ.send pubSock (S.encode s) []
+        print $ "Sending spike."
 
 pushMWLFileSpikesToQueue :: FilePath -> TQueue TrodeSpike -> IO ()
 pushMWLFileSpikesToQueue fp q = do
@@ -122,7 +123,8 @@ orderClusters queue cFile ttFile = do
     case clusters' of
       Left _         -> return ()
       Right clusts -> atomically . writeTQueue queue $
-                      (ArteMessage 0 "" Nothing (Request $ SetAllClusters trodeName clusts))
+                      (ArteMessage 0 "" Nothing (Request $ TrodeSetAllClusters (read trodeName) clusts))
+  -- TODO: Unsafe use of read!!
 
 main :: IO ()
 main = do
@@ -185,10 +187,8 @@ main = do
                     (relativeTimeCat (\p -> (_posTime p - startExperimentTime opts))) >->
                     pipeToQueue posQ
 -}
+        queueToNetwork spikeQ spikeNode
 
-        print "Spanwed asyncs.  Thread delay 3 secs."
-        threadDelay 3000000
-        print "About to wait for spike Asyncs"
         rs <- mapM waitCatch spikeAsyncs
         print rs
         print "Done waiting"

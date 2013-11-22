@@ -88,8 +88,10 @@ respondTo req outbox = do
         NetPing        -> [ArteMessage tNow nFrom Nothing (Response NetPong)]
         ServerHangup   -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse)]
         ForceQuit      -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse)]
-        SetAllClusters n cs -> [ArteMessage tNow nFrom Nothing (Response EmptyResponse)
-                               , ArteMessage tNow nFrom (Just "decoder") (Request $ SetAllClusters n cs)]
+        TrodeSetAllClusters n cs ->
+          [ArteMessage tNow nFrom Nothing (Response EmptyResponse)
+          , ArteMessage tNow nFrom (Just "decoder") (Request $ TrodeSetAllClusters n cs)
+          ]
         StartAcquisition -> [ArteMessage tNow nFrom Nothing (Request StartAcquisition)]
   mapM_ (\m -> Z.send outbox (encode m) [] >> print ("Sent a message:" ++ (take 40 . show . msgBody $ m))) msgs
   case req of

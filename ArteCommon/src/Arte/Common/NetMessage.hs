@@ -28,7 +28,8 @@ instance Serialize MessageBody
 data NetRequest = NetPing
                 | ServerHangup
                 | ForceQuit
-                | SetAllClusters String (Map.Map Int ClusterMethod)
+                | TrodeSetCluster     TrodeName PlaceCellName ClusterMethod
+                | TrodeSetAllClusters TrodeName (Map.Map PlaceCellName ClusterMethod)
                 | StartAcquisition
                 deriving (Generic,Eq, Show)
 
