@@ -6,6 +6,7 @@ import Data.Ephys.EphysDefs
 import Data.Ephys.Spike
 import Data.Ephys.Cluster
 import Data.Ephys.PlaceCell
+import Data.Ephys.Position
 import Data.Ephys.TrackPosition
 
 import qualified Data.Map as Map
@@ -88,6 +89,15 @@ doRequests queue trodesV track = loop
             Request ForceQuit -> return ()
             _                 -> loop
 
+data DecoderState = DecoderState { _pos          :: TVar Position
+                                 , _trackPos     :: TVar (Field Double)
+                                 , _placeCells   :: Map.Map PlaceCellName PlaceCell
+                                 , _occupancy    :: TVar (Field Double)
+                                 , _lastEstimate :: TVar (Field Double)
+                                 }
+
+
+
 main :: IO ()
 main = do
   masterNode' <- getAppNode "master" Nothing
@@ -101,6 +111,13 @@ main = do
       print "Ok"
 
 
+streamPos :: Node -> DecoderState -> IO ()
+streamPos pNode s = ZMQ.withContext 1 $ \ctx ->
+  ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
+    ZMQ.connect sub $ zmqStr Tcp (pNode^.host.ip) (show $ pNode^.port)
+    ZMQ.subscribe sub ""
+    runEffect $
+      dropResult (pro
 
 enqueueSpikes :: Node -> TQueue TrodeSpike -> IO ()
 enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->

@@ -60,6 +60,10 @@ mockCmd =
           , searchDepth = 0 &= help "Recursion depth for file search"
           }
 
+--TODO Make mockData work on general tracks
+track :: Track
+track = circularTrack (0,0) 0.57 0.5 0.25 0.15
+
 queueToNetwork :: (S.Serialize a) => TQueue a -> Node -> IO ()
 queueToNetwork q node = do
   let portStr = zmqStr Tcp "*" (show $node ^. port)
@@ -109,10 +113,23 @@ dropWhile' p = do
 seekAndWait :: (Show a) => TMVar () -> (a -> Double) -> Double -> P.Pipe a a IO () -> P.Pipe a a IO ()
 seekAndWait goSignal toTime target produce = do
   dropWhile' ((< target) . toTime)
---  PP.chain (\s -> putStrLn $ unwords ["Time:", (show . toTime) s, " Target:",show target])
   lift $ print "Seek and wait ready."
   () <- lift . atomically . readTMVar $ goSignal  -- Block here
   produce
+
+-- TODO: Try this out
+{- dropWhile' + seekAndWait leaks one value out right after pausing for the signal.  To avoid this, maybe:
+seekAndWait :: (Show a) => TMVar () -> (a -> Double) -> Double -> P.Pipe a a IO () -> P.Pipe a a IO ()
+seekAndWait goSignal toTime target produce = do
+  v <- P.await
+  pase p v of
+    True -> seekAndWait p goSignal toTime target produce
+    False -> do
+      () <- lift . atomically . readTMVar $ goSignal -- Block here
+      yield v                                        -- Release the first non-drop value
+      produce                                        -- Continue producing
+
+-}
 
 orderClusters :: TQueue ArteMessage -> FilePath -> FilePath -> IO ()
 orderClusters queue cFile ttFile = do 
@@ -174,24 +191,24 @@ main = do
                 (relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts))) >->
                 pipeToQueue spikeQ
 
-                {-
---        let track = circularTrack (0,0) 0.57 0.5 0.25 0.15
         let p0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
-                 ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
-            sZ = take 15 (repeat 0)
-            ((pX0,pY0),pixPerM,h) = ((166,140),156.6, 0.5)
+                 ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0) --TODO p0 is ConfSure? Test this
+            sZ = take 15 (repeat 0)  --TODO customizable smoothing length, or even pipe-filter?  
+            ((pX0,pY0),pixPerM,h) = ((166,140),156.6, 0.5) :: ((Double,Double),Double,Double) --TODO Right type?
         posF <- BSL.readFile $ head pFiles
         posAsync <- async . P.runEffect $ dropResult (produceMWLPos posF) >->
                     runningPosition (pX0,pY0) pixPerM h p0 >->
                     seekAndWait goSign _posTime (startExperimentTime opts)
                     (relativeTimeCat (\p -> (_posTime p - startExperimentTime opts))) >->
                     pipeToQueue posQ
--}
-        queueToNetwork spikeQ spikeNode
 
-        rs <- mapM waitCatch spikeAsyncs
-        print rs
-        print "Done waiting"
+        queueToNetwork spikeQ spikeNode
+        queueToNetwork posQ   pNode
+
+        _ <- mapM waitCatch spikeAsyncs
+        wait posAsync
+
+        print "Finished spooling data"
 
     _ -> error $ "Problem loading configuration data."
 
