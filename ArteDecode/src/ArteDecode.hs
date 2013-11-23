@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Main where
 
 import Arte.Common.Net
@@ -19,16 +21,6 @@ import qualified System.ZMQ as ZMQ
 import Control.Lens
 import qualified Data.Serialize as S
 
-getAllSpikeNodes :: Maybe FilePath -> IO [Node]
-getAllSpikeNodes configFilePath = 
-  forM  ['A'..'Z'] 
-  (\l -> getAppNode ("spikes" ++ [l]) configFilePath) >>= \nodes' ->
-  return $ rights nodes'
-
-type SpikeHistory = Int -- Placeholder.  Will be more like: KdTree (Vector Voltage) (Field Double)
-
-nullHistory :: SpikeHistory
-nullHistory = 0
 
 newPlaceCell :: Track
              -> TVar Trodes
@@ -96,7 +88,7 @@ data DecoderState = DecoderState { _pos          :: TVar Position
                                  , _lastEstimate :: TVar (Field Double)
                                  }
 
-
+$(makeLenses ''DecoderState)
 
 main :: IO ()
 main = do
@@ -110,15 +102,17 @@ main = do
       mapM wait subAs
       print "Ok"
 
-
 streamPos :: Node -> DecoderState -> IO ()
 streamPos pNode s = ZMQ.withContext 1 $ \ctx ->
   ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
     ZMQ.connect sub $ zmqStr Tcp (pNode^.host.ip) (show $ pNode^.port)
     ZMQ.subscribe sub ""
-    runEffect $
-      dropResult (pro
-
+    forever $ do
+      bs <- ZMQ.receive sub []
+      case S.decode bs of
+        Left  e -> putStrLn $ "Got a bad Position record." ++ e
+        Right p -> atomically $ writeTVar (s^.pos)
+    
 enqueueSpikes :: Node -> TQueue TrodeSpike -> IO ()
 enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
   ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
@@ -129,3 +123,16 @@ enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
       case S.decode bs of
         Right spike -> print "Enqueue" >> (atomically $ writeTQueue queue spike)
         Left  e     -> putStrLn (unwords ["Got a bad value on spike chan.",e])
+
+
+getAllSpikeNodes :: Maybe FilePath -> IO [Node]
+getAllSpikeNodes configFilePath = 
+  forM  ['A'..'Z'] 
+  (\l -> getAppNode ("spikes" ++ [l]) configFilePath) >>= \nodes' ->
+  return $ rights nodes'
+
+-- Placeholder.  Will be more like: KdTree (Vector Voltage) (Field Double)
+type SpikeHistory = Int 
+
+nullHistory :: SpikeHistory
+nullHistory = 0
