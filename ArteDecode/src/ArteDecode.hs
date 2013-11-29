@@ -12,6 +12,7 @@ import Data.Ephys.Position
 import Data.Ephys.TrackPosition
 import Data.Ephys.GlossPictures
 
+import Control.Applicative ((<$>),(<*>),pure)
 import qualified Data.Map as Map
 import Control.Monad
 import Control.Concurrent
@@ -58,41 +59,69 @@ draw ds = do
     where
       fieldPicture' :: Field Double -> Field Double -> Map.Map Int Trode -> Int -> IO Picture
       fieldPicture' dPos occ trs t
-        | t == length (Map.toList trs) = case subDrawInd of
+        | t == length (Map.toList trs) = case ds^.subDrawInd of
           0 -> return $ drawField dPos
           1 -> return $ drawField occ
           _ -> error "subDrawInd should only be 0 or 1"
         | t < length (Map.toList trs) = do
-          let trode = (Map.toList trs) !! t
-          placeCellMap <- readTVarIO . fst $ trode
-          let placeCell = (Map.toList trode) !! (ds ^. subDrawInd)
+          let trode = (Map.elems trs) !! t :: Trode
+          placeCellMap <- readTVarIO (fst trode) :: IO (Map.Map Int PlaceCell)
+          when (ds^.subDrawInd >= Map.size placeCellMap)
+            (error "Bad index into placeCellMap")
+          let placeCell = (Map.elems placeCellMap) !! (ds ^. subDrawInd)
               pf = placeField placeCell occ
-          return . drawField $ pf 
+          return . drawField $ pf
+        | otherwise = error "Bad trode requested"
 
-      
+
+initialState :: IO DecoderState
+initialState = atomically $ do
+  let zeroField = Map.fromList [(tp,0) | tp <- allTrackPos track]
+      p0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0 ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
+      sZ = take 15 (repeat 0)
+  DecoderState <$>
+    newTVar p0 <*>
+    newTVar zeroField <*>
+    newTVar zeroField <*>
+    newTVar zeroField <*>
+    newTVar Map.empty <*>
+    newTVar zeroField <*>
+    pure 0 <*>
+    pure 0
+
 main :: IO ()
 main = do
+  ds <- initialState
   masterNode' <- getAppNode "master" Nothing
+  pNode'      <- getAppNode "pos"    Nothing
   spikeNodes  <- getAllSpikeNodes    Nothing
   incomingSpikes <- atomically $ newTQueue
   case masterNode' of
     Left e -> putStrLn $ "Faulty config file.  Error:" ++ e
-    Right masterNode -> withMaster masterNode $ \(fromMaster,toMaster) -> do
-      subAs <- forM spikeNodes
-               (\sNode -> async $ enqueueSpikes sNode incomingSpikes)
-      mapM wait subAs
-      print "Ok"
+    Right masterNode ->
+      withMaster masterNode $ \(fromMaster,toMaster) -> do
+        subAs <- forM spikeNodes $ \sNode ->
+          async $ enqueueSpikes sNode incomingSpikes
+        case pNode' of
+          Left e -> error $ "No pos node: " ++ e
+          Right pNode -> do
+            subP <- async $ streamPos pNode ds
+            mapM_ wait subAs
+            wait subP 
+            print "Past wait subAs"
 
 handleRequests :: TQueue ArteMessage -> DecoderState -> Track -> IO ()
 handleRequests queue ds track = loop
   where loop = do
           trodesV <- atomically $ readTVar (ds^.trodes) 
-          (ArteMessage t nFrom nTo mBody) <- atomically $ readTQueue queue
+          (ArteMessage t nFrom nTo mBody) <- atomically $
+                                             readTQueue queue
           case mBody of
             Request (TrodeSetCluster tName cName cMethod) ->
-              setTrodeCluster track trodesV tName cName cMethod
+              setTrodeCluster track ds tName cName cMethod
             Request (TrodeSetAllClusters tName clusts) ->
-              mapM_ (\(cName, cMethod) -> setTrodeCluster track trodesV tName cName cMethod)
+              mapM_ (\(cName, cMethod) ->
+                      setTrodeCluster track ds tName cName cMethod)
               (Map.toList clusts)
             Request  r ->
               putStrLn $ unwords ["Caught and ignored request:" ,(take 20 . show $ r),"..."]
