@@ -10,6 +10,7 @@ import Data.Ephys.Cluster
 import Data.Ephys.PlaceCell
 import Data.Ephys.Position
 import Data.Ephys.TrackPosition
+import Data.Ephys.GlossPictures
 
 import qualified Data.Map as Map
 import Control.Monad
@@ -21,16 +22,13 @@ import qualified System.ZMQ as ZMQ
 import Control.Lens
 import qualified Data.Serialize as S
 import qualified Data.Text as Text
-
-
+import Graphics.Gloss
 
 -- Placeholder.  Will be more like: KdTree (Vector Voltage) (Field Double)
 type SpikeHistory = Int 
 
 nullHistory :: SpikeHistory
 nullHistory = 0
-
-
 
 type Trode = (TVar (Map.Map Int PlaceCell), TVar SpikeHistory)
 
@@ -39,11 +37,39 @@ data DecoderState = DecoderState { _pos          :: TVar Position
                                  , _occupancy    :: TVar (Field Double)
                                  , _lastEstimate :: TVar (Field Double)
                                  , _trodes       :: TVar (Map.Map TrodeName Trode)
+                                 , _decodedPos   :: TVar (Field Double)
+                                 , _trodeDrawInd :: Int
+                                 , _subDrawInd   :: Int
                                  }
 
 $(makeLenses ''DecoderState)
 
+draw :: DecoderState -> IO Picture
+draw ds = do
+  pos  <-  readTVarIO $ ds^.pos
+  occ  <- readTVarIO  $  ds^.occupancy
+  trs  <- readTVarIO $ ds^.trodes
+  dPos <- readTVarIO $ ds^. decodedPos
+  let trackPicture = drawTrack track
+      posPicture = drawPos pos
+      t = ds^.trodeDrawInd
+  fieldPicture <- fieldPicture' dPos occ trs t
+  return $ pictures [trackPicture,fieldPicture,posPicture]
+    where
+      fieldPicture' :: Field Double -> Field Double -> Map.Map Int Trode -> Int -> IO Picture
+      fieldPicture' dPos occ trs t
+        | t == length (Map.toList trs) = case subDrawInd of
+          0 -> return $ drawField dPos
+          1 -> return $ drawField occ
+          _ -> error "subDrawInd should only be 0 or 1"
+        | t < length (Map.toList trs) = do
+          let trode = (Map.toList trs) !! t
+          placeCellMap <- readTVarIO . fst $ trode
+          let placeCell = (Map.toList trode) !! (ds ^. subDrawInd)
+              pf = placeField placeCell occ
+          return . drawField $ pf 
 
+      
 main :: IO ()
 main = do
   masterNode' <- getAppNode "master" Nothing
