@@ -24,6 +24,7 @@ import Control.Lens
 import qualified Data.Serialize as S
 import qualified Data.Text as Text
 import Graphics.Gloss
+import Graphics.Gloss.Interface.IO.Game
 
 -- Placeholder.  Will be more like: KdTree (Vector Voltage) (Field Double)
 type SpikeHistory = Int 
@@ -45,6 +46,7 @@ data DecoderState = DecoderState { _pos          :: TVar Position
 
 $(makeLenses ''DecoderState)
 
+--TODO: This is also pretty bad
 draw :: DecoderState -> IO Picture
 draw ds = do
   pos  <-  readTVarIO $ ds^.pos
@@ -106,9 +108,58 @@ main = do
           Left e -> error $ "No pos node: " ++ e
           Right pNode -> do
             subP <- async $ streamPos pNode ds
+            playIO (InWindow "ArteDecoder" (500,400) (10,10))
+              white 30 ds draw inputsIO stepIO 
             mapM_ wait subAs
             wait subP 
             print "Past wait subAs"
+
+inputsIO :: Event -> DecoderState -> IO DecoderState
+inputsIO e ds =
+  case e of
+    EventMotion _ -> return ds
+    EventKey (SpecialKey KeyDown) Down _ _ ->
+      trodeIndAdvance ds 1
+    EventKey (SpecialKey KeyUp) Down _ _ ->
+      trodeIndAdvance ds (-1)
+    EventKey (SpecialKey KeyRight) Down _ _  ->
+      trodeSubAdvance ds 1
+    EventKey (SpecialKey KeyLeft) Down _ _ ->
+      trodeSubAdvance ds (-1)
+    EventKey k Down _ _ ->
+      putStrLn ("Ignoring keypress " ++ show k) >> return ds
+    e -> putStrLn ("Ignoring event " ++ show e) >> return ds
+
+stepIO :: Float -> DecoderState -> IO DecoderState
+stepIO _ = return
+
+trodeIndAdvance :: DecoderState -> Int -> IO DecoderState
+trodeIndAdvance ds i = do
+  trodeMap <- readTVarIO (ds^.trodes)
+  let n = Map.size trodeMap
+      i' = ds^.trodeDrawInd + i `mod` (n+1)
+  print $ "setting ind to " ++ show i'
+  return ds {_trodeDrawInd = i'
+            ,_subDrawInd = 0 }
+
+trodeSubAdvance :: DecoderState -> Int -> IO DecoderState
+trodeSubAdvance ds i = do
+  trodeMap <- readTVarIO (ds^.trodes)
+  let nTrodes = (Map.size trodeMap)
+  print nTrodes
+  print i
+  let i' = if (ds^.subDrawInd) == nTrodes
+           then (return $ (ds^.subDrawInd + i) `mod` 1)
+           else (do
+                    let trode =
+                          (Map.elems trodeMap) !!
+                          (ds^.trodeDrawInd)
+                    placeCellMap <- readTVarIO $ fst trode
+                    let n = Map.size placeCellMap
+                    return $ (ds^.subDrawInd + 1) `mod` n)
+  i'' <- i' 
+  putStrLn $ "Set subInd to " ++ show i''
+  return $ ds { _subDrawInd = i'' }
 
 handleRequests :: TQueue ArteMessage -> DecoderState -> Track -> IO ()
 handleRequests queue ds track = loop

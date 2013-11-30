@@ -73,7 +73,7 @@ queueToNetwork q node = do
       forever $ do
         s <- atomically $ readTQueue q
         ZMQ.send pubSock (S.encode s) []
-        print $ "Sending spike."
+--        print $ "Sending spike."
 
 pushMWLFileSpikesToQueue :: FilePath -> TQueue TrodeSpike -> IO ()
 pushMWLFileSpikesToQueue fp q = do
