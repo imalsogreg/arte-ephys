@@ -48,24 +48,95 @@ $(makeLenses ''DecodableUnit)
 
 type NotClusts = Int  -- A placeholder, will be more like WeightedKdTree
 
-data DecodableTrode s = DecodableTrode { _dtNonClusts :: NotClusts
-                                       , _dtTauN      :: [s]
-                                       } deriving (Eq, Show)
+data DecodableTrode = DecodableTrode { _dtNonClusts :: NotClusts
+                                     , _dtTauN      :: [TrodeSpike]
+                                     } deriving (Eq, Show)
 
-data Trode s = Clusterless
-               (DecodableTrode s)
-             | Clustered
-               (Map.Map PlaceCellName DecodableUnit)
+data Trodes = Clusterless (Map.Map TrodeName (TVar DecodableTrode))
+            | Clustered
+             (Map.Map TrodeName DecodableUnit)
+
+type PlaceCellTrodes = Map.Map PlaceCellName (TVar DecodableUnit)
+
+data TrodeDrawOption = DrawPlaceCell TrodeName PlaceCellName
+                     | DrawClusterless (Maybe TrodeName)
+                     | DrawOccupancy
+                     | DrawDecoding
+
+{-
+trodeLists :: Trodes -> Either [TrodeName] [[(TrodeName,PlaceCellName)]]
+trodeLists (Clusterless tMap) = Map.keys tMap
+trodeLists (Clustered   tMap) = map (\(tn,t) -> [(tn,pcn)|pcn <- Map.keys t ])
+                                Map.toList tMap
+-}
+
+trodeNames :: Trodes -> [TrodeName]
+trodeNames (Clusterless tMap) = Map.keys tMap
+trodeNames (Clustered   tMap) = Prelude.map fst $ Map.keys tMap
+
+cellNames :: Trodes -> TrodeName -> Maybe [PlaceCellName]
+cellNames trodes tName = Map.keys `fmap` Map.lookup tName trodes
+
+nextTrode :: Trodes -> TrodeDrawOption -> Bool -> TrodeDrawOption
+nextTrode trodes opt revFlag = case opt of
+  DrawDecoding  = DrawPlaceCell trode0 cell0
+  DrawOccupancy = DrawDecoding
+  DrawPlaceCell tName cName 
+    | tName == last (trodeNames trodes) = undefined
+    | otherwise = case tName' of
+    Just tName -> head . drop 1 . dropWhile (/= tName) $
+                  (trodeNames trodes)
+
+prevTrode :: Either [TrodeName] [[(TrodeName,PlaceCellName)]] ->
+             Maybe TrodeName -> Maybe TrodeName
+prevTrode trodes tName'
+  | tName' == Nothing              = last (trodeNames trodes)
+  | tName' == (Just $ head (trodeNames trodes)) = Nothing
+  | otherwise                      =
+    head [n | n <- (trodeNames trodes),
+          nextTrode trodes (Just n) == tName']
+
+nextCell :: Trodes -> TrodeDrawOption -> Bool -> TrodeDrawOption
+nextCell (Clusterless _) = id 
+nextCell trodes opt revFlag = case opt of
+  DrawOccupancy -> opt
+  DrawDecoding  -> opt
+  DrawPlaceCell tName cName ->
+    let rFun = if revFlag then reverse else id in
+    let cName' = case cellNames trodes of
+          Nothing -> opt
+          Just cNames -> case dropWhile (/= cName) (rFun cNames) of
+            []   -> head cellNames
+            a:[] -> head cellNames
+            a:bs -> head bs
+    in DrawPlaceCell tName cName'
+            
+  
+
+stepDrawOpt :: Trodes ->
+               SpecialKey -> TrodeDrawOption -> TrodeDrawOption
+stepDrawOpt tMap k DrawOccupancy
+  | k == KeyRight = DrawDecoding
+  | k == KeyLeft  = DrawPlaceCell (Just $ last (trodeNames tMap)) Nothing
+  | otherwise     = DrawOccupancy
+stepDrawOpt tMap k DrawDecoding
+  | k == KeyRight = DrawPlaceCell (Just $ head (trodeNames tMap)) Nothing
+  | k == KeyLeft  = DrawOccupancy
+  | otherwise     = DrawDecoding
+stepDrawOpt tMap k opt@(DrawPlaceCell tName' pcName')
+  | k == KeyRight = maybe DrawOccupancy (\a -> DrawPlaceCell a Nothing) (nextTrode $ trodeLists tMap tName')
+  | k == KeyLeft = maybe DrawDecoding (\a -> DrawPlaceCell a Nothing) (nextTrode $ trodeLists tMap tName')
+  | k == KeyDown = maybe (\p -> DrawPlaceCell tName' p) (nextCell trodeLists tMap tName' pcName')
+  | k == KeyUp  = maybe (\p -> DrawPlaceCell tName' p) (prevCell trodeLists tMap tName' pcName')
 
 
 data DecoderState = DecoderState { _pos          :: TVar Position
                                  , _trackPos     :: TVar (Field Double)
                                  , _occupancy    :: TVar (Field Double)
-                                 , _lastEstimate :: TVar (Field Double)
-                                 , _trodes       :: TVar (Map.Map TrodeName Trode)
+                                 , _lastEstimate :: TVar (Field Double) --unused?
+                                 , _trodes       :: Trodes
                                  , _decodedPos   :: TVar (Field Double)
-                                 , _trodeDrawInd :: Int
-                                 , _subDrawInd   :: Int
+                                 , _trodeDrawOpt :: TrodeDrawOption
                                  }
 
 $(makeLenses ''DecoderState)
@@ -79,7 +150,7 @@ draw ds = do
   dPos <- readTVarIO $ ds^. decodedPos
   let trackPicture = drawTrack track
       posPicture = drawPos pos
-      t = ds^.trodeDrawInd
+      t = ds^.trodeDrawOpt
   fieldPicture <- fieldPicture' dPos occ trs t
   return $ pictures [trackPicture,fieldPicture,posPicture]
     where
