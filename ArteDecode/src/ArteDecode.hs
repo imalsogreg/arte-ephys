@@ -2,6 +2,10 @@
 
 module Main where
 
+import DecoderState
+import DecoderDefs
+import DrawingHelpers
+
 import Arte.Common.Net
 import Arte.Common.NetMessage
 import Data.Ephys.EphysDefs
@@ -25,6 +29,7 @@ import qualified Data.Serialize as S
 import qualified Data.Text as Text
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
+import qualified Data.CircularList as CL
 
 ----------------------------------------
 -- TODO: There is way too much STM here
@@ -35,156 +40,36 @@ import Graphics.Gloss.Interface.IO.Game
 -- here...
 ---------------------------------------
 
--- Placeholder.  Will be more like: KdTree (Vector Voltage) (Field Double)
-type SpikeHistory = Int 
-
-nullHistory :: SpikeHistory
-nullHistory = 0
-
-data DecodableUnit = DecodableUnit { _dpCell     :: PlaceCell
-                                   , _dpCellTauN  :: Int
-                             } deriving (Eq, Show)
-$(makeLenses ''DecodableUnit)
-
-type NotClusts = Int  -- A placeholder, will be more like WeightedKdTree
-
-data DecodableTrode = DecodableTrode { _dtNonClusts :: NotClusts
-                                     , _dtTauN      :: [TrodeSpike]
-                                     } deriving (Eq, Show)
-
-data Trodes = Clusterless (Map.Map TrodeName (TVar DecodableTrode))
-            | Clustered
-             (Map.Map TrodeName DecodableUnit)
-
-type PlaceCellTrodes = Map.Map PlaceCellName (TVar DecodableUnit)
-
-data TrodeDrawOption = DrawPlaceCell TrodeName PlaceCellName
-                     | DrawClusterless (Maybe TrodeName)
-                     | DrawOccupancy
-                     | DrawDecoding
-
-{-
-trodeLists :: Trodes -> Either [TrodeName] [[(TrodeName,PlaceCellName)]]
-trodeLists (Clusterless tMap) = Map.keys tMap
-trodeLists (Clustered   tMap) = map (\(tn,t) -> [(tn,pcn)|pcn <- Map.keys t ])
-                                Map.toList tMap
--}
-
-trodeNames :: Trodes -> [TrodeName]
-trodeNames (Clusterless tMap) = Map.keys tMap
-trodeNames (Clustered   tMap) = Prelude.map fst $ Map.keys tMap
-
-cellNames :: Trodes -> TrodeName -> Maybe [PlaceCellName]
-cellNames trodes tName = Map.keys `fmap` Map.lookup tName trodes
-
-nextTrode :: Trodes -> TrodeDrawOption -> Bool -> TrodeDrawOption
-nextTrode trodes opt revFlag = case opt of
-  DrawDecoding  = DrawPlaceCell trode0 cell0
-  DrawOccupancy = DrawDecoding
-  DrawPlaceCell tName cName 
-    | tName == last (trodeNames trodes) = undefined
-    | otherwise = case tName' of
-    Just tName -> head . drop 1 . dropWhile (/= tName) $
-                  (trodeNames trodes)
-
-prevTrode :: Either [TrodeName] [[(TrodeName,PlaceCellName)]] ->
-             Maybe TrodeName -> Maybe TrodeName
-prevTrode trodes tName'
-  | tName' == Nothing              = last (trodeNames trodes)
-  | tName' == (Just $ head (trodeNames trodes)) = Nothing
-  | otherwise                      =
-    head [n | n <- (trodeNames trodes),
-          nextTrode trodes (Just n) == tName']
-
-nextCell :: Trodes -> TrodeDrawOption -> Bool -> TrodeDrawOption
-nextCell (Clusterless _) = id 
-nextCell trodes opt revFlag = case opt of
-  DrawOccupancy -> opt
-  DrawDecoding  -> opt
-  DrawPlaceCell tName cName ->
-    let rFun = if revFlag then reverse else id in
-    let cName' = case cellNames trodes of
-          Nothing -> opt
-          Just cNames -> case dropWhile (/= cName) (rFun cNames) of
-            []   -> head cellNames
-            a:[] -> head cellNames
-            a:bs -> head bs
-    in DrawPlaceCell tName cName'
-            
-  
-
-stepDrawOpt :: Trodes ->
-               SpecialKey -> TrodeDrawOption -> TrodeDrawOption
-stepDrawOpt tMap k DrawOccupancy
-  | k == KeyRight = DrawDecoding
-  | k == KeyLeft  = DrawPlaceCell (Just $ last (trodeNames tMap)) Nothing
-  | otherwise     = DrawOccupancy
-stepDrawOpt tMap k DrawDecoding
-  | k == KeyRight = DrawPlaceCell (Just $ head (trodeNames tMap)) Nothing
-  | k == KeyLeft  = DrawOccupancy
-  | otherwise     = DrawDecoding
-stepDrawOpt tMap k opt@(DrawPlaceCell tName' pcName')
-  | k == KeyRight = maybe DrawOccupancy (\a -> DrawPlaceCell a Nothing) (nextTrode $ trodeLists tMap tName')
-  | k == KeyLeft = maybe DrawDecoding (\a -> DrawPlaceCell a Nothing) (nextTrode $ trodeLists tMap tName')
-  | k == KeyDown = maybe (\p -> DrawPlaceCell tName' p) (nextCell trodeLists tMap tName' pcName')
-  | k == KeyUp  = maybe (\p -> DrawPlaceCell tName' p) (prevCell trodeLists tMap tName' pcName')
-
-
-data DecoderState = DecoderState { _pos          :: TVar Position
-                                 , _trackPos     :: TVar (Field Double)
-                                 , _occupancy    :: TVar (Field Double)
-                                 , _lastEstimate :: TVar (Field Double) --unused?
-                                 , _trodes       :: Trodes
-                                 , _decodedPos   :: TVar (Field Double)
-                                 , _trodeDrawOpt :: TrodeDrawOption
-                                 }
-
-$(makeLenses ''DecoderState)
-
---TODO: This is also pretty bad
 draw :: DecoderState -> IO Picture
 draw ds = do
-  pos  <-  readTVarIO $ ds^.pos
-  occ  <- readTVarIO  $  ds^.occupancy
-  trs  <- readTVarIO $ ds^.trodes
+  pos  <- readTVarIO $ ds^.pos
+  occ  <- readTVarIO $ ds^.occupancy
   dPos <- readTVarIO $ ds^. decodedPos
-  let trackPicture = drawTrack track
+  let trs = ds^.trodes
+      trackPicture = drawTrack track
       posPicture = drawPos pos
-      t = ds^.trodeDrawOpt
-  fieldPicture <- fieldPicture' dPos occ trs t
-  return $ pictures [trackPicture,fieldPicture,posPicture]
-    where
-      fieldPicture' :: Field Double -> Field Double -> Map.Map Int Trode -> Int -> IO Picture
-      fieldPicture' dPos occ trs t
-        | t == length (Map.toList trs) = case ds^.subDrawInd of
-          0 -> return $ drawField dPos
-          1 -> return $ drawField occ
-          _ -> error "subDrawInd should only be 0 or 1"
-        | t < length (Map.toList trs) = do
-          let trode = (Map.elems trs) !! t :: Trode
-          placeCellMap <- readTVarIO (fst trode) :: IO (Map.Map Int PlaceCell)
-          when (ds^.subDrawInd >= Map.size placeCellMap)
-            (error "Bad index into placeCellMap")
-          let placeCell = (Map.elems placeCellMap) !! (ds ^. subDrawInd)
-              pf = placeField placeCell occ
-          return . drawField $ pf
-        | otherwise = error "Bad trode requested"
-
-
-initialState :: IO DecoderState
-initialState = atomically $ do
-  let zeroField = Map.fromList [(tp,0) | tp <- allTrackPos track]
-      p0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0 ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
-      sZ = take 15 (repeat 0)
-  DecoderState <$>
-    newTVar p0 <*>
-    newTVar zeroField <*>
-    newTVar zeroField <*>
-    newTVar zeroField <*>
-    newTVar Map.empty <*>
-    newTVar zeroField <*>
-    pure 0 <*>
-    pure 0
+      drawOpt :: TrodeDrawOption
+      drawOpt = case CL.focus `fmap` CL.focus (ds^.trodeDrawOpt) of
+        Nothing  -> DrawError "CList error"
+        Just (Just opt) -> opt -- weird. I expected fmap to give Just TOpt
+  case (ds^.trodes, drawOpt) of
+    (_,DrawOccupancy) -> return $ drawField occ
+    (_,DrawDecoding)  -> return $ drawField dPos
+    (Clustered tMap, DrawPlaceCell tName cName) ->
+      case Map.lookup cName <$> Map.lookup tName tMap of
+        Nothing -> return . scale 0.5 0.5 . Text $
+                   unwords ["Trode", show tName
+                           , " cell", show cName
+                           , "not found."]
+        Just (Just dUnit') -> do -- weird
+          dUnit <- readTVarIO dUnit'
+          return . drawField $
+            placeField (dUnit^.dpCell) occ 
+    (Clusterless tMap, DrawClusterless tName) ->
+      return $ scale 0.5 0.5 $ Text "Clusterless Draw not implemented"
+    _ -> do
+      print "Tried to mix clusterless/clustered decoding/drawing"
+      return $ scale 0.5 0.5 $ Text "Mixed clusterless/clustered"
 
 main :: IO ()
 main = do
@@ -204,57 +89,22 @@ main = do
           Right pNode -> do
             subP <- async $ streamPos pNode ds
             playIO (InWindow "ArteDecoder" (500,400) (10,10))
-              white 30 ds draw inputsIO stepIO 
+              white 30 ds draw glossInputs stepIO 
             mapM_ wait subAs
             wait subP 
             print "Past wait subAs"
 
-inputsIO :: Event -> DecoderState -> IO DecoderState
-inputsIO e ds =
+glossInputs :: Event -> DecoderState -> IO DecoderState
+glossInputs e ds =
   case e of
     EventMotion _ -> return ds
-    EventKey (SpecialKey KeyDown) Down _ _ ->
-      trodeIndAdvance ds 1
-    EventKey (SpecialKey KeyUp) Down _ _ ->
-      trodeIndAdvance ds (-1)
-    EventKey (SpecialKey KeyRight) Down _ _  ->
-      trodeSubAdvance ds 1
-    EventKey (SpecialKey KeyLeft) Down _ _ ->
-      trodeSubAdvance ds (-1)
-    EventKey k Down _ _ ->
-      putStrLn ("Ignoring keypress " ++ show k) >> return ds
+    EventKey (SpecialKey k) Up _ _ ->
+      return $ ds & over trodeDrawOpt (stepDrawOpt k)
+    EventKey _ Down _ _ -> return ds
     e -> putStrLn ("Ignoring event " ++ show e) >> return ds
 
 stepIO :: Float -> DecoderState -> IO DecoderState
 stepIO _ = return
-
-trodeIndAdvance :: DecoderState -> Int -> IO DecoderState
-trodeIndAdvance ds i = do
-  trodeMap <- readTVarIO (ds^.trodes)
-  let n = Map.size trodeMap
-      i' = ds^.trodeDrawInd + i `mod` (n+1)
-  print $ "setting ind to " ++ show i'
-  return ds {_trodeDrawInd = i'
-            ,_subDrawInd = 0 }
-
-trodeSubAdvance :: DecoderState -> Int -> IO DecoderState
-trodeSubAdvance ds i = do
-  trodeMap <- readTVarIO (ds^.trodes)
-  let nTrodes = (Map.size trodeMap)
-  print nTrodes
-  print i
-  let i' = if (ds^.subDrawInd) == nTrodes
-           then (return $ (ds^.subDrawInd + i) `mod` 1)
-           else (do
-                    let trode =
-                          (Map.elems trodeMap) !!
-                          (ds^.trodeDrawInd)
-                    placeCellMap <- readTVarIO $ fst trode
-                    let n = Map.size placeCellMap
-                    return $ (ds^.subDrawInd + 1) `mod` n)
-  i'' <- i' 
-  putStrLn $ "Set subInd to " ++ show i''
-  return $ ds { _subDrawInd = i'' }
 
 handleRequests :: TQueue ArteMessage -> DecoderState -> Track -> IO ()
 handleRequests queue ds track = loop
@@ -290,15 +140,7 @@ streamPos pNode s = ZMQ.withContext 1 $ \ctx ->
           atomically $ writeTVar (s^.pos) p
           atomically $ writeTVar (s^.trackPos) (posToField track p kernel)
 
--- TODO: Make decode general on tracks and kernels.  
-track :: Track
-track = circularTrack (0,0) 0.57 0.5 0.25 0.15
-kernel :: PosKernel
-kernel  = PosGaussian 0.2
-
--- type Trode = (TVar (Map Int PlaceCell), TVar SpikeHistory)
-
-fanoutSpikeToCells :: DecoderState -> Trode -> TrodeSpike -> IO ()
+fanoutSpikeToCells :: DecoderState -> PlaceCellTrode -> TrodeSpike -> IO ()
 fanoutSpikeToCells ds t s = do
 --  clustMap <- readTVarIO . fst $ t
   posF     <- readTVarIO (ds^.trackPos)

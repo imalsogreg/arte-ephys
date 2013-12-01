@@ -37,6 +37,7 @@ executable arteDecode
                     lens,
                     async,
                     gloss,
-                    vector
+                    vector,
+                    data-clist
   Main-Is:          ArteDecode.hs
   hs-source-dirs:   src
