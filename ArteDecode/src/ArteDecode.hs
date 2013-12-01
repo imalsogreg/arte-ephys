@@ -26,13 +26,37 @@ import qualified Data.Text as Text
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 
+----------------------------------------
+-- TODO: There is way too much STM here
+-- UI timing here is handled by gloss,
+-- So decoderState top-level fields
+-- probably don't need to be in TVars.
+-- Also ought to be using lens right
+-- here...
+---------------------------------------
+
 -- Placeholder.  Will be more like: KdTree (Vector Voltage) (Field Double)
 type SpikeHistory = Int 
 
 nullHistory :: SpikeHistory
 nullHistory = 0
 
-type Trode = (TVar (Map.Map Int PlaceCell), TVar SpikeHistory)
+data DecodableUnit = DecodableUnit { _dpCell     :: PlaceCell
+                                   , _dpCellTauN  :: Int
+                             } deriving (Eq, Show)
+$(makeLenses ''DecodableUnit)
+
+type NotClusts = Int  -- A placeholder, will be more like WeightedKdTree
+
+data DecodableTrode s = DecodableTrode { _dtNonClusts :: NotClusts
+                                       , _dtTauN      :: [s]
+                                       } deriving (Eq, Show)
+
+data Trode s = Clusterless
+               (DecodableTrode s)
+             | Clustered
+               (Map.Map PlaceCellName DecodableUnit)
+
 
 data DecoderState = DecoderState { _pos          :: TVar Position
                                  , _trackPos     :: TVar (Field Double)

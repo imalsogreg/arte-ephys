@@ -36,6 +36,7 @@ executable arteDecode
                     cereal,
                     lens,
                     async,
-                    gloss
+                    gloss,
+                    vector
   Main-Is:          ArteDecode.hs
   hs-source-dirs:   src
