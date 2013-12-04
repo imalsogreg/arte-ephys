@@ -38,6 +38,7 @@ executable arteDecode
                     async,
                     gloss,
                     vector,
-                    data-clist
+                    data-clist,
+                    mtl
   Main-Is:          ArteDecode.hs
   hs-source-dirs:   src

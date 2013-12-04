@@ -3,6 +3,7 @@ module DrawingHelpers where
 import DecoderDefs
 import Data.Ephys.EphysDefs
 
+import Control.Lens
 import qualified Data.Map as Map
 import qualified Data.CircularList as CL
 import Graphics.Gloss.Interface.IO.Game
@@ -23,7 +24,7 @@ clistTrodes (Clustered tMap) =
     where
       clistTrode :: (TrodeName,PlaceCellTrode) -> CL.CList TrodeDrawOption
       clistTrode (tName,cMap) =
-        CL.fromList [DrawPlaceCell tName cName | cName <- Map.keys cMap]
+        CL.fromList [DrawPlaceCell tName cName | cName <- Map.keys (cMap^.dUnits)]
 clistTrodes (Clusterless tMap) =
   CL.fromList $ map clistTrode (Map.keys tMap)
     where

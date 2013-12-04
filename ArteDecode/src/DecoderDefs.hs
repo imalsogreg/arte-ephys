@@ -16,19 +16,26 @@ type SpikeHistory = Int
 nullHistory :: SpikeHistory
 nullHistory = 0
 
-data DecodableUnit = DecodableUnit { _dpCell     :: PlaceCell
-                                   , _dpCellTauN :: Int
-                             } deriving (Eq, Show)
-$(makeLenses ''DecodableUnit)
+data DecodablePlaceCell = DecodablePlaceCell { _dpCell     :: PlaceCell
+                                             , _dpCellTauN :: Int
+                                             } deriving (Eq, Show)
+$(makeLenses ''DecodablePlaceCell)
 
-type PlaceCellTrode = Map.Map PlaceCellName (TVar DecodableUnit)
+data PlaceCellTrode = PlaceCellTrode {
+    _dUnits :: Map.Map PlaceCellName (TVar DecodablePlaceCell) 
+  , _pcTrodeHistory :: SpikeHistory
+  } deriving (Eq)
+             
+$(makeLenses ''PlaceCellTrode)
 
-type NotClusts = Int  -- A placeholder, will be more like WeightedKdTree
+type NotClusts = [Int]  -- A placeholder, will be more like WeightedKdTree
 
-data DecodableTrode = DecodableTrode { _dtNonClusts :: NotClusts
-                                     , _dtTauN      :: [TrodeSpike]
-                                     } deriving (Eq, Show)
+data ClusterlessTrode = ClusterlessTrode { _dtNonClusts :: NotClusts
+                                         , _dtTauN      :: [TrodeSpike]
+                                         } deriving (Eq, Show)
 
-data Trodes = Clusterless (Map.Map TrodeName (TVar DecodableTrode))
-            | Clustered
-             (Map.Map TrodeName PlaceCellTrode)
+data Trodes = Clusterless (Map.Map TrodeName (TVar ClusterlessTrode))
+            | Clustered   (Map.Map TrodeName PlaceCellTrode)
+
+$(makeLenses ''Trodes)
+$(makePrisms ''Trodes)

@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, NoMonomorphismRestriction #-}
 
 module Main where
 
@@ -17,7 +17,9 @@ import Data.Ephys.TrackPosition
 import Data.Ephys.GlossPictures
 
 import Control.Applicative ((<$>),(<*>),pure)
+import qualified Data.Traversable as T 
 import qualified Data.Map as Map
+import Data.Map
 import Control.Monad
 import Control.Concurrent
 import Control.Concurrent.Async
@@ -30,6 +32,8 @@ import qualified Data.Text as Text
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 import qualified Data.CircularList as CL
+import Control.Monad.State.Strict
+import Data.Monoid ((<>))
 
 ----------------------------------------
 -- TODO: There is way too much STM here
@@ -56,7 +60,7 @@ draw ds = do
     (_,DrawOccupancy) -> return $ drawField occ
     (_,DrawDecoding)  -> return $ drawField dPos
     (Clustered tMap, DrawPlaceCell tName cName) ->
-      case Map.lookup cName <$> Map.lookup tName tMap of
+      case Map.lookup cName <$> Map.lookup tName tMap of 
         Nothing -> return . scale 0.5 0.5 . Text $
                    unwords ["Trode", show tName
                            , " cell", show cName
@@ -99,7 +103,7 @@ glossInputs e ds =
   case e of
     EventMotion _ -> return ds
     EventKey (SpecialKey k) Up _ _ ->
-      return $ ds & over trodeDrawOpt (stepDrawOpt k)
+      return $ ds & trodeDrawOpt %~ (stepDrawOpt k)
     EventKey _ Down _ _ -> return ds
     e -> putStrLn ("Ignoring event " ++ show e) >> return ds
 
@@ -140,33 +144,36 @@ streamPos pNode s = ZMQ.withContext 1 $ \ctx ->
           atomically $ writeTVar (s^.pos) p
           atomically $ writeTVar (s^.trackPos) (posToField track p kernel)
 
-fanoutSpikeToCells :: DecoderState -> PlaceCellTrode -> TrodeSpike -> IO ()
-fanoutSpikeToCells ds t s = do
---  clustMap <- readTVarIO . fst $ t
-  posF     <- readTVarIO (ds^.trackPos)
-  sHistory <- readTVarIO (snd t)
-  -- apply stepField to every place cell, b/c this
-  -- the stepField function checks if spike is in cluster
-  atomically $ modifyTVar (fst t)
-    (Map.map (\pc -> stepField pc posF s) )
-
-
-fanoutSpikesToTrodes :: DecoderState -> TQueue TrodeSpike -> IO ()
+fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
+                      Field Double -> TrodeSpike -> IO ()
+fanoutSpikeToCells ds trodeName trode pos spike = do
+  _ <- T.mapM (\dpc' -> atomically $ do 
+             DecodablePlaceCell pc tauN <- readTVar dpc'
+             let f = if spikeInCluster (pc^.cluster) spike then (+1) else (+0)
+             writeTVar dpc' $ DecodablePlaceCell
+               (stepField (pc) pos spike)
+               (f tauN))
+       (trode^.dUnits)
+  return ()
+  
+fanoutSpikesToTrodes :: DecoderState -> TQueue TrodeSpike -> IO DecoderState
 fanoutSpikesToTrodes ds sQueue = forever $ do
-  (t,s) <- atomically $  do
-    ts <- readTVar (ds^.trodes)
-    s <- readTQueue sQueue
+    s <- atomically $ readTQueue sQueue
+    let sName = read . Text.unpack . spikeTrodeName $ s
     -- TODO TrodeName is Int, but in TrodeSpike it's Text ..
-    return (Map.lookup (read . Text.unpack . spikeTrodeName $ s) ts, s)
-  case (t,s) of
-    (Nothing,_) -> return () -- drop the spike
-    (Just  t,s) -> do
-      atomically $ modifyTVar (snd t) (stepSpikeHistory s)
-      fanoutSpikeToCells ds t s
+--    let trodeLookup = \aSpike aMap -> Map.lookup (read. Text.unpack . spikeTrodeName $ s) aMap 
+    case ds^.trodes of
+      Clustered tMap -> case Map.lookup sName tMap of
+        Nothing    -> print "Orphan spike" >> return ds
+        Just trode -> do
+          p <- readTVarIO (ds^.trackPos)
+          ds' <- fanoutSpikeToCells ds sName trode p s
+          return $ ds & trodes . _Clustered . ix sName . pcTrodeHistory %~ (<> 1)
+      Clusterless tMap -> error "unimplemented" -- TODO
 
 stepSpikeHistory :: TrodeSpike -> SpikeHistory -> SpikeHistory
 stepSpikeHistory s sHist = sHist + 1 -- TODO real function
-
+ 
 enqueueSpikes :: Node -> TQueue TrodeSpike -> IO ()
 enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
   ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
@@ -188,18 +195,26 @@ getAllSpikeNodes configFilePath =
   (\l -> getAppNode ("spikes" ++ [l]) configFilePath) >>= \nodes' ->
   return $ rights nodes'
 
+-- TODO: see if we can get this out of IO
 newPlaceCell :: Track
              -> DecoderState
              -> TrodeName
              -> ClusterMethod
              -> IO PlaceCell
 newPlaceCell track ds t cMethod = do
-  trodes <- atomically $ readTVar (ds^.trodes)
-  case Map.lookup t trodes of
-    Nothing -> return $ PlaceCell cMethod (Map.fromList [(p,0)|p <- allTrackPos track])
-    Just (_, spikeHistoryV) -> do
-      return $
-        PlaceCell cMethod (Map.fromList [(p,0)|p <- allTrackPos track])  -- TODO: Build from spike history!
+  case ds^.trodes of
+    Clusterless tMap -> error "Tried to newPlaceCell in clusterless context"
+    Clustered   tMap ->
+      -- TODO: Why do we do different things between non-existing and existing?
+      --       In both cases, shouldn't we overwrite the old place cell with a
+      --       new one, consulting the TRODE's spike history?  I think so.
+      case Map.lookup t tMap of
+        -- No place cell by that name.
+        Nothing -> return $ PlaceCell cMethod (Map.fromList [(p,0)|p <- allTrackPos track])
+        -- Found a place cell, replace 
+        Just (PlaceCellTrode dpc sHist) -> do
+          return $
+            PlaceCell cMethod (Map.fromList [(p,0)|p <- allTrackPos track])  -- TODO: Build from spike history! 
 
 
 -- TODO: So ugly.  Need lens?  Do I have TVars wrapping the wrong things?
