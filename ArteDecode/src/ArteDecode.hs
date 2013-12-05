@@ -21,12 +21,14 @@ import qualified Data.Traversable as T
 import qualified Data.Map as Map
 import Control.Monad
 import Control.Concurrent.Async
+import Control.Concurrent.MVar
+import Control.Concurrent.Chan
 import Control.Concurrent.STM
 import Data.Either
 import qualified System.ZMQ as ZMQ
 import Control.Lens
 import qualified Data.Serialize as S
-import qualified Data.Text as Text
+import qualified Data.Text as Text 
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 import qualified Data.CircularList as CL
@@ -42,12 +44,12 @@ import Data.Monoid ((<>))
 -- here...
 ---------------------------------------
 
-draw :: TVar DecoderState -> DecoderState -> IO Picture
+draw :: MVar DecoderState -> DecoderState -> IO Picture
 draw dsT _ = do
-  ds   <- readTVarIO $ dsT
-  p    <- readTVarIO $ ds^.pos
-  occ  <- readTVarIO $ ds^.occupancy
-  dPos <- readTVarIO $ ds^.decodedPos
+  ds   <- readMVar $ dsT
+  p    <- readMVar $ ds^.pos
+  occ  <- readMVar $ ds^.occupancy
+  dPos <- readMVar $ ds^.decodedPos
 
   let trackPicture = drawTrack track
       posPicture = drawPos p
@@ -65,7 +67,7 @@ draw dsT _ = do
       return $ drawNormalizedField occ
     (DrawDecoding)  -> return $ drawNormalizedField dPos
     (DrawPlaceCell dUnit') -> do
-      dUnit <- readTVarIO dUnit'
+      dUnit <- readMVar dUnit'
 --      print . unwords . map show $ Map.elems (placeField (dUnit^.dpCell) occ)
 --      print . unwords . map show $ ds ^.. trodes . _Clustered . traversed . pcTrodeHistory
 --      print "DrawPlaceCell"
@@ -83,11 +85,11 @@ draw dsT _ = do
 main :: IO ()
 main = do
   ds  <- initialState
-  dsT <- newTVarIO ds
+  dsT <- newMVar ds
   masterNode' <- getAppNode "master" Nothing
   pNode'      <- getAppNode "pos"    Nothing
   spikeNodes  <- getAllSpikeNodes    Nothing
-  incomingSpikes <- atomically $ newTQueue
+  incomingSpikes <- newChan
   case masterNode' of
     Left e -> putStrLn $ "Faulty config file.  Error:" ++ e
     Right masterNode ->
@@ -107,16 +109,18 @@ main = do
             _ <- wait dequeueSpikesA
             print "Past wait subAs"
 
-glossInputs :: TVar DecoderState -> Event -> DecoderState -> IO DecoderState
+glossInputs :: MVar DecoderState -> Event -> DecoderState -> IO DecoderState
 glossInputs dsT e ds =
   case e of
     EventMotion _ -> return ds
-    EventKey (SpecialKey k) Up _ _ ->
-      atomically $ modifyTVar dsT (trodeDrawOpt %~ (stepDrawOpt k)) >> return ds
+    EventKey (SpecialKey k) Up _ _ -> do
+      ds  <- takeMVar dsT
+      putMVar dsT $ ds & (trodeDrawOpt %~ (stepDrawOpt k))
+      return ds
     EventKey _ Down _ _ -> return ds   
     e -> putStrLn ("Ignoring event " ++ show e) >> return ds
 
-stepIO :: Track -> TQueue ArteMessage -> TVar DecoderState -> Float -> DecoderState -> IO DecoderState
+stepIO :: Track -> TQueue ArteMessage -> MVar DecoderState -> Float -> DecoderState -> IO DecoderState
 stepIO track queue dsT t ds = do
   handleRequests queue dsT track
   return ds
@@ -124,37 +128,39 @@ stepIO track queue dsT t ds = do
 -- handleRequests must be called by stepIO so gloss can treat it
 -- as a state.  Otherwise local changes to decoder state won't
 -- be seen by the rest of the program.
-handleRequests :: TQueue ArteMessage -> TVar DecoderState -> Track -> IO ()
+handleRequests :: TQueue ArteMessage -> MVar DecoderState -> Track -> IO ()
 handleRequests queue dsT track = --loop ds
 --  where loop ds = do
   do
     msg' <- atomically $ tryReadTQueue queue
-    ds  <- atomically $ readTVar dsT
-    ds' <- case msg' of
+    case msg' of
       Nothing -> do
-        return ds
+        return ()
       Just (ArteMessage t nFrom nTo mBody) -> do
-          let trodesV = ds^.trodes
---          (ArteMessage t nFrom nTo mBody) <- atomically $
-  --                                           readTQueue queue
+          let trodesV ds = ds^.trodes
           putStrLn $ "Got message" ++ (take 20 . show $ mBody)
-          ds' <- case mBody of
-            Request (TrodeSetCluster tName cName cMethod) ->
-              setTrodeCluster track ds tName cName cMethod
-            Request (TrodeSetAllClusters tName clusts) ->
-              foldM (\dState (cName, cMethod) ->
-                      setTrodeCluster track dState tName cName cMethod)
-              ds (Map.toList clusts)
+          case mBody of
+            Request (TrodeSetCluster tName cName cMethod) -> do
+              ds  <- takeMVar dsT
+              ds' <- setTrodeCluster track ds tName cName cMethod
+              putMVar dsT ds'
+            Request (TrodeSetAllClusters tName clusts) -> do
+              ds  <- takeMVar dsT
+              ds' <-
+
+                foldM (\dState (cName, cMethod) ->
+                        setTrodeCluster track dState tName cName cMethod)
+                ds (Map.toList clusts)
+              putMVar dsT ds'
             Request  r ->
               putStrLn (unwords ["Caught and ignored request:" ,(take 20 . show $ r),"..."]) >>
-              return ds
+              return ()
             Response r -> 
               putStrLn (unwords ["Caught and ignored response:",(take 20 . show $ r),"..."]) >>
-              return ds
-          return ds' 
-    atomically $ writeTVar dsT ds'
+              return ()
+
  
-streamPos :: Node -> TVar DecoderState -> IO ()
+streamPos :: Node -> MVar DecoderState -> IO ()
 streamPos pNode dsT = ZMQ.withContext 1 $ \ctx ->
   ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
     ZMQ.connect sub $ zmqStr Tcp (pNode^.host.ip) (show $ pNode^.port)
@@ -164,50 +170,48 @@ streamPos pNode dsT = ZMQ.withContext 1 $ \ctx ->
       bs <- ZMQ.receive sub []
       case S.decode bs of
         Left  e -> putStrLn $ "Got a bad Position record." ++ e
-        Right p -> do
-          atomically $ do 
-            ds <- readTVar dsT
-            let trackPos' = posToField track p kernel
-            writeTVar (ds^.pos) p
-            writeTVar (ds^.trackPos)   trackPos'
-            modifyTVar (ds^.occupancy) (updateField (+) trackPos')
- 
+        Right p -> withMVar dsT $ \ds -> do
+            let trackPos' = posToField track p kernel :: Map.Map TrackPos Double
+            _ <- swapMVar (ds^.pos) p  
+            _ <- swapMVar (ds^.trackPos)   trackPos'
+            modifyMVar_ (ds^.occupancy) (return . updateField (+) trackPos')
+  
 fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
                       Field Double -> TrodeSpike -> IO DecoderState
 fanoutSpikeToCells ds trodeName trode pos spike = do
   _ <- T.mapM (\dpc' -> do
-                  atomically $ do 
-                    DecodablePlaceCell pc tauN <- readTVar dpc'
+                    DecodablePlaceCell pc tauN <- readMVar dpc'
                     let f = if spikeInCluster (pc^.cluster) spike then (+1) else (+0)
-                    writeTVar dpc' $ DecodablePlaceCell
+                    _ <- swapMVar dpc' $ DecodablePlaceCell
                       (stepField (pc) pos spike)
                       (f tauN)
+                    return dpc'
 --                  DecodablePlaceCell pc tauN <- atomically $ readTVar dpc'
 --                  putStrLn . show $ spikeInCluster (pc^.cluster) spike 
               )
        (trode^.dUnits)
   return ds 
   
-fanoutSpikesToTrodes :: TVar DecoderState -> TQueue TrodeSpike -> IO ()
-fanoutSpikesToTrodes dsT sQueue = forever $ do 
-    ds <- atomically $ readTVar dsT 
-    s <- atomically $ readTQueue sQueue
+fanoutSpikesToTrodes :: MVar DecoderState -> Chan TrodeSpike -> IO ()
+fanoutSpikesToTrodes dsT sQueue = forever $ do
+    ds <- takeMVar dsT
+    s <- readChan sQueue
     let sName = read . Text.unpack . spikeTrodeName $ s
     -- TODO TrodeName is Int, but in TrodeSpike it's Text ..
     case ds^.trodes of
       Clustered tMap -> case Map.lookup sName tMap of
         Nothing    -> return ()  -- print "Orphan spike" >> return ds
         Just trode -> do
-          p <- readTVarIO (ds^.trackPos)
+          p <- readMVar (ds^.trackPos)
           ds' <- fanoutSpikeToCells ds sName trode p s
-          atomically $ writeTVar dsT 
+          putMVar dsT 
             (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+ 1))
-      Clusterless tMap -> error "unimplemented" -- TODO  
- 
+      Clusterless tMap -> putMVar dsT ds >> error "unimplemented" -- TODO  
+  
 stepSpikeHistory :: TrodeSpike -> SpikeHistory -> SpikeHistory
 stepSpikeHistory s sHist = sHist + 1 -- TODO real function
  
-enqueueSpikes :: Node -> TQueue TrodeSpike -> IO ()
+enqueueSpikes :: Node -> Chan TrodeSpike -> IO ()
 enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
   ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
     ZMQ.connect sub $
@@ -218,7 +222,7 @@ enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
       bs <- ZMQ.receive sub [] 
       case S.decode bs of
         Right spike ->
-          (atomically $ writeTQueue queue spike)
+          writeChan queue spike
         Left  e     ->
           putStrLn ("Got a bad value on spike chan." ++ e)
 
@@ -244,7 +248,7 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
         -- if trode doesn't exist, make a new one.  there's no history, so make an empty history
         -- and build a new place cell from that empty history
         Nothing      -> do
-          dpc' <- newTVarIO $
+          dpc' <- newMVar $
                   DecodablePlaceCell
                   (newPlaceCell track ds trodeName clustMethod) 0
           let newTrode =
@@ -254,13 +258,13 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
         Just (PlaceCellTrode pcs sHist) -> do
           case Map.lookup placeCellName pcs of
             Nothing -> do
-              dpc' <- newTVarIO $ DecodablePlaceCell
+              dpc' <- newMVar $ DecodablePlaceCell 
                       (newPlaceCell track ds trodeName clustMethod) 0
               let newTrode =
                     PlaceCellTrode (Map.insert placeCellName dpc' pcs) sHist 
               return $ (ds & trodes . _Clustered . at trodeName  ?~ newTrode)
             Just dpc -> do
-              atomically . writeTVar dpc $
+              _ <- swapMVar dpc $ 
                 DecodablePlaceCell
                 (newPlaceCell track ds trodeName clustMethod) 0
               return ds

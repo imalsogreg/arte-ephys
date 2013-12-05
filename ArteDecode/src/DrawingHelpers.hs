@@ -5,7 +5,7 @@ import Data.Ephys.EphysDefs
 
 import Control.Lens
 import qualified Data.Map as Map
-import Control.Concurrent.STM
+import Control.Concurrent.MVar
 import qualified Data.CircularList as CL
 import Graphics.Gloss.Interface.IO.Game
 
@@ -19,8 +19,8 @@ import Graphics.Gloss.Interface.IO.Game
 -}
 
 {- New way, hold TVars of DecodablePlaceCells in the draw opt -}
-data TrodeDrawOption = DrawPlaceCell   (TVar DecodablePlaceCell)
-                     | DrawClusterless (TVar ClusterlessTrode)
+data TrodeDrawOption = DrawPlaceCell   (MVar DecodablePlaceCell)
+                     | DrawClusterless (MVar ClusterlessTrode)
                      | DrawOccupancy
                      | DrawDecoding
                      | DrawError String
