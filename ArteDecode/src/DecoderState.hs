@@ -42,5 +42,5 @@ initialState = atomically $ do
     newTVar zeroField <*>
     newTVar zeroField <*>
     return (Clustered Map.empty) <*>
-    newTVar zeroField <*>
-    return CL.empty
+    newTVar zeroField <*> 
+    pure (clistTrodes (Clustered Map.empty))

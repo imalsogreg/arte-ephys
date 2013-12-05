@@ -25,6 +25,13 @@ data TrodeDrawOption = DrawPlaceCell   (TVar DecodablePlaceCell)
                      | DrawDecoding
                      | DrawError String
 
+instance Show TrodeDrawOption where
+  show (DrawPlaceCell _)   = "DrawPlaceCell"
+  show (DrawClusterless _) = "DrawClusterless"
+  show  DrawOccupancy      = "DrawOccupancy"
+  show  DrawDecoding       = "DrawDecoding"
+  show (DrawError s)       = "DrawError " ++ s
+ 
 type TrodeDrawOptions = CL.CList (CL.CList TrodeDrawOption)
 
 clistTrodes :: Trodes -> TrodeDrawOptions

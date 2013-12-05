@@ -19,9 +19,7 @@ import Data.Ephys.GlossPictures
 import Control.Applicative ((<$>),(<*>),pure)
 import qualified Data.Traversable as T 
 import qualified Data.Map as Map
-import Data.Map
 import Control.Monad
-import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Concurrent.STM
 import Data.Either
@@ -46,27 +44,33 @@ import Data.Monoid ((<>))
 
 draw :: DecoderState -> IO Picture
 draw ds = do
-  pos  <- readTVarIO $ ds^.pos
+  p    <- readTVarIO $ ds^.pos
   occ  <- readTVarIO $ ds^.occupancy
-  dPos <- readTVarIO $ ds^. decodedPos
-  let trs = ds^.trodes
-      trackPicture = drawTrack track
-      posPicture = drawPos pos
+  dPos <- readTVarIO $ ds^.decodedPos
+
+  let trackPicture = drawTrack track
+      posPicture = drawPos p
       drawOpt :: TrodeDrawOption
       drawOpt = case CL.focus `fmap` CL.focus (ds^.trodeDrawOpt) of
         Nothing  -> DrawError "CList error"
+        Just Nothing -> DrawError "CList CList error"
         Just (Just opt) -> opt -- weird. I expected fmap to give Just TOpt
-  case drawOpt of 
-    (DrawOccupancy) -> return $ drawField occ
-    (DrawDecoding)  -> return $ drawField dPos
+--  print $ ds^.trodeDrawOpt
+  field <- case drawOpt of 
+    (DrawOccupancy) -> return $ drawNormalizedField occ
+    (DrawDecoding)  -> return $ drawNormalizedField dPos
     (DrawPlaceCell dUnit') -> do
       dUnit <- readTVarIO dUnit'
-      return . drawField $ placeField (dUnit^.dpCell) occ 
+      return . drawNormalizedField $ placeField (dUnit^.dpCell) occ 
     (DrawClusterless tName) ->
       return $ scale 0.5 0.5 $ Text "Clusterless Draw not implemented"
-    _ -> do
-      print "Tried to mix clusterless/clustered decoding/drawing"
-      return $ scale 0.5 0.5 $ Text "Mixed clusterless/clustered"
+    (DrawError e) -> do
+      print $ "Draw was told to print DrawError" ++ e
+      return $ scale 50 50 $ Text e
+--    _ -> do
+--      print $ "Tried to mix clusterless/clustered decoding/drawing " ++ show drawOpt
+--      return $ scale 0.5 0.5 $ Text "Mixed clusterless/clustered"
+  return . scale 100 100 $ pictures [posPicture, trackPicture, field ]
 
 main :: IO ()
 main = do
@@ -78,14 +82,14 @@ main = do
   case masterNode' of
     Left e -> putStrLn $ "Faulty config file.  Error:" ++ e
     Right masterNode ->
-      withMaster masterNode $ \(fromMaster,toMaster) -> do
+      withMaster masterNode $ \(toMaster,fromMaster) -> do
         subAs <- forM spikeNodes $ \sNode ->
           async $ enqueueSpikes sNode incomingSpikes
         case pNode' of
           Left e -> error $ "No pos node: " ++ e
           Right pNode -> do
             subP <- async $ streamPos pNode ds
-            playIO (InWindow "ArteDecoder" (500,400) (10,10))
+            playIO (InWindow "ArteDecoder" (300,300) (10,10))
               white 30 ds draw glossInputs (stepIO track fromMaster)
             mapM_ wait subAs
             wait subP 
@@ -107,11 +111,18 @@ stepIO track queue t ds = handleRequests queue ds track
 -- as a state.  Otherwise local changes to decoder state won't
 -- be seen by the rest of the program.
 handleRequests :: TQueue ArteMessage -> DecoderState -> Track -> IO DecoderState
-handleRequests queue ds track = loop ds
-  where loop ds = do
+handleRequests queue ds track = --loop ds
+--  where loop ds = do
+  do
+    msg' <- atomically $ tryReadTQueue queue
+    case msg' of
+      Nothing -> do
+        return ds
+      Just (ArteMessage t nFrom nTo mBody) -> do
           let trodesV = ds^.trodes
-          (ArteMessage t nFrom nTo mBody) <- atomically $
-                                             readTQueue queue
+--          (ArteMessage t nFrom nTo mBody) <- atomically $
+  --                                           readTQueue queue
+          putStrLn $ "Got message" ++ (take 20 . show $ mBody)
           ds' <- case mBody of
             Request (TrodeSetCluster tName cName cMethod) ->
               setTrodeCluster track ds tName cName cMethod
@@ -124,10 +135,11 @@ handleRequests queue ds track = loop ds
               return ds
             Response r -> 
               putStrLn (unwords ["Caught and ignored response:",(take 20 . show $ r),"..."]) >>
-              return ds 
-          case mBody of
+              return ds
+          return ds' 
+{-          case mBody of
             Request ForceQuit -> return ds'
-            _                 -> loop ds'
+            _                 -> loop ds' -}
 
 streamPos :: Node -> DecoderState -> IO ()
 streamPos pNode s = ZMQ.withContext 1 $ \ctx ->
@@ -143,7 +155,7 @@ streamPos pNode s = ZMQ.withContext 1 $ \ctx ->
           atomically $ writeTVar (s^.trackPos) (posToField track p kernel)
 
 fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
-                      Field Double -> TrodeSpike -> IO ()
+                      Field Double -> TrodeSpike -> IO DecoderState
 fanoutSpikeToCells ds trodeName trode pos spike = do
   _ <- T.mapM (\dpc' -> atomically $ do 
              DecodablePlaceCell pc tauN <- readTVar dpc'
@@ -152,11 +164,13 @@ fanoutSpikeToCells ds trodeName trode pos spike = do
                (stepField (pc) pos spike)
                (f tauN))
        (trode^.dUnits)
-  return ()
+  return ds
   
 fanoutSpikesToTrodes :: DecoderState -> TQueue TrodeSpike -> IO DecoderState
 fanoutSpikesToTrodes ds sQueue = forever $ do
+    print "Awaiting spike"
     s <- atomically $ readTQueue sQueue
+    print "Got spike"
     let sName = read . Text.unpack . spikeTrodeName $ s
     -- TODO TrodeName is Int, but in TrodeSpike it's Text ..
     case ds^.trodes of
@@ -165,9 +179,10 @@ fanoutSpikesToTrodes ds sQueue = forever $ do
         Just trode -> do
           p <- readTVarIO (ds^.trackPos)
           ds' <- fanoutSpikeToCells ds sName trode p s
-          return $ ds & trodes . _Clustered . ix sName . pcTrodeHistory %~ (<> 1)
-      Clusterless tMap -> error "unimplemented" -- TODO
-
+          return $
+            (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+ 1))
+      Clusterless tMap -> error "unimplemented" -- TODO  
+ 
 stepSpikeHistory :: TrodeSpike -> SpikeHistory -> SpikeHistory
 stepSpikeHistory s sHist = sHist + 1 -- TODO real function
  
@@ -204,23 +219,35 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
   case ds^.trodes of
     Clusterless _ -> error "Tried to set cluster in a clusterless context"
     Clustered tMap -> do
-      case Map.lookup trodeName tMap of
+      dsNewClusts <- case Map.lookup trodeName tMap of
         -- if trode doesn't exist, make a new one.  there's no history, so make an empty history
         -- and build a new place cell from that empty history
         Nothing      -> do
-          dpc' <- newTVarIO $ DecodablePlaceCell (newPlaceCell track ds trodeName clustMethod) 0
-          let newTrode = PlaceCellTrode (Map.fromList [(placeCellName, dpc')]) nullHistory
+          dpc' <- newTVarIO $
+                  DecodablePlaceCell
+                  (newPlaceCell track ds trodeName clustMethod) 0
+          let newTrode =
+                PlaceCellTrode
+                (Map.fromList [(placeCellName, dpc')]) nullHistory
           return $ (ds & trodes . _Clustered . at trodeName ?~ newTrode)
         Just (PlaceCellTrode pcs sHist) -> do
           case Map.lookup placeCellName pcs of
             Nothing -> do
-              dpc' <- newTVarIO $ DecodablePlaceCell (newPlaceCell track ds trodeName clustMethod) 0
-              let newTrode = PlaceCellTrode (Map.insert placeCellName dpc' pcs) sHist
+              dpc' <- newTVarIO $ DecodablePlaceCell
+                      (newPlaceCell track ds trodeName clustMethod) 0
+              let newTrode =
+                    PlaceCellTrode (Map.insert placeCellName dpc' pcs) sHist 
               return $ (ds & trodes . _Clustered . at trodeName  ?~ newTrode)
             Just dpc -> do
-              atomically . writeTVar dpc $ DecodablePlaceCell (newPlaceCell track ds trodeName clustMethod) 0
-              return ds 
-
+              atomically . writeTVar dpc $
+                DecodablePlaceCell
+                (newPlaceCell track ds trodeName clustMethod) 0
+              return ds
+      let drawOpts' = clistTrodes $ dsNewClusts^.trodes
+      putStrLn $ unwords ["drawOpt is now:",show drawOpts']
+      return $
+        dsNewClusts { _trodeDrawOpt = drawOpts' }
+   
 newPlaceCell :: Track
              -> DecoderState
              -> TrodeName
@@ -235,4 +262,5 @@ newPlaceCell track ds trodeName cMethod = do
         Nothing -> PlaceCell cMethod (Map.fromList [(p,0)|p <- allTrackPos track])
         -- Found that trode, build cell to that name from history
         Just (PlaceCellTrode dpc sHist) ->
-          PlaceCell cMethod (Map.fromList [(p,0)|p <- allTrackPos track])  -- TODO: Build from spike history! 
+          PlaceCell cMethod (Map.fromList [(p,0)|p <- allTrackPos track])
+          -- TODO: Build from spike history! 
