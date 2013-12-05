@@ -45,12 +45,10 @@ import Data.Monoid ((<>))
 ---------------------------------------
 
 draw :: MVar DecoderState -> DecoderState -> IO Picture
-draw dsT _ = do
-  ds   <- readMVar $ dsT
+draw _ ds = do
   p    <- readMVar $ ds^.pos
   occ  <- readMVar $ ds^.occupancy
   dPos <- readMVar $ ds^.decodedPos
-
   let trackPicture = drawTrack track
       posPicture = drawPos p
       drawOpt :: TrodeDrawOption
@@ -114,8 +112,7 @@ glossInputs dsT e ds =
   case e of
     EventMotion _ -> return ds
     EventKey (SpecialKey k) Up _ _ -> do
-      ds  <- takeMVar dsT
-      putMVar dsT $ ds & (trodeDrawOpt %~ (stepDrawOpt k))
+      _ <- swapMVar dsT $ ds & (trodeDrawOpt %~ (stepDrawOpt k))
       return ds
     EventKey _ Down _ _ -> return ds   
     e -> putStrLn ("Ignoring event " ++ show e) >> return ds
