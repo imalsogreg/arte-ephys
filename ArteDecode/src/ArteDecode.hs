@@ -42,8 +42,9 @@ import Data.Monoid ((<>))
 -- here...
 ---------------------------------------
 
-draw :: DecoderState -> IO Picture
-draw ds = do
+draw :: TVar DecoderState -> DecoderState -> IO Picture
+draw dsT _ = do
+  ds   <- readTVarIO $ dsT
   p    <- readTVarIO $ ds^.pos
   occ  <- readTVarIO $ ds^.occupancy
   dPos <- readTVarIO $ ds^.decodedPos
@@ -55,26 +56,34 @@ draw ds = do
         Nothing  -> DrawError "CList error"
         Just Nothing -> DrawError "CList CList error"
         Just (Just opt) -> opt -- weird. I expected fmap to give Just TOpt
---  print $ ds^.trodeDrawOpt
+--  putStrLn $ unwords ["Focus:", show drawOpt, "of options", show (ds^.trodeDrawOpt)]
   field <- case drawOpt of 
-    (DrawOccupancy) -> return $ drawNormalizedField occ
+    (DrawOccupancy) -> do
+--      print "DrawOccupancy"
+--      print  $ Map.elems occ
+--      print "DrawOccupancy"
+      return $ drawNormalizedField occ
     (DrawDecoding)  -> return $ drawNormalizedField dPos
     (DrawPlaceCell dUnit') -> do
       dUnit <- readTVarIO dUnit'
-      return . drawNormalizedField $ placeField (dUnit^.dpCell) occ 
+--      print . unwords . map show $ Map.elems (placeField (dUnit^.dpCell) occ)
+--      print . unwords . map show $ ds ^.. trodes . _Clustered . traversed . pcTrodeHistory
+--      print "DrawPlaceCell"
+--      putStrLn $ unwords ["tauN:", show (dUnit^.dpCellTauN)," field:", show(Map.elems $ dUnit^.dpCell.countField)] 
+--      print "DrawPlaceCell"
+      return . drawNormalizedField $ placeField (dUnit^.dpCell) occ
+
     (DrawClusterless tName) ->
       return $ scale 0.5 0.5 $ Text "Clusterless Draw not implemented"
     (DrawError e) -> do
       print $ "Draw was told to print DrawError" ++ e
       return $ scale 50 50 $ Text e
---    _ -> do
---      print $ "Tried to mix clusterless/clustered decoding/drawing " ++ show drawOpt
---      return $ scale 0.5 0.5 $ Text "Mixed clusterless/clustered"
   return . scale 100 100 $ pictures [posPicture, trackPicture, field ]
 
 main :: IO ()
 main = do
-  ds <- initialState
+  ds  <- initialState
+  dsT <- newTVarIO ds
   masterNode' <- getAppNode "master" Nothing
   pNode'      <- getAppNode "pos"    Nothing
   spikeNodes  <- getAllSpikeNodes    Nothing
@@ -88,34 +97,40 @@ main = do
         case pNode' of
           Left e -> error $ "No pos node: " ++ e
           Right pNode -> do
-            subP <- async $ streamPos pNode ds
+            subP <- async $ streamPos pNode dsT
+            dequeueSpikesA <- async . forever $
+                              fanoutSpikesToTrodes dsT incomingSpikes -- funny return type -> IO DecStt 
             playIO (InWindow "ArteDecoder" (300,300) (10,10))
-              white 30 ds draw glossInputs (stepIO track fromMaster)
-            mapM_ wait subAs
-            wait subP 
+              white 30 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
+            mapM_ wait subAs 
+            wait subP
+            _ <- wait dequeueSpikesA
             print "Past wait subAs"
 
-glossInputs :: Event -> DecoderState -> IO DecoderState
-glossInputs e ds =
+glossInputs :: TVar DecoderState -> Event -> DecoderState -> IO DecoderState
+glossInputs dsT e ds =
   case e of
     EventMotion _ -> return ds
     EventKey (SpecialKey k) Up _ _ ->
-      return $ ds & trodeDrawOpt %~ (stepDrawOpt k)
-    EventKey _ Down _ _ -> return ds
+      atomically $ modifyTVar dsT (trodeDrawOpt %~ (stepDrawOpt k)) >> return ds
+    EventKey _ Down _ _ -> return ds   
     e -> putStrLn ("Ignoring event " ++ show e) >> return ds
 
-stepIO :: Track -> TQueue ArteMessage -> Float -> DecoderState -> IO DecoderState
-stepIO track queue t ds = handleRequests queue ds track
+stepIO :: Track -> TQueue ArteMessage -> TVar DecoderState -> Float -> DecoderState -> IO DecoderState
+stepIO track queue dsT t ds = do
+  handleRequests queue dsT track
+  return ds
 
 -- handleRequests must be called by stepIO so gloss can treat it
 -- as a state.  Otherwise local changes to decoder state won't
 -- be seen by the rest of the program.
-handleRequests :: TQueue ArteMessage -> DecoderState -> Track -> IO DecoderState
-handleRequests queue ds track = --loop ds
+handleRequests :: TQueue ArteMessage -> TVar DecoderState -> Track -> IO ()
+handleRequests queue dsT track = --loop ds
 --  where loop ds = do
   do
     msg' <- atomically $ tryReadTQueue queue
-    case msg' of
+    ds  <- atomically $ readTVar dsT
+    ds' <- case msg' of
       Nothing -> do
         return ds
       Just (ArteMessage t nFrom nTo mBody) -> do
@@ -137,49 +152,55 @@ handleRequests queue ds track = --loop ds
               putStrLn (unwords ["Caught and ignored response:",(take 20 . show $ r),"..."]) >>
               return ds
           return ds' 
-{-          case mBody of
-            Request ForceQuit -> return ds'
-            _                 -> loop ds' -}
-
-streamPos :: Node -> DecoderState -> IO ()
-streamPos pNode s = ZMQ.withContext 1 $ \ctx ->
+    atomically $ writeTVar dsT ds'
+ 
+streamPos :: Node -> TVar DecoderState -> IO ()
+streamPos pNode dsT = ZMQ.withContext 1 $ \ctx ->
   ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
     ZMQ.connect sub $ zmqStr Tcp (pNode^.host.ip) (show $ pNode^.port)
     ZMQ.subscribe sub ""
+    print "Finished subscribing"
     forever $ do
       bs <- ZMQ.receive sub []
       case S.decode bs of
         Left  e -> putStrLn $ "Got a bad Position record." ++ e
         Right p -> do
-          atomically $ writeTVar (s^.pos) p
-          atomically $ writeTVar (s^.trackPos) (posToField track p kernel)
-
+          atomically $ do 
+            ds <- readTVar dsT
+            let trackPos' = posToField track p kernel
+            writeTVar (ds^.pos) p
+            writeTVar (ds^.trackPos)   trackPos'
+            modifyTVar (ds^.occupancy) (updateField (+) trackPos')
+ 
 fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
                       Field Double -> TrodeSpike -> IO DecoderState
 fanoutSpikeToCells ds trodeName trode pos spike = do
-  _ <- T.mapM (\dpc' -> atomically $ do 
-             DecodablePlaceCell pc tauN <- readTVar dpc'
-             let f = if spikeInCluster (pc^.cluster) spike then (+1) else (+0)
-             writeTVar dpc' $ DecodablePlaceCell
-               (stepField (pc) pos spike)
-               (f tauN))
+  _ <- T.mapM (\dpc' -> do
+                  atomically $ do 
+                    DecodablePlaceCell pc tauN <- readTVar dpc'
+                    let f = if spikeInCluster (pc^.cluster) spike then (+1) else (+0)
+                    writeTVar dpc' $ DecodablePlaceCell
+                      (stepField (pc) pos spike)
+                      (f tauN)
+--                  DecodablePlaceCell pc tauN <- atomically $ readTVar dpc'
+--                  putStrLn . show $ spikeInCluster (pc^.cluster) spike 
+              )
        (trode^.dUnits)
-  return ds
+  return ds 
   
-fanoutSpikesToTrodes :: DecoderState -> TQueue TrodeSpike -> IO DecoderState
-fanoutSpikesToTrodes ds sQueue = forever $ do
-    print "Awaiting spike"
+fanoutSpikesToTrodes :: TVar DecoderState -> TQueue TrodeSpike -> IO ()
+fanoutSpikesToTrodes dsT sQueue = forever $ do 
+    ds <- atomically $ readTVar dsT 
     s <- atomically $ readTQueue sQueue
-    print "Got spike"
     let sName = read . Text.unpack . spikeTrodeName $ s
     -- TODO TrodeName is Int, but in TrodeSpike it's Text ..
     case ds^.trodes of
       Clustered tMap -> case Map.lookup sName tMap of
-        Nothing    -> print "Orphan spike" >> return ds
+        Nothing    -> return ()  -- print "Orphan spike" >> return ds
         Just trode -> do
           p <- readTVarIO (ds^.trackPos)
           ds' <- fanoutSpikeToCells ds sName trode p s
-          return $
+          atomically $ writeTVar dsT 
             (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+ 1))
       Clusterless tMap -> error "unimplemented" -- TODO  
  
@@ -193,10 +214,10 @@ enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
       zmqStr Tcp (spikeNode^.host.ip) (show $ spikeNode^.port)
     ZMQ.subscribe sub ""
     forever $ do
-      bs <- ZMQ.receive sub []
+--      print $ zmqStr Tcp (spikeNode^.host.ip) (show $ spikeNode^.port)
+      bs <- ZMQ.receive sub [] 
       case S.decode bs of
         Right spike ->
-          print "Enqueue" >>
           (atomically $ writeTQueue queue spike)
         Left  e     ->
           putStrLn ("Got a bad value on spike chan." ++ e)
@@ -244,7 +265,7 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
                 (newPlaceCell track ds trodeName clustMethod) 0
               return ds
       let drawOpts' = clistTrodes $ dsNewClusts^.trodes
-      putStrLn $ unwords ["drawOpt is now:",show drawOpts']
+--      putStrLn $ unwords ["drawOpt is now:",show drawOpts']
       return $
         dsNewClusts { _trodeDrawOpt = drawOpts' }
    

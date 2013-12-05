@@ -71,9 +71,8 @@ queueToNetwork q node = do
     ZMQ.withSocket ctx ZMQ.Pub $ \pubSock -> do
       ZMQ.bind pubSock portStr
       forever $ do
-        s <- atomically $ readTQueue q
-        ZMQ.send pubSock (S.encode s) []
---        print $ "Sending spike."
+        a <- atomically $ readTQueue q
+        ZMQ.send pubSock (S.encode a) []
 
 pushMWLFileSpikesToQueue :: FilePath -> TQueue TrodeSpike -> IO ()
 pushMWLFileSpikesToQueue fp q = do
@@ -202,8 +201,8 @@ main = do
                     (relativeTimeCat (\p -> (_posTime p - startExperimentTime opts))) >->
                     pipeToQueue posQ
 
-        queueToNetwork spikeQ spikeNode
-        queueToNetwork posQ   pNode
+        _ <- async $ queueToNetwork spikeQ spikeNode
+        _ <- async $ queueToNetwork posQ   pNode
 
         _ <- mapM waitCatch spikeAsyncs
         wait posAsync
