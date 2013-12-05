@@ -5,12 +5,22 @@ import Data.Ephys.EphysDefs
 
 import Control.Lens
 import qualified Data.Map as Map
+import Control.Concurrent.STM
 import qualified Data.CircularList as CL
 import Graphics.Gloss.Interface.IO.Game
 
 
-data TrodeDrawOption = DrawPlaceCell TrodeName PlaceCellName
+{- Old way, based on nested maps -}
+{-data TrodeDrawOption = DrawPlaceCell TrodeName PlaceCellName
                      | DrawClusterless TrodeName
+                     | DrawOccupancy
+                     | DrawDecoding
+                     | DrawError String
+-}
+
+{- New way, hold TVars of DecodablePlaceCells in the draw opt -}
+data TrodeDrawOption = DrawPlaceCell   (TVar DecodablePlaceCell)
+                     | DrawClusterless (TVar ClusterlessTrode)
                      | DrawOccupancy
                      | DrawDecoding
                      | DrawError String
@@ -19,17 +29,15 @@ type TrodeDrawOptions = CL.CList (CL.CList TrodeDrawOption)
 
 clistTrodes :: Trodes -> TrodeDrawOptions
 clistTrodes (Clustered tMap) =
-  CL.fromList $ map clistTrode (Map.toList tMap) ++
+  CL.fromList $ map clistTrode (Map.elems tMap) ++
   [CL.singleton DrawOccupancy, CL.singleton DrawDecoding]
     where
-      clistTrode :: (TrodeName,PlaceCellTrode) -> CL.CList TrodeDrawOption
-      clistTrode (tName,cMap) =
-        CL.fromList [DrawPlaceCell tName cName | cName <- Map.keys (cMap^.dUnits)]
+      clistTrode :: (PlaceCellTrode) -> CL.CList TrodeDrawOption
+      clistTrode (PlaceCellTrode units _) =
+        CL.fromList (map DrawPlaceCell $ Map.elems units)
+        -- [DrawPlaceCell tName cName | cName <- Map.keys (cMap^.dUnits)]  
 clistTrodes (Clusterless tMap) =
-  CL.fromList $ map clistTrode (Map.keys tMap)
-    where
-      clistTrode :: TrodeName -> CL.CList TrodeDrawOption
-      clistTrode tName = CL.singleton (DrawClusterless tName)
+  CL.fromList $ map (CL.singleton . DrawClusterless) (Map.elems tMap)
 
 stepDrawOpt :: SpecialKey -> TrodeDrawOptions -> TrodeDrawOptions
 stepDrawOpt k opt
