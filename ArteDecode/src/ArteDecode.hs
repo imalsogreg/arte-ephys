@@ -202,19 +202,21 @@ fanoutSpikeToCells ds trodeName trode pos spike = do
   
 fanoutSpikesToTrodes :: MVar DecoderState -> Chan TrodeSpike -> IO ()
 fanoutSpikesToTrodes dsT sQueue = forever $ do
-    ds <- takeMVar dsT
+
     s <- readChan sQueue
+    ds <- takeMVar dsT
     let sName = read . Text.unpack . spikeTrodeName $ s
     -- TODO TrodeName is Int, but in TrodeSpike it's Text ..
-    case ds^.trodes of
+    ds' <- case ds^.trodes of
       Clustered tMap -> case Map.lookup sName tMap of
-        Nothing    -> return ()  -- print "Orphan spike" >> return ds
+        Nothing    -> return ds  -- print "Orphan spike" >> return ds
         Just trode -> do
           p <- readMVar (ds^.trackPos)
           ds' <- fanoutSpikeToCells ds sName trode p s
-          putMVar dsT 
+          return $ 
             (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+ 1))
-      Clusterless tMap -> putMVar dsT ds >> error "unimplemented" -- TODO  
+      Clusterless tMap -> return ds
+    putMVar dsT ds'
   
 stepSpikeHistory :: TrodeSpike -> SpikeHistory -> SpikeHistory
 stepSpikeHistory s sHist = sHist + 1 -- TODO real function
