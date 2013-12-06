@@ -57,7 +57,7 @@ draw _ ds = do
         Nothing  -> DrawError "CList error"
         Just Nothing -> DrawError "CList CList error"
         Just (Just opt) -> opt -- weird. I expected fmap to give Just TOpt
---  putStrLn $ unwords ["Focus:", show drawOpt, "of options", show (ds^.trodeDrawOpt)]
+  putStrLn $ unwords ["Focus:", show drawOpt, "of options", show (ds^.trodeDrawOpt)]
   field <- case drawOpt of 
     (DrawOccupancy) -> do
 --      print "DrawOccupancy"
@@ -113,29 +113,30 @@ glossInputs dsT e ds =
   case e of
     EventMotion _ -> return ds
     EventKey (SpecialKey k) Up _ _ -> do
-      _ <- swapMVar dsT $ ds & (trodeDrawOpt %~ (stepDrawOpt k))
-      return ds
+      print "About to do key swap"
+      let ds' = ds & trodeDrawOpt %~ stepDrawOpt k
+      _ <- swapMVar dsT ds'
+      print "Done key swap"
+      return ds'
     EventKey _ Down _ _ -> return ds   
     e -> putStrLn ("Ignoring event " ++ show e) >> return ds
 
 stepIO :: Track -> TQueue ArteMessage -> MVar DecoderState -> Float -> DecoderState -> IO DecoderState
 stepIO track queue dsT t ds = do
   handleRequests queue dsT track
-  return ds
+  ds' <- readMVar dsT
+  return ds'
 
 -- handleRequests must be called by stepIO so gloss can treat it
 -- as a state.  Otherwise local changes to decoder state won't
 -- be seen by the rest of the program.
 handleRequests :: TQueue ArteMessage -> MVar DecoderState -> Track -> IO ()
-handleRequests queue dsT track = --loop ds
---  where loop ds = do
-  do
+handleRequests queue dsT track = do
     msg' <- atomically $ tryReadTQueue queue
     case msg' of
       Nothing -> do
         return ()
       Just (ArteMessage t nFrom nTo mBody) -> do
-          let trodesV ds = ds^.trodes
           putStrLn $ "Got message" ++ (take 20 . show $ mBody)
           case mBody of
             Request (TrodeSetCluster tName cName cMethod) -> do
@@ -158,8 +159,10 @@ handleRequests queue dsT track = --loop ds
               
               let foldF dState (cName,cMethod) =
                     setTrodeCluster track dState tName cName cMethod
-              print "About to modifyMVar"
-              modifyMVar_ dsT (\ds -> F.foldlM foldF ds (Map.toList clusts)) 
+              print "SetAllClusters About to modifyMVar"
+              modifyMVar_ dsT (\ds -> F.foldlM foldF ds (Map.toList clusts))
+              ds <- readMVar dsT
+              print $ "SetAllClusters Finished modifying tvar, got opts: " ++ show (ds^.trodeDrawOpt)
             Request  r ->
               putStrLn (unwords ["Caught and ignored request:" ,(take 20 . show $ r),"..."]) >>
               return ()
@@ -280,7 +283,7 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
                 (newPlaceCell track ds trodeName clustMethod) 0
               return ds
       let drawOpts' = clistTrodes $ dsNewClusts^.trodes
---      putStrLn $ unwords ["drawOpt is now:",show drawOpts']
+      putStrLn $ unwords ["drawOpt is now:",show drawOpts']
       return $
         dsNewClusts { _trodeDrawOpt = drawOpts' }
    
