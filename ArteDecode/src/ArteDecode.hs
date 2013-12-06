@@ -17,7 +17,8 @@ import Data.Ephys.TrackPosition
 import Data.Ephys.GlossPictures
 
 import Control.Applicative ((<$>),(<*>),pure)
-import qualified Data.Traversable as T 
+import qualified Data.Traversable as T
+import qualified Data.Foldable    as F
 import qualified Data.Map as Map
 import Control.Monad
 import Control.Concurrent.Async
@@ -138,17 +139,27 @@ handleRequests queue dsT track = --loop ds
           putStrLn $ "Got message" ++ (take 20 . show $ mBody)
           case mBody of
             Request (TrodeSetCluster tName cName cMethod) -> do
+              print "handle about to take"
               ds  <- takeMVar dsT
+              print "handle about to setTrodeCluster"
               ds' <- setTrodeCluster track ds tName cName cMethod
+              print "handle about to put"
               putMVar dsT ds'
             Request (TrodeSetAllClusters tName clusts) -> do
+              {-
+              print "handle about to take"
               ds  <- takeMVar dsT
-              ds' <-
-
-                foldM (\dState (cName, cMethod) ->
-                        setTrodeCluster track dState tName cName cMethod)
+              print "handle about to foldM"
+              ds' <- foldM (\dState (cName, cMethod) ->
+                             setTrodeCluster track dState tName cName cMethod)
                 ds (Map.toList clusts)
-              putMVar dsT ds'
+              print "handle about to put" 
+              putMVar dsT ds'  -}
+              
+              let foldF dState (cName,cMethod) =
+                    setTrodeCluster track dState tName cName cMethod
+              print "About to modifyMVar"
+              modifyMVar_ dsT (\ds -> F.foldlM foldF ds (Map.toList clusts)) 
             Request  r ->
               putStrLn (unwords ["Caught and ignored request:" ,(take 20 . show $ r),"..."]) >>
               return ()
@@ -241,6 +252,7 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
   case ds^.trodes of
     Clusterless _ -> error "Tried to set cluster in a clusterless context"
     Clustered tMap -> do
+      print $ "Adding placeCell name " ++ show placeCellName 
       dsNewClusts <- case Map.lookup trodeName tMap of
         -- if trode doesn't exist, make a new one.  there's no history, so make an empty history
         -- and build a new place cell from that empty history
