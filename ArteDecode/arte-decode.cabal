@@ -42,3 +42,4 @@ executable arteDecode
                     mtl
   Main-Is:          ArteDecode.hs
   hs-source-dirs:   src
+  Ghc-Options:      -O2 -threaded -fprof-auto -rtsopts
