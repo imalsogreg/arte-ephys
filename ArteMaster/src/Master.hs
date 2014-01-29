@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric, DeriveDataTypeable #-}
 
 ----------------------------------------------------------------------
 -- |
@@ -35,6 +35,7 @@ import Control.Concurrent.Async
 import Text.Printf
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Text as Text
+import System.Console.CmdArgs
 
 acceptClients :: Node -> TQueue ArteMessage -> IO ()
 acceptClients masterNode requestQueue = case masterNode^.inPort of
@@ -101,6 +102,7 @@ respondTo req outbox = do
   
 main :: IO ()
 main = do
+  opts <- cmdArgs masterCmd
   reqQueue <- newTQueueIO
   m <- getAppNode "master" Nothing
   case m of
@@ -108,11 +110,24 @@ main = do
     Right masterNode ->
       withAsync (acceptClients  masterNode reqQueue) $ \a1 -> do
         withAsync (handleRequests masterNode reqQueue) $ \a2 -> do
-          putStrLn $ "Type something and hit enter to send StartAcquision out."
-          _ <- getLine
+          when (waitKeyboard opts) $ do
+            putStrLn $ "Type something and hit enter to send StartAcquision out."
+            getLine >>= \_ -> return ()
+          threadDelay . (1000000 *) . startAcqDelay $ opts
+          putStrLn "Master sending Acq command"
           atomically $ writeTQueue reqQueue (ArteMessage 0 "master" Nothing (Request StartAcquisition))
           waitBoth a1 a2
           return ()
+
+data ArteMasterCmd = MasterCmd
+  { startAcqDelay :: Int
+  , waitKeyboard  :: Bool
+  } deriving (Show,Data,Typeable)
+
+masterCmd :: ArteMasterCmd
+masterCmd = MasterCmd { startAcqDelay = 0     &= help "Pause n seconds before sending Acq signal"
+                      , waitKeyboard  = False &= help "Wait for [Enter] before sending Acq signal"
+                      }
 
 --  st <- initState
 --  start (masterWindow st)

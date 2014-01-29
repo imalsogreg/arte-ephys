@@ -30,6 +30,7 @@ executable arte-master
                          , cereal
                          , async
                          , text
+                         , cmdargs
            main-is:        Master.hs
            ghc-options:    -threaded "-with-rtsopts=-N4"
            hs-source-dirs: src
