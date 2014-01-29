@@ -18,7 +18,7 @@ Cabal-Version:            >= 1.2
 Build-Type:               Simple
 
 Library
- Build-Depends:      lens-aeson
+ Build-Depends:      lens-aeson 
                    , aeson
                    , yaml
                    , async

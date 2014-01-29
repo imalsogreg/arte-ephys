@@ -74,6 +74,7 @@ queueToNetwork q node = do
         a <- atomically $ readTQueue q
         ZMQ.send pubSock (S.encode a) []
 
+{- Unused?
 pushMWLFileSpikesToQueue :: FilePath -> TQueue TrodeSpike -> IO ()
 pushMWLFileSpikesToQueue fp q = do
   f <- BSL.readFile fp
@@ -86,6 +87,7 @@ pushMWLFileSpikesToQueue fp q = do
       PP.map (mwlToArteSpike fi tName) >->
       relativeTimeCat spikeTime >->
       pipeToQueue q
+-}
 
 -- "path/to/0224.tt" -> "24"
 -- TODO : Fix.  Only drop 5 when extention has 2 letters.
