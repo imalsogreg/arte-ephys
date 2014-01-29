@@ -29,7 +29,7 @@ executable arte-master
                          , lens
                          , cereal
                          , async
-                         , text
+                         , text (>= 0.11.1.0 && < 0.12)	
            main-is:        Master.hs
            ghc-options:    -threaded "-with-rtsopts=-N4"
            hs-source-dirs: src
