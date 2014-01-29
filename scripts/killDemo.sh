@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MOCKDATA=`pidof arteMockMWL`
+MOCKDATA=`pidof arteMockSpikes`
 kill -9 $MOCKDATA
 
 DECODER=`pidof arteDecode`
