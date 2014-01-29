@@ -57,7 +57,9 @@ draw _ ds = do
         Nothing  -> DrawError "CList error"
         Just Nothing -> DrawError "CList CList error"
         Just (Just opt) -> opt -- weird. I expected fmap to give Just TOpt
-  putStrLn $ unwords ["Focus:", show drawOpt, "of options", show (ds^.trodeDrawOpt)]
+      optsPicture = maybe (Text "Opts Problem") (drawDrawOptionsState (ds^.trodeDrawOpt))
+                    (join $ CL.focus <$> CL.focus (ds^.trodeDrawOpt))
+--  putStrLn $ unwords ["Focus:", show drawOpt, "of options", show (ds^.trodeDrawOpt)]
   field <- case drawOpt of 
     (DrawOccupancy) -> do
 --      print "DrawOccupancy"
@@ -79,7 +81,8 @@ draw _ ds = do
     (DrawError e) -> do
       print $ "Draw was told to print DrawError" ++ e
       return $ scale 50 50 $ Text e
-  return . scale 100 100 $ pictures [posPicture, trackPicture, field ]
+  putStrLn "Draw"
+  return . scale 100 100 $ pictures [posPicture, trackPicture, field, optsPicture ]
 
 main :: IO ()
 main = do
@@ -100,10 +103,10 @@ main = do
           Right pNode -> do
             subP <- async $ streamPos pNode dsT
             dequeueSpikesA <- async . forever $
-                              fanoutSpikesToTrodes dsT incomingSpikes -- funny return type -> IO DecStt 
+                              fanoutSpikesToTrodes dsT incomingSpikes -- funny return type -> IO DecStt
             playIO (InWindow "ArteDecoder" (300,300) (10,10))
               white 30 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
-            mapM_ wait subAs 
+            mapM_ wait subAs
             wait subP
             _ <- wait dequeueSpikesA
             print "Past wait subAs"
@@ -196,6 +199,9 @@ fanoutSpikeToCells ds trodeName trode pos spike = do
                     _ <- swapMVar dpc' $ DecodablePlaceCell
                       (stepField (pc) pos spike)
                       (f tauN)
+                    putStrLn $ "testing a spike"
+                    when (spikeInCluster (pc^.cluster) spike) $ do
+                      putStrLn $ "Cell caught a spike"
                     return dpc'
 --                  DecodablePlaceCell pc tauN <- atomically $ readTVar dpc'
 --                  putStrLn . show $ spikeInCluster (pc^.cluster) spike 
@@ -205,21 +211,22 @@ fanoutSpikeToCells ds trodeName trode pos spike = do
   
 fanoutSpikesToTrodes :: MVar DecoderState -> Chan TrodeSpike -> IO ()
 fanoutSpikesToTrodes dsT sQueue = forever $ do
-
     s <- readChan sQueue
     ds <- takeMVar dsT
     let sName = read . Text.unpack . spikeTrodeName $ s
     -- TODO TrodeName is Int, but in TrodeSpike it's Text ..
     ds' <- case ds^.trodes of
       Clustered tMap -> case Map.lookup sName tMap of
-        Nothing    -> return ds  -- print "Orphan spike" >> return ds
+        Nothing    -> print "Orphan spike" >> return ds
         Just trode -> do
           p <- readMVar (ds^.trackPos)
+          putStrLn $ "Sending spike to trode " ++ sName
           ds' <- fanoutSpikeToCells ds sName trode p s
           return $ 
             (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+ 1))
       Clusterless tMap -> return ds
     putMVar dsT ds'
+    putStrLn "end fanoutSpikesToTrodes"
   
 stepSpikeHistory :: TrodeSpike -> SpikeHistory -> SpikeHistory
 stepSpikeHistory s sHist = sHist + 1 -- TODO real function
@@ -234,7 +241,7 @@ enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
 --      print $ zmqStr Tcp (spikeNode^.host.ip) (show $ spikeNode^.port)
       bs <- ZMQ.receive sub [] 
       case S.decode bs of
-        Right spike ->
+        Right spike -> do
           writeChan queue spike
         Left  e     ->
           putStrLn ("Got a bad value on spike chan." ++ e)

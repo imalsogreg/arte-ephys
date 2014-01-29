@@ -24,6 +24,7 @@ data TrodeDrawOption = DrawPlaceCell   (MVar DecodablePlaceCell)
                      | DrawOccupancy
                      | DrawDecoding
                      | DrawError String
+                     deriving (Eq)
 
 instance Show TrodeDrawOption where
   show (DrawPlaceCell _)   = "DrawPlaceCell"
@@ -31,9 +32,24 @@ instance Show TrodeDrawOption where
   show  DrawOccupancy      = "DrawOccupancy"
   show  DrawDecoding       = "DrawDecoding"
   show (DrawError s)       = "DrawError " ++ s
- 
+
 type TrodeDrawOptions = CL.CList (CL.CList TrodeDrawOption)
 
+drawDrawOptionsState :: TrodeDrawOptions -> TrodeDrawOption -> Picture
+drawDrawOptionsState opts opt =
+  pictures $
+  zipWith (drawOptsFamily opt) (CL.toList opts) [0..CL.size opts - 1]
+  where drawOptsFamily targetOpt subOpts ind =
+          pictures $
+          zipWith (drawOpt targetOpt ind)
+          (CL.toList subOpts) [0..CL.size subOpts - 1]
+        drawOpt targetOpt ind thisOpt subInd
+          | thisOpt == targetOpt = Color blue
+                                   (Translate (fi ind) (fi subInd) (Circle 0.5))
+          | otherwise            = Color blue
+                                   (Translate (fi ind) (fi subInd) (ThickCircle 0.2 0.5))
+        fi = fromIntegral
+          
 clistTrodes :: Trodes -> TrodeDrawOptions
 clistTrodes (Clustered tMap) =
   CL.fromList $ map clistTrode (Map.elems tMap) ++
