@@ -47,9 +47,11 @@ import Data.Monoid ((<>))
 
 draw :: MVar DecoderState -> DecoderState -> IO Picture
 draw _ ds = do
+  -- Node:: Not deadlocking on this read
   p    <- readMVar $ ds^.pos
   occ  <- readMVar $ ds^.occupancy
   dPos <- readMVar $ ds^.decodedPos
+  -- End note above
   let trackPicture = drawTrack track
       posPicture = drawPos p
       drawOpt :: TrodeDrawOption
