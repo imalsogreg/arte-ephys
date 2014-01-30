@@ -57,7 +57,8 @@ draw _ ds = do
         Nothing  -> DrawError "CList error"
         Just Nothing -> DrawError "CList CList error"
         Just (Just opt) -> opt -- weird. I expected fmap to give Just TOpt
-      optsPicture = maybe (Text "Opts Problem") (drawDrawOptionsState (ds^.trodeDrawOpt))
+      optsPicture = maybe (Text "Opts Problem")
+                    (scale 0.2 0.2 . drawDrawOptionsState (ds^.trodeDrawOpt))
                     (join $ CL.focus <$> CL.focus (ds^.trodeDrawOpt))
 --  putStrLn $ unwords ["Focus:", show drawOpt, "of options", show (ds^.trodeDrawOpt)]
   field <- case drawOpt of 
