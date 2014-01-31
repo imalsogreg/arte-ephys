@@ -32,5 +32,5 @@ executable arte-master
                          , cmdargs
                          , text (>= 0.11.1.0 && < 0.12)	
            main-is:        Master.hs
-           ghc-options:    -threaded "-with-rtsopts=-N4"
+           ghc-options:    -threaded "-with-rtsopts=-N2" -rtsopts -fprof-auto
            hs-source-dirs: src
