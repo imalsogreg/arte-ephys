@@ -54,7 +54,7 @@ mockCmd =
           , spikeFileExtension    = "tt"         &= typ "EXT"
           , eegFileExtention      = "eeg"        &= typ "EXT"
           , pFileExtention        = "p"          &= typ "EXT"
-          , arteFileExtension     = ".data"      &= typ "EXT"
+          , arteFileExtension     = "data"      &= typ "EXT"
           , clusterBoundsFileName = "cbfile-run" &= typ "FILENAME"
           , baseDirectory = "." &= help "(default \".\")"
           , searchDepth = 0 &= help "Recursion depth for file search"
@@ -64,14 +64,15 @@ mockCmd =
 track :: Track
 track = circularTrack (0,0) 0.57 0.5 0.25 0.15
 
-queueToNetwork :: (S.Serialize a) => TQueue a -> Node -> IO ()
-queueToNetwork q node = do
+queueToNetwork :: (S.Serialize a, Show a) => Bool -> TQueue a -> Node -> IO ()
+queueToNetwork verbose q node = do
   let portStr = zmqStr Tcp "*" (show $node ^. port)
   ZMQ.withContext 1 $ \ctx -> do
     ZMQ.withSocket ctx ZMQ.Pub $ \pubSock -> do
       ZMQ.bind pubSock portStr
       forever $ do
         a <- atomically $ readTQueue q
+        when verbose $ print a
         ZMQ.send pubSock (S.encode a) []
 
 {- Unused?
@@ -99,9 +100,10 @@ cbNameFromTTPath :: ArteMockSpikes -> String -> Text
 cbNameFromTTPath arg ttPath = pack . (++ (clusterBoundsFileName arg)) .
                               reverse . dropWhile (/= '/') . reverse $ ttPath
 
-pipeToQueue :: TQueue a -> P.Consumer a IO r
-pipeToQueue q = forever $ do
+pipeToQueue :: Bool -> TQueue a -> P.Consumer a IO r
+pipeToQueue verbose q = forever $ do
   s <- P.await
+  when verbose (P.liftIO . print $ "Pipe to Queue")
   P.lift . atomically $ writeTQueue q s
 
 dropWhile' :: (Monad m) => (a -> Bool) -> P.Pipe a a m ()
@@ -148,9 +150,7 @@ main :: IO ()
 main = do
   
   opts <- cmdArgs mockCmd
-
   --print opts
-
   let spikeExt = spikeFileExtension opts
       eegExt   = eegFileExtention opts
       pExt     = pFileExtention opts
@@ -162,6 +162,7 @@ main = do
   
   [spikeFiles,eegFiles,pFiles,arteFiles] <- mapM (getFilesByExtension baseDir sDepth)
                                   [spikeExt,eegExt,pExt,arteExt]
+  print pFiles
   let clustFiles = map (cbNameFromTTPath opts) (spikeFiles) :: [Text]
   
   nodes <- mapM (flip getAppNode Nothing) ["spikesA","lfpsA","pos","master"]
@@ -190,21 +191,23 @@ main = do
               async .P.runEffect $ (dropResult $ produceTrodeSpikes tName fi f) >->
                 seekAndWait goSign spikeTime (startExperimentTime opts)
                 (relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts))) >->
-                pipeToQueue spikeQ
+                pipeToQueue False spikeQ
 
         let p0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
                  ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0) --TODO p0 is ConfSure? Test this
             sZ = take 15 (repeat 0)  --TODO customizable smoothing length, or even pipe-filter?  
             ((pX0,pY0),pixPerM,h) = ((166,140),156.6, 0.5) :: ((Double,Double),Double,Double) --TODO Right type?
-        posF <- BSL.readFile $ head pFiles
+        posF <- BSL.readFile $ head pFiles -- TODO REMOVE PARTIAL FUNCTION
+        putStrLn $ "About to Pos Async from file " ++ head pFiles
         posAsync <- async . P.runEffect $ dropResult (produceMWLPos posF) >->
                     runningPosition (pX0,pY0) pixPerM h p0 >->
                     seekAndWait goSign _posTime (startExperimentTime opts)
                     (relativeTimeCat (\p -> (_posTime p - startExperimentTime opts))) >->
-                    pipeToQueue posQ
+--                    PP.print >->
+                    pipeToQueue False posQ
 
-        _ <- async $ queueToNetwork spikeQ spikeNode
-        _ <- async $ queueToNetwork posQ   pNode
+        _ <- async $ queueToNetwork False spikeQ spikeNode
+        _ <- async $ queueToNetwork False (posQ :: TQueue Position)     pNode
 
         _ <- mapM waitCatch spikeAsyncs
         wait posAsync

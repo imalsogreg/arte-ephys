@@ -19,7 +19,7 @@ import Graphics.Gloss.Interface.IO.Game
 -}
 
 {- New way, hold TVars of DecodablePlaceCells in the draw opt -}
-data TrodeDrawOption = DrawPlaceCell   (MVar DecodablePlaceCell)
+data TrodeDrawOption = DrawPlaceCell   PlaceCellName (MVar DecodablePlaceCell)
                      | DrawClusterless (MVar ClusterlessTrode)
                      | DrawOccupancy
                      | DrawDecoding
@@ -27,7 +27,7 @@ data TrodeDrawOption = DrawPlaceCell   (MVar DecodablePlaceCell)
                      deriving (Eq)
 
 instance Show TrodeDrawOption where
-  show (DrawPlaceCell _)   = "DrawPlaceCell"
+  show (DrawPlaceCell name _)   = "DrawPlaceCell " ++ show name
   show (DrawClusterless _) = "DrawClusterless"
   show  DrawOccupancy      = "DrawOccupancy"
   show  DrawDecoding       = "DrawDecoding"
@@ -57,7 +57,8 @@ clistTrodes (Clustered tMap) =
     where
       clistTrode :: (PlaceCellTrode) -> CL.CList TrodeDrawOption
       clistTrode (PlaceCellTrode units _) =
-        CL.fromList (map DrawPlaceCell $ Map.elems units)
+        CL.fromList $ map (\(n,u) -> DrawPlaceCell n u)
+        (Map.toList units)
         -- [DrawPlaceCell tName cName | cName <- Map.keys (cMap^.dUnits)]  
 clistTrodes (Clusterless tMap) =
   CL.fromList $ map (CL.singleton . DrawClusterless) (Map.elems tMap)
@@ -69,6 +70,8 @@ stepDrawOpt k opt
   | k == KeyDown  = CL.update (subOpt CL.rotR) opt
   | k == KeyUp    = CL.update (subOpt CL.rotL) opt
   | otherwise     = opt
-  where subOpt rot = case CL.focus opt of
-          Nothing -> error "Empty CList, unexpected"
-          Just f  -> rot f
+  where
+    subOpt :: (CL.CList TrodeDrawOption -> CL.CList TrodeDrawOption) -> CL.CList TrodeDrawOption
+    subOpt rotDir = case CL.focus opt of
+          Nothing -> error "DrawingHelpers: While rotating DrapOpt, found Empty CList, unexpected"
+          Just f  -> rotDir f
