@@ -53,7 +53,6 @@ draw _ ds = do
   p    <- readMVar $ ds^.pos
   occ  <- readMVar $ ds^.occupancy
   dPos <- readMVar $ ds^.decodedPos
-  print (Map.elems occ)
   -- End note above
   let trackPicture = drawTrack track
       posPicture = drawPos p
@@ -228,7 +227,7 @@ fanoutSpikeToCells ds trodeName trode pos spike = do
 fanoutSpikesToTrodes :: MVar DecoderState -> Chan TrodeSpike -> IO ()
 fanoutSpikesToTrodes dsT sQueue = forever $ do
     s <- readChan sQueue
-
+    print "Handling a spike"
     ds <- takeMVar dsT
 
     let sName = read . Text.unpack . spikeTrodeName $ s :: Int
