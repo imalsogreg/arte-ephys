@@ -33,7 +33,7 @@ kernel  = PosGaussian 0.2
 
 initialState :: IO DecoderState
 initialState = do
-  let zeroField = Map.fromList [(tp,0) | tp <- allTrackPos track]
+  let zeroField = Map.fromList [(tp,0.1) | tp <- allTrackPos track]
       p0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0 ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
       sZ = take 15 (repeat 0)
   DecoderState <$>

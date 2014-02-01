@@ -53,6 +53,7 @@ draw _ ds = do
   p    <- readMVar $ ds^.pos
   occ  <- readMVar $ ds^.occupancy
   dPos <- readMVar $ ds^.decodedPos
+  print (Map.elems occ)
   -- End note above
   let trackPicture = drawTrack track
       posPicture = drawPos p
@@ -61,7 +62,7 @@ draw _ ds = do
         Nothing  -> DrawError "CList error"
         Just Nothing -> DrawError "CList CList error"
         Just (Just opt) -> opt -- weird. I expected fmap to give Just TOpt
-      optsPicture = maybe (Text "Opts Problem")
+      optsPicture = translate (-10) (-10) . scale 0.1 0.1 $ maybe (Text "Opts Problem")
                     (scale 0.2 0.2 . drawDrawOptionsState (ds^.trodeDrawOpt))
                     (join $ CL.focus <$> CL.focus (ds^.trodeDrawOpt))
 --  putStrLn $ unwords ["Focus:", show drawOpt, "of options", show (ds^.trodeDrawOpt)]
