@@ -75,21 +75,6 @@ queueToNetwork verbose q node = do
         when verbose $ print a
         ZMQ.send pubSock (S.encode a) []
 
-{- Unused?
-pushMWLFileSpikesToQueue :: FilePath -> TQueue TrodeSpike -> IO ()
-pushMWLFileSpikesToQueue fp q = do
-  f <- BSL.readFile fp
-  let tName = trodeNameFromPath fp
-  eFi <- getFileInfo fp
-  case eFi of
-    Left e -> putStrLn ("Error with file " ++ fp ++ " : " ++ e)
-    Right fi -> 
-      P.runEffect $ dropResult (produceMWLSpikes fi f) >->
-      PP.map (mwlToArteSpike fi tName) >->
-      relativeTimeCat spikeTime >->
-      pipeToQueue q
--}
-
 -- "path/to/0224.tt" -> "24"
 -- TODO : Fix.  Only drop 5 when extention has 2 letters.
 trodeNameFromPath :: String -> Text
