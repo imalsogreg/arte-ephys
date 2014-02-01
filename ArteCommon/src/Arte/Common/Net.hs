@@ -11,7 +11,7 @@ import Control.Monad
 import Control.Lens hiding ((.=))
 import Data.Aeson
 import Data.Yaml
-import Control.Lens.Aeson
+--import Control.Lens.Aeson
 import qualified Data.ByteString.Char8 as BS
 import Data.Map (Map, keys, member)
 import System.Environment (lookupEnv)
