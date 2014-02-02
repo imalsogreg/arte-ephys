@@ -31,7 +31,8 @@ executable arteMockSpikes
                     text,
                     cereal,
                     lens,
-                    async
+                    async,
+                    network
   Main-Is:          ArteMockMWL.hs
   ghc-options:      -O2 -threaded -fprof-auto "-with-rtsopts=-N3"
   hs-source-dirs:   src

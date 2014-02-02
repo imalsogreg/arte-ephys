@@ -6,9 +6,9 @@ import Data.Ephys.EphysDefs
 import Data.Ephys.Spike
 import Data.Ephys.PlaceCell
 
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Control.Lens
-import Control.Concurrent.MVar
+import Control.Concurrent.STM.TVar
 
 -- Placeholder.  Will be more like: KdTree (Vector Voltage) (Field Double)
 type SpikeHistory = Int 
@@ -22,7 +22,7 @@ data DecodablePlaceCell = DecodablePlaceCell { _dpCell     :: PlaceCell
 $(makeLenses ''DecodablePlaceCell)
 
 data PlaceCellTrode = PlaceCellTrode {
-    _dUnits :: Map.Map PlaceCellName (MVar DecodablePlaceCell) 
+    _dUnits :: Map.Map PlaceCellName (TVar DecodablePlaceCell) 
   , _pcTrodeHistory :: SpikeHistory
   } deriving (Eq)
              
@@ -34,7 +34,7 @@ data ClusterlessTrode = ClusterlessTrode { _dtNonClusts :: NotClusts
                                          , _dtTauN      :: [TrodeSpike]
                                          } deriving (Eq, Show)
 
-data Trodes = Clusterless (Map.Map TrodeName (MVar ClusterlessTrode))
+data Trodes = Clusterless (Map.Map TrodeName (TVar ClusterlessTrode))
             | Clustered   (Map.Map TrodeName PlaceCellTrode)
 
 $(makeLenses ''Trodes)

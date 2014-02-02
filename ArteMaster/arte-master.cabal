@@ -19,7 +19,6 @@ build-type:               Simple
 
 executable arte-master
            build-depends:  base
-                         , threepenny-gui
                          , mtl
                          , stm >= 2.4
                          , network

@@ -4,23 +4,15 @@ import DecoderDefs
 import Data.Ephys.EphysDefs
 
 import Control.Lens
-import qualified Data.Map as Map
-import Control.Concurrent.MVar
+import qualified Data.Map.Strict as Map
+import Control.Concurrent.STM.TVar
 import qualified Data.CircularList as CL
 import Graphics.Gloss.Interface.IO.Game
 
 
-{- Old way, based on nested maps -}
-{-data TrodeDrawOption = DrawPlaceCell TrodeName PlaceCellName
-                     | DrawClusterless TrodeName
-                     | DrawOccupancy
-                     | DrawDecoding
-                     | DrawError String
--}
-
 {- New way, hold TVars of DecodablePlaceCells in the draw opt -}
-data TrodeDrawOption = DrawPlaceCell   PlaceCellName (MVar DecodablePlaceCell)
-                     | DrawClusterless (MVar ClusterlessTrode)
+data TrodeDrawOption = DrawPlaceCell   PlaceCellName (TVar DecodablePlaceCell)
+                     | DrawClusterless (TVar ClusterlessTrode)
                      | DrawOccupancy
                      | DrawDecoding
                      | DrawError String

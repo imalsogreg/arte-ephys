@@ -14,6 +14,9 @@ import Arte.Common
 
 import Pipes.RealTime
 
+import System.IO
+import Network
+import Control.Applicative
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as BS
 import qualified System.ZMQ as ZMQ
@@ -75,6 +78,22 @@ queueToNetwork verbose q node = do
         when verbose $ print a
         ZMQ.send pubSock (S.encode a) []
 
+setupPub :: Node -> IO (ZMQ.Socket ZMQ.Pub, MVar ())
+setupPub node = do
+  let portStr = zmqStr Tcp "*" (show $ node^.port)
+  ZMQ.withContext 1 $ \ctx -> do
+    ZMQ.withSocket ctx ZMQ.Pub $ \pubSock -> do
+      ZMQ.bind pubSock portStr
+      lock <- newEmptyMVar
+      return (pubSock, lock)
+
+toNetwork :: (S.Serialize a, Show a) => Bool -> ZMQ.Socket ZMQ.Pub -> MVar ()
+             -> a -> IO ()
+toNetwork verbose pubSock lock a = do
+  withMVar lock $ \_ -> do
+    when verbose $ print a
+    ZMQ.send pubSock (S.encode a) []
+
 -- "path/to/0224.tt" -> "24"
 -- TODO : Fix.  Only drop 5 when extention has 2 letters.
 trodeNameFromPath :: String -> Text
@@ -97,7 +116,10 @@ dropWhile' p = do
   case p v of
     True  -> dropWhile' p
     False -> P.yield v
-  
+
+dropWhile'' :: (Monad m) => (a -> Bool) -> P.Pipe a a m ()
+dropWhile'' _ = P.cat
+
 seekAndWait :: (Show a) => TMVar () -> (a -> Double) -> Double -> P.Pipe a a IO () -> P.Pipe a a IO ()
 seekAndWait goSignal toTime target produce = do
   dropWhile' ((< target) . toTime)
@@ -147,12 +169,17 @@ main = do
   
   [spikeFiles,eegFiles,pFiles,arteFiles] <- mapM (getFilesByExtension baseDir sDepth)
                                   [spikeExt,eegExt,pExt,arteExt]
-  print pFiles
-  let clustFiles = map (cbNameFromTTPath opts) (spikeFiles) :: [Text]
   
   nodes <- mapM (flip getAppNode Nothing) ["spikesA","lfpsA","pos","master"]
   case nodes of
     [Right spikeNode, Right eegNode, Right pNode, Right masterNode] -> do
+
+{-  This method didn't work.  "Bad file descriptor" prob b/c different ZMQ thread
+    is different from spike-writing thread
+      print "ABOUT TO SETUP"
+      (spikeSock,spikeLock) <- setupPub spikeNode
+      print "FINISHED SETUP"
+-}
 
       spikeQ <- newTQueueIO
       eegQ   <- newTQueueIO
@@ -165,18 +192,22 @@ main = do
         forkFinally (handleEvents fromMaster goSign) (\_ -> print "Handle Events forkFinally")
 
         spikeAsyncs <- forM spikeFiles $ \fn -> do
-          let tName = trodeNameFromPath fn
+          let tName = read . unpack $ trodeNameFromPath fn
               cName = cbNameFromTTPath opts fn
           fi' <- getFileInfo fn
           f  <- BSL.readFile fn
           case fi' of
             Left e -> error $ "Bad fileinfo for file " ++ fn ++ " error: " ++ e
             Right fi -> do
-              orderClusters toMaster (unpack cName) fn 
+              print "ORDER CLUSTERS"
+              orderClusters toMaster (unpack cName) fn
+              print "DID AN ORDER CLUSTERS"
               async .P.runEffect $ (dropResult $ produceTrodeSpikes tName fi f) >->
                 seekAndWait goSign spikeTime (startExperimentTime opts)
-                (relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts))) >->
+                (relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts))) >-> 
+--                PP.chain (\thisSpike -> print $ spikeTrodeName thisSpike) >->
                 pipeToQueue False spikeQ
+--                (\spike -> lift $ toNetwork False spikeSock spikeLock spike)
 
         let p0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
                  ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0) --TODO p0 is ConfSure? Test this
@@ -207,4 +238,39 @@ handleEvents sub goSign = forever $ do
   case msgBody m of
     Request StartAcquisition -> putStrLn "Got Go signal!" >> atomically (putTMVar goSign ())
     _ -> putStrLn $ "Got and ignored a message: " ++ (take 40 . show . msgBody $ m)
-       
+
+{-
+acceptDataClients :: Node -> IO ()
+acceptDataClients node = case node^.port of
+  Nothing -> error "Configuration error: data generating node has no port field"
+  Just p -> do
+    server <- DataServer <$> newTVarIO []
+    print $ "Awaiting data connections, listening on " ++ show p
+    sock <- listenOn (PortNumber . fromIntegral $ p)
+    loop sock server
+      where
+        loop s server = do
+          (handle,clientHost,clientPort) <- accept s
+          client <- DataClient <$> newTQueueIO <*> pure handle
+          atomically $ modifyTVar (clients server) (client :)
+          putStrLn $ unwords ["Accepted host", clientHost, "on port", show clientPort]
+          forkIO $ runClientHandler client
+          loop s server
+
+data DataServer = DataServer { clients :: [DataClient] }
+
+data DataClient = DataClient { dataToClient :: TQueue TrodeSpike
+                             , clientHandle :: Handle
+                             }
+
+dataToServer :: (S.Serialize a, Show a) => DataServer -> a -> IO ()
+dataToServer server a =
+  atomically $ forM_ (clients server) (writeTQueue a)
+  
+runClientHandler :: DataClient -> IO ()
+runClientHandler client =
+  forever $ do
+    a <- readTQueue (dataToClient client)
+    sendWithSize $ (encode a) (clientHandle client)
+                     
+-}

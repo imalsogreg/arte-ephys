@@ -8,18 +8,18 @@ import Data.Ephys.Position
 import Data.Ephys.TrackPosition
 
 import Control.Applicative
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Control.Lens
-import Control.Concurrent.MVar
+import Control.Concurrent.STM.TVar
 import qualified Data.CircularList as CL
   
 data DecoderState = DecoderState
-                    { _pos          :: MVar Position
-                    , _trackPos     :: MVar (Field Double)
-                    , _occupancy    :: MVar (Field Double)
-                    , _lastEstimate :: MVar (Field Double) --unused?
+                    { _pos          :: TVar Position
+                    , _trackPos     :: TVar (Field Double)
+                    , _occupancy    :: TVar (Field Double)
+                    , _lastEstimate :: TVar (Field Double) --unused?
                     , _trodes       :: Trodes
-                    , _decodedPos   :: MVar (Field Double)
+                    , _decodedPos   :: TVar (Field Double)
                     , _trodeDrawOpt :: TrodeDrawOptions
                     }
 
@@ -37,10 +37,10 @@ initialState = do
       p0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0 ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
       sZ = take 15 (repeat 0)
   DecoderState <$>
-    newMVar p0 <*>
-    newMVar zeroField <*>
-    newMVar zeroField <*>
-    newMVar zeroField <*>
+    newTVarIO p0 <*>
+    newTVarIO zeroField <*>
+    newTVarIO zeroField <*>
+    newTVarIO zeroField <*>
     return (Clustered Map.empty) <*>
-    newMVar zeroField <*> 
+    newTVarIO zeroField <*> 
     pure (clistTrodes (Clustered Map.empty))
