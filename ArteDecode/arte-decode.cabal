@@ -32,7 +32,7 @@ executable arteDecode
                     filepath,
                     stm,
                     bytestring,
-                    text,
+                    text (>= 1.1.0.0 && < 1.1.1),
                     cereal,
                     lens,
                     async,

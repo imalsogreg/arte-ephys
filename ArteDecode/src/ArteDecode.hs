@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
 module Main where
 
@@ -18,6 +19,7 @@ import Data.Ephys.Position
 import Data.Ephys.TrackPosition
 import Data.Ephys.GlossPictures
 
+import System.Console.CmdArgs
 import Control.Applicative ((<$>),(<*>),pure)
 import qualified Data.Traversable as T
 import qualified Data.Foldable    as F
@@ -32,11 +34,11 @@ import Data.Either
 import qualified System.ZMQ as ZMQ
 import Control.Lens
 import qualified Data.Serialize as S
-import qualified Data.Text as Text 
+
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 import qualified Data.CircularList as CL
-import Control.Monad.State.Strict
+
 import Data.Monoid ((<>))
 
 ----------------------------------------
@@ -48,6 +50,13 @@ import Data.Monoid ((<>))
 -- here...
 ---------------------------------------
 
+data DecoderArgs = DecoderArgs {mwlBaseDirectory :: Maybe FilePath}
+                 deriving (Show,Data,Typeable)
+decoderArgs :: DecoderArgs
+decoderArgs = DecoderArgs { mwlBaseDirectory =
+                             Nothing &= 
+                             help "Data directory when not taking network data"}
+
 draw :: TVar DecoderState -> DecoderState -> IO Picture
 draw _ ds = do
   -- Node:: Not deadlocking on this read
@@ -58,10 +67,9 @@ draw _ ds = do
   let trackPicture = drawTrack track
       posPicture = drawPos p
       drawOpt :: TrodeDrawOption
-      drawOpt = case CL.focus `fmap` CL.focus (ds^.trodeDrawOpt) of
+      drawOpt = case join $ CL.focus `fmap` CL.focus (ds^.trodeDrawOpt) of
         Nothing  -> DrawError "CList error"
-        Just Nothing -> DrawError "CList CList error"
-        Just (Just opt) -> opt -- weird. I expected fmap to give Just TOpt
+        Just opt -> opt
       optsPicture = translate (-1) (-1) . scale 0.5 0.5 $ maybe (Text "Opts Problem")
                     (scale 0.2 0.2 . drawDrawOptionsState (ds^.trodeDrawOpt))
                     (join $ CL.focus <$> CL.focus (ds^.trodeDrawOpt))
@@ -119,8 +127,6 @@ main = do
               async $ enqueueSpikes sNode incomingSpikes
             dequeueSpikesA <- async . forever $
                               fanoutSpikesToTrodes dsT incomingSpikes -- funny return type -> IO DecStt
-
---            subAs <- forM spikeNodes $ \sNode -> async $ handleSpikesNoQueue sNode dsT
 
             playIO (InWindow "ArteDecoder" (300,300) (10,10))
               white 30 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
