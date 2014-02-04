@@ -11,6 +11,7 @@ import DrawingHelpers
 
 import Arte.Common.Net
 import Arte.Common.NetMessage
+import Arte.Common.FileUtils
 import Data.Ephys.EphysDefs
 import Data.Ephys.Spike
 import Data.Ephys.Cluster
@@ -18,9 +19,16 @@ import Data.Ephys.PlaceCell
 import Data.Ephys.Position
 import Data.Ephys.TrackPosition
 import Data.Ephys.GlossPictures
+import Data.Ephys.OldMWL.FileInfo
+import Data.Ephys.OldMWL.Parse
+import Data.Ephys.OldMWL.ParsePFile
+import Data.Ephys.OldMWL.ParseClusterFile
 
+import Pipes.RealTime
 import System.Console.CmdArgs
+import System.Directory
 import Control.Applicative ((<$>),(<*>),pure)
+import qualified Data.Text as Text
 import qualified Data.Traversable as T
 import qualified Data.Foldable    as F
 import qualified Data.Map.Strict as Map
@@ -34,11 +42,12 @@ import Data.Either
 import qualified System.ZMQ as ZMQ
 import Control.Lens
 import qualified Data.Serialize as S
-
+import Pipes
+import qualified Pipes.Prelude as P
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 import qualified Data.CircularList as CL
-
+import qualified Data.ByteString.Lazy as BSL
 import Data.Monoid ((<>))
 
 ----------------------------------------
@@ -50,12 +59,17 @@ import Data.Monoid ((<>))
 -- here...
 ---------------------------------------
 
-data DecoderArgs = DecoderArgs {mwlBaseDirectory :: Maybe FilePath}
+data DecoderArgs = DecoderArgs {mwlBaseDirectory    :: FilePath
+                               ,startExperimentTime :: Double}
                  deriving (Show,Data,Typeable)
 decoderArgs :: DecoderArgs
 decoderArgs = DecoderArgs { mwlBaseDirectory =
-                             Nothing &= 
-                             help "Data directory when not taking network data"}
+                             "" &= 
+                             help "Data directory when not taking network data"
+                          , startExperimentTime =
+                            0 &=
+                            help "Start time when spooling from disk directly"
+                          }
 
 draw :: TVar DecoderState -> DecoderState -> IO Picture
 draw _ ds = do
@@ -97,19 +111,12 @@ draw _ ds = do
   threadDelay 30000
   return . scale 100 100 $ pictures [posPicture, trackPicture, field, optsPicture ]
 
-
-{- Replacing the actual draw with this - still getting the deadlock.
-   At least one problem doesn't involve draw
-draw :: MVar DecoderState -> DecoderState -> IO Picture
-draw _ ds = do
-  print "Draw"
-  return $ circle 10
--}
-
 main :: IO ()
 main = do
-  ds  <- initialState
-  dsT <- newTVarIO ds
+  opts <- cmdArgs decoderArgs
+  print args
+  ds   <- initialState
+  dsT  <- newTVarIO ds
   masterNode' <- getAppNode "master" Nothing
   pNode'      <- getAppNode "pos"    Nothing
   spikeNodes  <- getAllSpikeNodes    Nothing
@@ -118,22 +125,89 @@ main = do
     Left e -> putStrLn $ "Faulty config file.  Error:" ++ e
     Right masterNode ->
       withMaster masterNode $ \(toMaster,fromMaster) -> do
-        case pNode' of
-          Left e -> error $ "No pos node: " ++ e
-          Right pNode -> do
-            subP <- async $ streamPos pNode dsT
+        case mwlBaseDirectory opts of
+          "" -> do
+            case pNode' of
+              Left e -> error $ "No pos node: " ++ e
+              Right pNode -> do
+                subP <- async $ streamPos pNode dsT
 
-            subAs <- forM spikeNodes $ \sNode ->
-              async $ enqueueSpikes sNode incomingSpikes
-            dequeueSpikesA <- async . forever $
-                              fanoutSpikesToTrodes dsT incomingSpikes -- funny return type -> IO DecStt
+                subAs <- forM spikeNodes $ \sNode ->
+                  async $ enqueueSpikes sNode incomingSpikes
+                dequeueSpikesA <- async . forever $
+                                  fanoutSpikesToTrodes dsT incomingSpikes
 
-            playIO (InWindow "ArteDecoder" (300,300) (10,10))
-              white 30 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
-            mapM_ wait subAs
-            wait subP
-            _ <- wait dequeueSpikesA
-            print "Past wait subAs"
+                runGloss dsT fromMaster
+--                playIO (InWindow "ArteDecoder" (300,300) (10,10))
+--                  white 30 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
+                mapM_ wait subAs
+                wait subP
+                _ <- wait dequeueSpikesA
+                print "Past wait subAs"
+
+          basePath -> do
+            putStrLn "Decoder streaming spikes and position from disk"
+            incomingSpikesChan <- newChan
+              
+            [spikeFiles,pFiles] <- mapM (getFilesByExtension basePath 2)
+                                              ["tt","p"]
+            putStrLn $ "spikeFiles: " ++ show spikeFiles
+            putStrLn $ "pFiles: "     ++ show pFiles
+            let ((pX0,pY0),pixPerM,h) = posShortcut
+
+            putStrLn "Start pos async"
+            posAsync <- async . runEffect $
+                        dropResult (produceMWLPosFromFile (head pFiles)) >->
+                        runningPosition (pX0,pY0) pixPerM h pos0 >->
+                        relativeTimeCat (\p -> (_posTime p - startExperimentTime opts)) >->
+                        (forever $ do
+                            p <- await
+                            lift $ updatePos dsT p)
+
+            putStrLn "Start Spike file asyncs"
+            spikeAsyncs <- forM spikeFiles $ \sf -> do
+              let tName = read . Text.unpack $ mwlTrodeNameFromPath sf
+              print $ "working on file" ++ sf
+              fi' <- getFileInfo sf
+              case fi' of
+                Left e -> error $ unwords ["Error getting info on file",sf,":",e]
+                Right fi -> do
+                  let cbFilePath = Text.unpack $ cbNameFromTTPath "cbfile-run" sf
+                  putStrLn $ unwords ["About to order clusters for tt",sf," cbfile:",cbFilePath]
+                  orderClusters toMaster cbFilePath sf
+                  putStrLn "Send orderClusters"
+                  f <- BSL.readFile sf
+                  async $ runEffect $ 
+                           dropResult (produceTrodeSpikes tName fi f) >->
+                           relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
+                           (forever $ do
+                               spike <- await
+                               lift $ writeChan incomingSpikesChan spike)
+
+            putStrLn "start handle-spikes async"
+            handleSpikesAsync <- async $ fanoutSpikesToTrodes dsT incomingSpikesChan
+
+            runGloss dsT fromMaster
+            
+            putStrLn "wait for asyncs to finish"
+            _ <- wait handleSpikesAsync
+            _ <- wait posAsync
+            _ <- mapM wait spikeAsyncs
+            return ()
+
+runGloss :: TVar DecoderState -> TQueue ArteMessage -> IO ()
+runGloss dsT fromMaster = do
+  ds <- initialState
+  playIO (InWindow "ArteDecoder" (300,300) (10,10))
+    white 30 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
+
+pos0 :: Position
+pos0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
+       ConfSure sZ sZ (-100 :: Double) (Location 0 0 0)
+       where sZ = take 15 (repeat 0)
+
+posShortcut :: ((Double,Double),Double,Double)
+posShortcut = ((166,140),156.6, 0.5)
 
 glossInputs :: TVar DecoderState -> Event -> DecoderState -> IO DecoderState
 glossInputs dsT e ds =
@@ -200,12 +274,15 @@ streamPos pNode dsT = ZMQ.withContext 1 $ \ctx ->
       bs <- ZMQ.receive sub []
       case S.decode bs of
         Left  e -> putStrLn $ "Got a bad Position record." ++ e
-        Right p -> do
-          let trackPos' = posToField track p kernel :: Map.Map TrackPos Double
-          ds <- readTVarIO dsT
-          atomically $ modifyTVar' (ds^.occupancy) (updateField (+) trackPos')
-          atomically $ writeTVar (ds^.pos) p  
-          atomically $ writeTVar (ds^.trackPos)   trackPos'
+        Right p -> updatePos dsT p
+
+updatePos :: TVar DecoderState -> Position -> IO ()
+updatePos dsT p = let trackPos' = posToField track p kernel :: Map.Map TrackPos Double in
+  atomically $ do
+    ds <- readTVar dsT
+    modifyTVar' (ds^.occupancy) (updateField (+) trackPos')
+    writeTVar (ds^.pos) p
+    writeTVar (ds^.trackPos) trackPos'
 
 fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
                       Field Double -> TrodeSpike -> IO DecoderState
@@ -216,8 +293,6 @@ fanoutSpikeToCells ds trodeName trode pos spike = do
                   _ <- atomically . swapTVar dpc' $ DecodablePlaceCell
                        (stepField (pc) pos spike)
                        (f tauN)
-                  when (spikeInCluster (pc^.cluster) spike) $ do
-                    putStrLn $ "Cell caught a spike"
                   return dpc'
 --                DecodablePlaceCell pc tauN <- atomically $ readTVar dpc'
 --                putStrLn . show $ spikeInCluster (pc^.cluster) spike 
@@ -351,3 +426,15 @@ newPlaceCell track ds trodeName cMethod = do
         Just (PlaceCellTrode dpc sHist) ->
           PlaceCell cMethod (Map.fromList [(p,0)|p <- allTrackPos track])
           -- TODO: Build from spike history! 
+
+orderClusters :: TQueue ArteMessage -> FilePath -> FilePath -> IO ()
+orderClusters queue cFile ttFile = do 
+  let trodeName = Text.unpack $ mwlTrodeNameFromPath ttFile
+  cExists <- doesFileExist cFile
+  when cExists $ do
+    clusters' <- getClusters cFile ttFile
+    case clusters' of
+      Left _         -> return ()
+      Right clusts -> atomically . writeTQueue queue $
+                      (ArteMessage 0 "" Nothing (Request $ TrodeSetAllClusters (read trodeName) clusts))
+  -- TODO: Unsafe use of read!!

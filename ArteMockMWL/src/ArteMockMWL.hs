@@ -94,15 +94,18 @@ toNetwork verbose pubSock lock a = do
     when verbose $ print a
     ZMQ.send pubSock (S.encode a) []
 
+{- These have been moved to haskel-tetrode-ephys
 -- "path/to/0224.tt" -> "24"
 -- TODO : Fix.  Only drop 5 when extention has 2 letters.
-trodeNameFromPath :: String -> Text
-trodeNameFromPath = pack . reverse . take 2 . drop 5 . reverse  
+mwlTrodeNameFromPath :: String -> Text
+mwlTrodeNameFromPath = pack . reverse . take 2 . drop 5 . reverse  
 
 -- "path/to/0224.tt" -> "path/to/cbfile-run"
-cbNameFromTTPath :: ArteMockSpikes -> String -> Text
-cbNameFromTTPath arg ttPath = pack . (++ (clusterBoundsFileName arg)) .
+cbNameFromTTPath :: String -> FilePath -> Text
+cbNameFromTTPath newName ttPath = pack . (++ newName) .
                               reverse . dropWhile (/= '/') . reverse $ ttPath
+-}
+
 
 pipeToQueue :: Bool -> TQueue a -> P.Consumer a IO r
 pipeToQueue verbose q = forever $ do
@@ -143,7 +146,7 @@ seekAndWait goSignal toTime target produce = do
 
 orderClusters :: TQueue ArteMessage -> FilePath -> FilePath -> IO ()
 orderClusters queue cFile ttFile = do 
-  let trodeName = unpack $ trodeNameFromPath ttFile
+  let trodeName = unpack $ mwlTrodeNameFromPath ttFile
   cExists <- doesFileExist cFile
   when cExists $ do
     clusters' <- getClusters cFile ttFile
@@ -192,8 +195,8 @@ main = do
         forkFinally (handleEvents fromMaster goSign) (\_ -> print "Handle Events forkFinally")
 
         spikeAsyncs <- forM spikeFiles $ \fn -> do
-          let tName = read . unpack $ trodeNameFromPath fn
-              cName = cbNameFromTTPath opts fn
+          let tName = read . unpack $ mwlTrodeNameFromPath fn
+              cName = cbNameFromTTPath (clusterBoundsFileName opts) fn
           fi' <- getFileInfo fn
           f  <- BSL.readFile fn
           case fi' of
