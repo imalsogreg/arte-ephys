@@ -33,10 +33,11 @@ import qualified Data.Traversable as T
 import qualified Data.Foldable    as F
 import qualified Data.Map.Strict as Map
 import Control.Monad
-import Control.Concurrent
+import Control.Concurrent hiding (Chan)
 import Control.Concurrent.Async
 import Control.Concurrent.STM.TVar
-import Control.Concurrent.Chan
+--import Control.Concurrent.Chan
+import Control.Concurrent.STM.TQueue
 import Control.Concurrent.STM
 import Data.Either
 import qualified System.ZMQ as ZMQ
@@ -120,7 +121,7 @@ main = do
   masterNode' <- getAppNode "master" Nothing
   pNode'      <- getAppNode "pos"    Nothing
   spikeNodes  <- getAllSpikeNodes    Nothing
-  incomingSpikes <- newChan
+  incomingSpikes <- atomically newTQueue
   case masterNode' of
     Left e -> putStrLn $ "Faulty config file.  Error:" ++ e
     Right masterNode ->
@@ -147,7 +148,7 @@ main = do
 
           basePath -> do
             putStrLn "Decoder streaming spikes and position from disk"
-            incomingSpikesChan <- newChan
+            incomingSpikesChan <- atomically newTQueue
               
             [spikeFiles,pFiles] <- mapM (getFilesByExtension basePath 2)
                                               ["tt","p"]
@@ -156,13 +157,21 @@ main = do
             let ((pX0,pY0),pixPerM,h) = posShortcut
 
             putStrLn "Start pos async"
-            posAsync <- async . runEffect $
-                        dropResult (produceMWLPosFromFile (head pFiles)) >->
-                        runningPosition (pX0,pY0) pixPerM h pos0 >->
-                        relativeTimeCat (\p -> (_posTime p - startExperimentTime opts)) >->
-                        (forever $ do
-                            p <- await
-                            lift $ updatePos dsT p)
+            posAsync <- do
+              f <- BSL.readFile (head pFiles)
+              ds' <- readTVarIO dsT
+              async . runEffect $
+                dropResult (produceMWLPos f) >->
+                runningPosition (pX0,pY0) pixPerM h pos0 >->
+                relativeTimeCatDelayedBy _posTime (negate $ startExperimentTime opts) >->
+                (forever $ do
+                    p <- await
+                    lift . atomically $ do
+                      occ <- readTVar (ds^.occupancy)
+                      let posField = posToField track p kernel
+                      writeTVar (ds'^.pos) p
+                      writeTVar (ds'^.trackPos)  posField
+                      writeTVar (ds'^.occupancy) (updateField (+) occ posField))
 
             putStrLn "Start Spike file asyncs"
             spikeAsyncs <- forM spikeFiles $ \sf -> do
@@ -173,17 +182,32 @@ main = do
                 Left e -> error $ unwords ["Error getting info on file",sf,":",e]
                 Right fi -> do
                   let cbFilePath = Text.unpack $ cbNameFromTTPath "cbfile-run" sf
-                  putStrLn $ unwords ["About to order clusters for tt",sf," cbfile:",cbFilePath]
-                  orderClusters toMaster cbFilePath sf
-                  putStrLn "Send orderClusters"
-                  f <- BSL.readFile sf
-                  async $ runEffect $ 
-                           dropResult (produceTrodeSpikes tName fi f) >->
-                           relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
-                           (forever $ do
-                               spike <- await
-                               lift $ writeChan incomingSpikesChan spike)
+                  --putStrLn $ unwords ["About to order clusters for tt",sf," cbfile:",cbFilePath]
+                  --orderClusters toMaster cbFilePath sf
+                  --putStrLn "Send orderClusters"
+                  clusters' <- getClusters cbFilePath sf
+                  case clusters' of
+                    Left e -> error $ unwords ["Error in clusters from file",cbFilePath,":",e]
+                    Right clusters -> do
+                      setTrodeClusters track dsT tName clusters
+                      ds' <- readTVarIO dsT
+                      case Map.lookup tName (ds'^.trodes._Clustered) of
+                        Nothing -> error $ unwords ["Shouldn't happen, couldn't find",tName]
+                        Just pcTrode -> do
+                          f <- BSL.readFile sf
 
+                          async $ runEffect $ 
+                            dropResult (produceTrodeSpikes tName fi f) >->
+                            relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
+                            (forever $ do
+                                ds2 <- lift . atomically $ readTVar dsT
+                                pos2 <- lift . atomically $ readTVar (ds^.trackPos)
+                                spike <- await
+                                lift $ fanoutSpikeToCells ds2 tName pcTrode pos2 spike)
+--                           (forever $ do
+--                               spike <- await
+--                               lift . atomically $ writeTQueue incomingSpikesChan spike)
+            
             putStrLn "start handle-spikes async"
             handleSpikesAsync <- async $ fanoutSpikesToTrodes dsT incomingSpikesChan
 
@@ -247,6 +271,9 @@ handleRequests queue dsT track = do
                 setTrodeCluster track ds tName cName cMethod
                 return ()
             Request (TrodeSetAllClusters tName clusts) -> do
+              setTrodeClusters track dsT tName clusts
+
+{-
               let foldF dState (cName,cMethod) =
                     setTrodeCluster track dState tName cName cMethod
               print "SetAllClusters About to modifyMVar"
@@ -255,6 +282,8 @@ handleRequests queue dsT track = do
                 ds' <- F.foldlM foldF ds (Map.toList clusts)
                 writeTVar dsT ds'
                 return ()
+  -}
+              
               ds <- readTVarIO dsT
               print $ "SetAllClusters Finished modifying tvar, got opts: " ++ show (ds^.trodeDrawOpt)
             Request  r ->
@@ -263,6 +292,16 @@ handleRequests queue dsT track = do
             Response r -> 
               putStrLn (unwords ["Caught and ignored response:",(take 20 . show $ r),"..."]) >>
               return ()
+
+setTrodeClusters :: Track -> TVar DecoderState -> TrodeName
+                    -> Map.Map PlaceCellName ClusterMethod -> IO ()
+setTrodeClusters track dsT trodeName clusts  =
+  let foldF d (cName,cMethod) =
+        setTrodeCluster track d trodeName cName cMethod in
+  atomically $ do
+    ds  <- readTVar dsT
+    ds' <- F.foldlM foldF ds (Map.toList clusts)
+    writeTVar dsT ds'
 
 streamPos :: Node -> TVar DecoderState -> IO ()
 streamPos pNode dsT = ZMQ.withContext 1 $ \ctx ->
@@ -300,9 +339,9 @@ fanoutSpikeToCells ds trodeName trode pos spike = do
        (trode^.dUnits)
   return ds -- dummy value.  We only work on trode TVars here.
   
-fanoutSpikesToTrodes :: TVar DecoderState -> Chan TrodeSpike -> IO ()
+fanoutSpikesToTrodes :: TVar DecoderState -> TQueue TrodeSpike -> IO ()
 fanoutSpikesToTrodes dsT sQueue = forever $ do
-    s <- readChan sQueue
+    s <- atomically $ readTQueue sQueue
 
     ds <- readTVarIO dsT
 
@@ -347,7 +386,7 @@ handleSpikesNoQueue spikeNode dsT = do
                 atomically . writeTVar dsT $
                   (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+1))
 
-enqueueSpikes :: Node -> Chan TrodeSpike -> IO ()
+enqueueSpikes :: Node -> TQueue TrodeSpike -> IO ()
 enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
   ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
     ZMQ.connect sub $
@@ -358,7 +397,7 @@ enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
       bs <- ZMQ.receive sub [] 
       case S.decode bs of
         Right spike -> do
-          writeChan queue spike
+          atomically $ writeTQueue queue spike
         Left  e     ->
           putStrLn ("Got a bad value on spike chan." ++ e)
 
