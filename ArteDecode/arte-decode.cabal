@@ -42,5 +42,5 @@ executable arteDecode
                     mtl
   Main-Is:          ArteDecode.hs
   hs-source-dirs:   src
-  ghc-options:      -O2 -threaded -fprof-auto -rtsopts "-with-rtsopts=-N2"  -funbox-strict-fields
+  ghc-options:      -O2 -threaded -fprof-auto -rtsopts "-with-rtsopts=-N4"  -funbox-strict-fields
 
