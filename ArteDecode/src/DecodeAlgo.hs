@@ -9,6 +9,7 @@ import Data.Ephys.Spike
 import Data.Ephys.PlaceCell
 import Data.Ephys.TrackPosition
 
+import Control.Concurrent
 import qualified Data.Map.Strict as Map
 import Control.Monad
 import qualified Data.Foldable as F
@@ -24,18 +25,25 @@ type TrodeCollection a = Map.Map TrodeName (Map.Map PlaceCellName a)
 
 stepReconstruction :: Double ->
                       TrodeCollection (Field Double) ->
-                      TrodeCollection (TVar PlaceCellTrode) ->
-                      IO (TrodeCollection (Field Double), Field Double)
-stepReconstruction lastFields clusteredTrodes = do
-  thisFieldsCounts <- clusteredCounts clusteredTrodes
-  undefined
+                      Map.Map PlaceCellName PlaceCellTrode ->
+                      TVar DecoderState ->
+                      IO ()
+stepReconstruction rTauSec fields0 clusteredTrodes dsT = go fields0
+  where
+    go lastFields = do
+      (fields,counts) <- unzip <$> clusteredUnTVar clusteredTrodes
+      occ <- atomically $ readTVar dsT >>= \ds -> readTVar (ds^.occupancy)
+      let !estimate = clusteredReconstruction lastFields counts occ
+      atomically $ readTVar dsT >>= \ds -> writeTVar (ds^.reconstruction) estimate
+      threadDelay (floor $ rTauSec * 1000000)
+      go fields
 
 -- P(x|n) = C(tau,N) * P(x) * Prod_i(f_i(x) ^ n_i) * exp (-tau * Sum_i( f_i(x) ))
-clusteredReconstruction :: Map.Map TrodeName PlaceCellTrode -> Field Double
+clusteredReconstruction :: [Field Double] -> [Int] -> Field Double -> Field Double
 clusteredReconstruction clusteredTrodes = undefined
 
-clusteredCounts :: Map.Map PlaceCellName PlaceCellTrode -> IO [(Field Double,Int)]
-clusteredCounts pcMap = fmap concat $ atomically . mapM trodeFields . Map.elems $ pcMap
+clusteredUnTVar :: Map.Map PlaceCellName PlaceCellTrode -> IO [(Field Double,Int)]
+clusteredUnTVar pcMap = fmap concat $ atomically . mapM trodeFields . Map.elems $ pcMap
   where
     trodeFields :: PlaceCellTrode -> STM [(Field Double,Int)]
     trodeFields pct = mapM countsOneCell
@@ -51,9 +59,6 @@ resetClusteredSpikeCounts clusteredTrodes =
   atomically $ mapM_ (\dpc -> resetOneTrode dpc) (Map.elems clusteredTrodes)
   where resetOneTrode t = mapM_ resetOneCell (Map.elems . _dUnits $ t)
         resetOneCell pc = modifyTVar pc $ dpCellTauN .~ 0
-
-unTVarClustered :: (TrodeCollection PlaceCellTrode) -> TrodeCollection (Field Double, Int)
-unTVarClustered = undefined
 
 liftTC :: (a -> b) -> TrodeCollection a -> TrodeCollection b
 liftTC f tca = Map.map (Map.map f) tca

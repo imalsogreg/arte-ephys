@@ -14,13 +14,13 @@ import Control.Concurrent.STM.TVar
 import qualified Data.CircularList as CL
   
 data DecoderState = DecoderState
-                    { _pos          :: TVar Position
-                    , _trackPos     :: TVar (Field Double)
-                    , _occupancy    :: TVar (Field Double)
-                    , _lastEstimate :: TVar (Field Double) --unused?
-                    , _trodes       :: Trodes
-                    , _decodedPos   :: TVar (Field Double)
-                    , _trodeDrawOpt :: TrodeDrawOptions
+                    { _pos            :: TVar Position
+                    , _trackPos       :: TVar (Field Double)
+                    , _occupancy      :: TVar (Field Double)
+                    , _reconstruction :: TVar (Field Double) 
+                    , _trodes         :: Trodes
+                    , _decodedPos     :: TVar (Field Double)
+                    , _trodeDrawOpt   :: TrodeDrawOptions
                     }
 
 $(makeLenses ''DecoderState)
