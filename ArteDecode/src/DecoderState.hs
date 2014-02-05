@@ -29,7 +29,8 @@ $(makeLenses ''DecoderState)
 track :: Track
 track = circularTrack (0,0) 0.57 0.5 0.25 0.15
 kernel :: PosKernel
-kernel  = PosGaussian 0.2
+kernel = PosDelta
+--kernel  = PosGaussian 0.2
 
 initialState :: IO DecoderState
 initialState = do

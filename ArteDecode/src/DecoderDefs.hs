@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE BangPatterns #-}
 
 module DecoderDefs where
 
@@ -16,14 +17,14 @@ type SpikeHistory = Int
 nullHistory :: SpikeHistory
 nullHistory = 0
 
-data DecodablePlaceCell = DecodablePlaceCell { _dpCell     :: PlaceCell
-                                             , _dpCellTauN :: Int
+data DecodablePlaceCell = DecodablePlaceCell { _dpCell     :: !PlaceCell
+                                             , _dpCellTauN :: !Int
                                              } deriving (Eq, Show)
 $(makeLenses ''DecodablePlaceCell)
 
 data PlaceCellTrode = PlaceCellTrode {
     _dUnits :: Map.Map PlaceCellName (TVar DecodablePlaceCell) 
-  , _pcTrodeHistory :: SpikeHistory
+  , _pcTrodeHistory :: !SpikeHistory
   } deriving (Eq)
              
 $(makeLenses ''PlaceCellTrode)

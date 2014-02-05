@@ -324,20 +324,14 @@ updatePos dsT p = let trackPos' = posToField track p kernel :: Map.Map TrackPos 
     writeTVar (ds^.trackPos) trackPos'
 
 fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
-                      Field Double -> TrodeSpike -> IO DecoderState
+                      Field Double -> TrodeSpike -> IO ()
 fanoutSpikeToCells ds trodeName trode pos spike = do
-  _ <- T.mapM (\dpc' -> do
-                  DecodablePlaceCell pc tauN <- readTVarIO dpc'
-                  let f = if spikeInCluster (pc^.cluster) spike then (+1) else (+0)
-                  _ <- atomically . swapTVar dpc' $ DecodablePlaceCell
-                       (stepField (pc) pos spike)
-                       (f tauN)
-                  return dpc'
---                DecodablePlaceCell pc tauN <- atomically $ readTVar dpc'
---                putStrLn . show $ spikeInCluster (pc^.cluster) spike 
-              )
-       (trode^.dUnits)
-  return ds -- dummy value.  We only work on trode TVars here.
+  flip F.mapM_ (trode^.dUnits) $ \dpcT -> do
+    DecodablePlaceCell pc tauN <- readTVarIO dpcT
+    when (spikeInCluster (pc^.cluster) spike) $ do
+      let pc' = pc & countField %~ updateField (+) pos
+          tauN' = tauN + 1
+      atomically . writeTVar dpcT $ DecodablePlaceCell pc' tauN'
   
 fanoutSpikesToTrodes :: TVar DecoderState -> TQueue TrodeSpike -> IO ()
 fanoutSpikesToTrodes dsT sQueue = forever $ do
@@ -347,22 +341,25 @@ fanoutSpikesToTrodes dsT sQueue = forever $ do
 
     let sName = spikeTrodeName s :: Int
     -- TODO TrodeName is Int, but in TrodeSpike it's Text ..
-    ds' <- case ds^.trodes of
+    case ds^.trodes of
       Clustered tMap -> case Map.lookup (sName :: Int) tMap of
         Nothing    -> do
           --putStrLn ("Orphan spike: " ++ show sName)
-          return ds
+          --return ds
+          return ()
         Just trode -> do
           p <- readTVarIO (ds^.trackPos)
-          ds' <- fanoutSpikeToCells ds sName trode p s
-          return $ 
-            (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+ 1))
-      Clusterless tMap -> return ds
-    return ds'
+          fanoutSpikeToCells ds sName trode p s
+--          return $ 
+--            (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+ 1))
+      Clusterless tMap -> return ()
+--    return ds'
+
 
 stepSpikeHistory :: TrodeSpike -> SpikeHistory -> SpikeHistory
 stepSpikeHistory s sHist = sHist + 1 -- TODO real function
 
+{-
 -- Takes the place of enqueue and fanoutToTrodes.  performance experiment
 handleSpikesNoQueue :: Node -> TVar DecoderState -> IO () 
 handleSpikesNoQueue spikeNode dsT = do
@@ -385,6 +382,7 @@ handleSpikesNoQueue spikeNode dsT = do
                 ds' <- fanoutSpikeToCells ds sName trode p spike
                 atomically . writeTVar dsT $
                   (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+1))
+-}
 
 enqueueSpikes :: Node -> TQueue TrodeSpike -> IO ()
 enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
