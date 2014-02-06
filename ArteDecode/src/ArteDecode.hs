@@ -8,6 +8,7 @@ module Main where
 import DecoderState
 import DecoderDefs
 import DrawingHelpers
+import DecodeAlgo
 
 import Arte.Common.Net
 import Arte.Common.NetMessage
@@ -121,7 +122,7 @@ main = do
   masterNode' <- getAppNode "master" Nothing
   pNode'      <- getAppNode "pos"    Nothing
   spikeNodes  <- getAllSpikeNodes    Nothing
-  incomingSpikes <- atomically newTQueue
+  incomingSpikesChan <- atomically newTQueue
   case masterNode' of
     Left e -> putStrLn $ "Faulty config file.  Error:" ++ e
     Right masterNode ->
@@ -134,9 +135,9 @@ main = do
                 subP <- async $ streamPos pNode dsT
 
                 subAs <- forM spikeNodes $ \sNode ->
-                  async $ enqueueSpikes sNode incomingSpikes
+                  async $ enqueueSpikes sNode incomingSpikesChan
                 dequeueSpikesA <- async . forever $
-                                  fanoutSpikesToTrodes dsT incomingSpikes
+                                  fanoutSpikesToTrodes dsT incomingSpikesChan
 
                 runGloss dsT fromMaster
 --                playIO (InWindow "ArteDecoder" (300,300) (10,10))
@@ -145,6 +146,13 @@ main = do
                 wait subP
                 _ <- wait dequeueSpikesA
                 print "Past wait subAs"
+
+                putStrLn "start handle-spikes async"
+                handleSpikesAsync <- async $ fanoutSpikesToTrodes dsT incomingSpikesChan
+                _ <- wait subP
+                _ <- mapM wait subAs
+                wait handleSpikesAsync
+
 
           basePath -> do
             putStrLn "Decoder streaming spikes and position from disk"
@@ -182,9 +190,6 @@ main = do
                 Left e -> error $ unwords ["Error getting info on file",sf,":",e]
                 Right fi -> do
                   let cbFilePath = Text.unpack $ cbNameFromTTPath "cbfile-run" sf
-                  --putStrLn $ unwords ["About to order clusters for tt",sf," cbfile:",cbFilePath]
-                  --orderClusters toMaster cbFilePath sf
-                  --putStrLn "Send orderClusters"
                   clusters' <- getClusters cbFilePath sf
                   case clusters' of
                     Left e -> error $ unwords ["Error in clusters from file",cbFilePath,":",e]
@@ -207,16 +212,15 @@ main = do
 --                           (forever $ do
 --                               spike <- await
 --                               lift . atomically $ writeTQueue incomingSpikesChan spike)
-            
-            putStrLn "start handle-spikes async"
-            handleSpikesAsync <- async $ fanoutSpikesToTrodes dsT incomingSpikesChan
+
+            reconstructionA <- async $ stepReconstruction 0.02 dsT
 
             runGloss dsT fromMaster
             
             putStrLn "wait for asyncs to finish"
-            _ <- wait handleSpikesAsync
             _ <- wait posAsync
             _ <- mapM wait spikeAsyncs
+            _ <- wait reconstructionA
             return ()
 
 runGloss :: TVar DecoderState -> TQueue ArteMessage -> IO ()
