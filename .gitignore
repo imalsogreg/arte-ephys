@@ -23,3 +23,6 @@ Paths*
 hcar/arte_screenshot2.jpg
 
 *.prof
+*.hp
+*.ps
+*.aux

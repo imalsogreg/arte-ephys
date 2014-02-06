@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE BangPatterns #-}
 
 module DecoderDefs where
 
@@ -6,9 +7,9 @@ import Data.Ephys.EphysDefs
 import Data.Ephys.Spike
 import Data.Ephys.PlaceCell
 
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Control.Lens
-import Control.Concurrent.MVar
+import Control.Concurrent.STM.TVar
 
 -- Placeholder.  Will be more like: KdTree (Vector Voltage) (Field Double)
 type SpikeHistory = Int 
@@ -16,14 +17,14 @@ type SpikeHistory = Int
 nullHistory :: SpikeHistory
 nullHistory = 0
 
-data DecodablePlaceCell = DecodablePlaceCell { _dpCell     :: PlaceCell
-                                             , _dpCellTauN :: Int
+data DecodablePlaceCell = DecodablePlaceCell { _dpCell     :: !PlaceCell
+                                             , _dpCellTauN :: !Int
                                              } deriving (Eq, Show)
 $(makeLenses ''DecodablePlaceCell)
 
 data PlaceCellTrode = PlaceCellTrode {
-    _dUnits :: Map.Map PlaceCellName (MVar DecodablePlaceCell) 
-  , _pcTrodeHistory :: SpikeHistory
+    _dUnits :: Map.Map PlaceCellName (TVar DecodablePlaceCell) 
+  , _pcTrodeHistory :: !SpikeHistory
   } deriving (Eq)
              
 $(makeLenses ''PlaceCellTrode)
@@ -34,7 +35,7 @@ data ClusterlessTrode = ClusterlessTrode { _dtNonClusts :: NotClusts
                                          , _dtTauN      :: [TrodeSpike]
                                          } deriving (Eq, Show)
 
-data Trodes = Clusterless (Map.Map TrodeName (MVar ClusterlessTrode))
+data Trodes = Clusterless (Map.Map TrodeName (TVar ClusterlessTrode))
             | Clustered   (Map.Map TrodeName PlaceCellTrode)
 
 $(makeLenses ''Trodes)
