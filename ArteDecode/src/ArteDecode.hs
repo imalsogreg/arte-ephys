@@ -86,7 +86,7 @@ draw _ ds = do
       drawOpt = case join $ CL.focus `fmap` CL.focus (ds^.trodeDrawOpt) of
         Nothing  -> DrawError "CList error"
         Just opt -> opt
-      optsPicture = translate (-1) (-1) . scale 0.5 0.5 $ maybe (Text "Opts Problem")
+      optsPicture = translate (-1) (-1) . scale 0.1 0.1 $ maybe (Text "Opts Problem")
                     (scale 0.2 0.2 . drawDrawOptionsState (ds^.trodeDrawOpt))
                     (join $ CL.focus <$> CL.focus (ds^.trodeDrawOpt))
 --  putStrLn $ unwords ["Focus:", show drawOpt, "of options", show (ds^.trodeDrawOpt)]
@@ -94,7 +94,7 @@ draw _ ds = do
     (DrawOccupancy) -> do
       return $ drawNormalizedField occ
     (DrawDecoding)  -> return $ drawNormalizedField
-                       (Map.map (\v -> if v > 0.05 then v else 0) dPos)
+                       (Map.map (\v -> if v > 0.05 then v - 0.05 else 0) dPos)
     (DrawPlaceCell n dUnit') -> do
       dUnit <- readTVarIO dUnit'
 
@@ -112,7 +112,7 @@ draw _ ds = do
       print $ "Draw was told to print DrawError" ++ e
       return $ scale 50 50 $ Text e
   threadDelay 30000
-  return . scale 100 100 $ pictures [posPicture, trackPicture, field, optsPicture ]
+  return . scale 200 200 $ pictures [posPicture, trackPicture, field, optsPicture ]
 
 main :: IO ()
 main = do
@@ -219,7 +219,7 @@ main = do
 --                               spike <- await
 --                               lift . atomically $ writeTQueue incomingSpikesChan spike)
 
-            reconstructionA <- async $ stepReconstruction 0.02 dsT
+            reconstructionA <- async $ stepReconstruction 0.01 dsT
 
             fakeMaster <- atomically newTQueue
             runGloss dsT fakeMaster
@@ -233,13 +233,13 @@ main = do
 runGloss :: TVar DecoderState -> TQueue ArteMessage -> IO ()
 runGloss dsT fromMaster = do
   ds <- initialState
-  playIO (InWindow "ArteDecoder" (300,300) (10,10))
+  playIO (InWindow "ArteDecoder" (500,500) (10,10))
     white 30 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
 
 pos0 :: Position
 pos0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
        ConfSure sZ sZ (-100 :: Double) (Location 0 0 0)
-       where sZ = take 15 (repeat 0)
+       where sZ = take 5 (repeat 0)
 
 posShortcut :: ((Double,Double),Double,Double)
 posShortcut = ((166,140),156.6, 0.5)
