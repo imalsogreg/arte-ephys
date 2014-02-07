@@ -17,6 +17,9 @@ type SpikeHistory = Int
 nullHistory :: SpikeHistory
 nullHistory = 0
 
+runningThresholdSpeed :: Double
+runningThresholdSpeed = 0.15;
+
 data DecodablePlaceCell = DecodablePlaceCell { _dpCell     :: !PlaceCell
                                              , _dpCellTauN :: !Int
                                              } deriving (Eq, Show)

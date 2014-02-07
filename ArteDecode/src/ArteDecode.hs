@@ -93,7 +93,8 @@ draw _ ds = do
   field <- case drawOpt of 
     (DrawOccupancy) -> do
       return $ drawNormalizedField occ
-    (DrawDecoding)  -> return $ drawNormalizedField dPos
+    (DrawDecoding)  -> return $ drawNormalizedField
+                       (Map.map (\v -> if v > 0.05 then v else 0) dPos)
     (DrawPlaceCell n dUnit') -> do
       dUnit <- readTVarIO dUnit'
 
@@ -126,9 +127,9 @@ main = do
   case masterNode' of
     Left e -> putStrLn $ "Faulty config file.  Error:" ++ e
     Right masterNode ->
-      withMaster masterNode $ \(toMaster,fromMaster) -> do
-        case mwlBaseDirectory opts of
-          "" -> do
+      case mwlBaseDirectory opts of
+        "" -> do
+          withMaster masterNode $ \(toMaster,fromMaster) -> do
             case pNode' of
               Left e -> error $ "No pos node: " ++ e
               Right pNode -> do
@@ -154,7 +155,7 @@ main = do
                 wait handleSpikesAsync
 
 
-          basePath -> do
+        basePath -> do
             putStrLn "Decoder streaming spikes and position from disk"
             incomingSpikesChan <- atomically newTQueue
               
@@ -179,7 +180,10 @@ main = do
                       let posField = posToField track p kernel
                       writeTVar (ds'^.pos) p
                       writeTVar (ds'^.trackPos)  posField
-                      writeTVar (ds'^.occupancy) (updateField (+) occ posField))
+                      when (p^.speed > runningThresholdSpeed)
+                       (writeTVar (ds'^.occupancy) (updateField (+) occ posField))
+                )
+                
 
             putStrLn "Start Spike file asyncs"
             spikeAsyncs <- forM spikeFiles $ \sf -> do
@@ -207,15 +211,18 @@ main = do
                             (forever $ do
                                 ds2 <- lift . atomically $ readTVar dsT
                                 pos2 <- lift . atomically $ readTVar (ds^.trackPos)
+                                p    <- lift . atomically $ readTVar (ds^.pos)  -- TODO - await spike should come first!
                                 spike <- await
-                                lift $ fanoutSpikeToCells ds2 tName pcTrode pos2 spike)
+                                lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike)
+  
 --                           (forever $ do
 --                               spike <- await
 --                               lift . atomically $ writeTQueue incomingSpikesChan spike)
 
             reconstructionA <- async $ stepReconstruction 0.02 dsT
 
-            runGloss dsT fromMaster
+            fakeMaster <- atomically newTQueue
+            runGloss dsT fakeMaster
             
             putStrLn "wait for asyncs to finish"
             _ <- wait posAsync
@@ -328,12 +335,14 @@ updatePos dsT p = let trackPos' = posToField track p kernel :: Map.Map TrackPos 
     writeTVar (ds^.trackPos) trackPos'
 
 fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
-                      Field Double -> TrodeSpike -> IO ()
-fanoutSpikeToCells ds trodeName trode pos spike = do
+                      Position -> Field Double -> TrodeSpike -> IO ()
+fanoutSpikeToCells ds trodeName trode pos trackPos spike = do
   flip F.mapM_ (trode^.dUnits) $ \dpcT -> do
     DecodablePlaceCell pc tauN <- readTVarIO dpcT
     when (spikeInCluster (pc^.cluster) spike) $ do
-      let pc' = pc & countField %~ updateField (+) pos
+      let pc' = if pos^.speed > runningThresholdSpeed
+                then pc & countField %~ updateField (+) trackPos
+                else pc
           tauN' = tauN + 1
       atomically . writeTVar dpcT $ DecodablePlaceCell pc' tauN'
   
@@ -352,8 +361,9 @@ fanoutSpikesToTrodes dsT sQueue = forever $ do
           --return ds
           return ()
         Just trode -> do
-          p <- readTVarIO (ds^.trackPos)
-          fanoutSpikeToCells ds sName trode p s
+          p  <- readTVarIO (ds^.pos)
+          tp <- readTVarIO (ds^.trackPos)
+          fanoutSpikeToCells ds sName trode p tp s
 --          return $ 
 --            (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+ 1))
       Clusterless tMap -> return ()
