@@ -209,17 +209,17 @@ main = do
                             dropResult (produceTrodeSpikes tName fi f) >->
                             relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
                             (forever $ do
+                                spike <- await
                                 ds2 <- lift . atomically $ readTVar dsT
                                 pos2 <- lift . atomically $ readTVar (ds^.trackPos)
-                                p    <- lift . atomically $ readTVar (ds^.pos)  -- TODO - await spike should come first!
-                                spike <- await
+                                p    <- lift . atomically $ readTVar (ds^.pos)
                                 lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike)
   
 --                           (forever $ do
 --                               spike <- await
 --                               lift . atomically $ writeTQueue incomingSpikesChan spike)
 
-            reconstructionA <- async $ stepReconstruction 0.01 dsT
+            reconstructionA <- async $ stepReconstruction 0.02 dsT
 
             fakeMaster <- atomically newTQueue
             runGloss dsT fakeMaster
