@@ -37,7 +37,6 @@ import Control.Monad
 import Control.Concurrent hiding (Chan)
 import Control.Concurrent.Async
 import Control.Concurrent.STM.TVar
---import Control.Concurrent.Chan
 import Control.Concurrent.STM.TQueue
 import Control.Concurrent.STM
 import Data.Either
@@ -50,7 +49,6 @@ import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 import qualified Data.CircularList as CL
 import qualified Data.ByteString.Lazy as BSL
-import Data.Monoid ((<>))
 
 ----------------------------------------
 -- TODO: There is way too much STM here

@@ -18,29 +18,59 @@ Cabal-Version:      >= 1.8
 Build-Type:         Simple
 
 executable arteDecode
-  Build-Depends:    base,
-                    containers,
+  Build-Depends:    base (==4.6.*),
+                    containers (==0.5.0.*),
                     arte-common,
-                    zeromq-haskell,
+                    zeromq-haskell (==0.8.4),
                     pipes (==4.0.2),
-                    pipes-rt,
+                    pipes-rt (==0.4.2),
                     tetrode-ephys,
-                    cmdargs,
-                    directory,
-                    yaml,
-                    transformers,
-                    filepath,
-                    stm,
-                    bytestring,
+                    cmdargs (==0.10.*),
+                    directory (==1.2.*),
+                    yaml (==0.8.7.*),
+                    transformers (==0.3.*),
+                    filepath (==1.3.*),
+                    stm (==2.4.*),
+                    bytestring (==0.10.*),
                     text (>= 1.1.0.0 && < 1.1.1),
-                    cereal,
-                    lens,
-                    async,
-                    gloss,
-                    vector,
-                    data-clist,
-                    mtl
+                    cereal (==0.4.*),
+                    lens (==4.0.*),
+                    async (==2.0.*),
+                    gloss (==1.8.1.*),
+                    vector (==0.10.*),
+                    data-clist (==0.0.7.*),
+                    mtl (==2.1.*)
   Main-Is:          ArteDecode.hs
   hs-source-dirs:   src
   ghc-options:      -O2 -threaded -fllvm -fprof-auto -rtsopts "-with-rtsopts=-N4"  -funbox-strict-fields
 
+benchmark decode-bench
+  type:           exitcode-stdio-1.0
+  main-is:        DecodeAlgoBench.hs
+  hs-source-dirs: src, bench
+  build-depends:  base, 
+                  criterion, 
+                  random,
+                  deepseq,
+                  containers (==0.5.0.*),
+                  arte-common,
+                  zeromq-haskell (==0.8.4),
+                  pipes (==4.0.2),
+                  pipes-rt (==0.4.2),
+                  tetrode-ephys,
+                  cmdargs (==0.10.*),
+                  directory (==1.2.*),
+                  yaml (==0.8.7.*),
+                  transformers (==0.3.*),
+                  filepath (==1.3.*),
+                  stm (==2.4.*),
+                  bytestring (==0.10.*),
+                  text (>= 1.1.0.0 && < 1.1.1),
+                  cereal (==0.4.*),
+                  lens (==4.0.*),
+                  async (==2.0.*),
+                  gloss (==1.8.1.*),
+                  vector (==0.10.*),
+                  data-clist (==0.0.7.*),
+                  mtl (==2.1.*)
+                  
