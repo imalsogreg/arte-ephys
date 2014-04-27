@@ -38,6 +38,8 @@ benchmarks r =
      [bench "sort1poly" $ nf (spikeInCluster (clusterMethods !! 1)) trodeSpike
      ,bench "sort3poly" $ nf (spikeInCluster (clusterMethods !! 0)) trodeSpike
      ]
+    ,bgroup "updateField"
+     [bench "updateField" $ nf (updateField (+) occ) occ]
   ]
 
 rTauSec = 0.02
