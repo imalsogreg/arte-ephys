@@ -18,6 +18,8 @@ import Control.Concurrent.STM
 import qualified Data.List as L
 import Control.Lens
 import Control.Applicative
+import Data.Time.Clock
+import System.IO
 
 pcFieldRate :: Field Double -> Field Double -> Field Double
 pcFieldRate occ field = Map.unionWith (/) field occ
@@ -25,9 +27,9 @@ pcFieldRate occ field = Map.unionWith (/) field occ
 type TrodeCollection a = Map.Map TrodeName (Map.Map PlaceCellName a)
 
 stepReconstruction :: Double ->
-                      TVar DecoderState ->
+                      TVar DecoderState -> Maybe Handle -> 
                       IO ()
-stepReconstruction rTauSec dsT = do
+stepReconstruction rTauSec dsT h = do
   ds <- readTVarIO $ dsT
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
@@ -36,8 +38,9 @@ stepReconstruction rTauSec dsT = do
         occ <- readTVarIO occT
         let !estimate = clusteredReconstruction rTauSec lastFields counts occ
         atomically $ writeTVar (ds^.decodedPos) estimate
---        print counts
         resetClusteredSpikeCounts clusteredTrodes
+        tNow <- getCurrentTime
+        maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
         threadDelay (floor $ rTauSec * 1000000)
         go fields
       fields0 = [] -- Will this work?
@@ -88,3 +91,19 @@ liftTC f tca = Map.map (Map.map f) tca
 liftTC2 :: (a -> a -> a) -> TrodeCollection a -> TrodeCollection a -> TrodeCollection a
 liftTC2 = unionWith
 -}
+
+------------------------------------------------------------------------------
+keyFilter :: (Ord k) => (k -> Bool) -> Map.Map k a -> Map.Map k a
+keyFilter p m = Map.filterWithKey (\k _ -> p k) m
+
+------------------------------------------------------------------------------
+posteriorOut :: Field Double -> [Double]
+posteriorOut f =
+  map snd
+  . filter ( ((==Outbound)._trackDir) . fst)
+  . filter ( ((==InBounds)._trackEcc) . fst)
+  . Map.toList
+  $ f  
+
+showPosterior :: Field Double -> UTCTime -> String
+showPosterior f (UTCTime _ sec) = unlines [show sec, show $ posteriorOut f]

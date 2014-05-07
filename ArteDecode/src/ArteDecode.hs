@@ -2,6 +2,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
@@ -25,6 +26,7 @@ import Data.Ephys.OldMWL.Parse
 import Data.Ephys.OldMWL.ParsePFile
 import Data.Ephys.OldMWL.ParseClusterFile
 
+import Data.Time.Clock
 import Pipes.RealTime
 import System.Console.CmdArgs
 import System.Directory
@@ -33,6 +35,7 @@ import qualified Data.Text as Text
 import qualified Data.Traversable as T
 import qualified Data.Foldable    as F
 import qualified Data.Map.Strict as Map
+import Data.Maybe
 import Control.Monad
 import Control.Concurrent hiding (Chan)
 import Control.Concurrent.Async
@@ -43,11 +46,13 @@ import Data.Either
 import qualified System.ZMQ as ZMQ
 import Control.Lens
 import qualified Data.Serialize as S
+import System.IO
 import Pipes
 import qualified Pipes.Prelude as P
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 import qualified Data.CircularList as CL
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as BSL
 
 ----------------------------------------
@@ -59,16 +64,21 @@ import qualified Data.ByteString.Lazy as BSL
 -- here...
 ---------------------------------------
 
+
+------------------------------------------------------------------------------
 data DecoderArgs = DecoderArgs {mwlBaseDirectory    :: FilePath
-                               ,startExperimentTime :: Double}
+                               ,startExperimentTime :: Double
+                               ,doLogging           :: Bool}
                  deriving (Show,Data,Typeable)
 decoderArgs :: DecoderArgs
 decoderArgs = DecoderArgs { mwlBaseDirectory =
                              "" &= 
-                             help "Data directory when not taking network data"
+                             help "Data directory when not using network data"
                           , startExperimentTime =
                             0 &=
                             help "Start time when spooling from disk directly"
+                          , doLogging =
+                            False &= help "Commit data to log files"
                           }
 
 draw :: TVar DecoderState -> DecoderState -> IO Picture
@@ -95,13 +105,6 @@ draw _ ds = do
                        (Map.map (\v -> if v > 0.05 then v - 0.05 else 0) dPos)
     (DrawPlaceCell n dUnit') -> do
       dUnit <- readTVarIO dUnit'
-
---      print . unwords . map show $ Map.elems (placeField (dUnit^.dpCell) occ)
---      print . unwords . map show $ ds ^.. trodes . _Clustered . traversed . pcTrodeHistory
---      print "DrawPlaceCell"
---      putStrLn $ unwords ["tauN:", show (dUnit^.dpCellTauN)," field:", show(Map.elems $ dUnit^.dpCell.countField)] 
---      print "DrawPlaceCell"
---      putStrLn $ "Drawing place cell: " ++ show n
       return . drawNormalizedField $ placeField (dUnit^.dpCell) occ
 
     (DrawClusterless tName) ->
@@ -118,6 +121,12 @@ main = do
   print args
   ds   <- initialState
   dsT  <- newTVarIO ds
+  (logSpikes,logDecoding) <- case (doLogging opts) of
+    False -> return (Nothing, Nothing)
+    True  -> do
+      s <- openFile "spikes.txt" WriteMode
+      d <- openFile "decoding.txt" WriteMode
+      return (Just s, Just d)
   masterNode' <- getAppNode "master" Nothing
   pNode'      <- getAppNode "pos"    Nothing
   spikeNodes  <- getAllSpikeNodes    Nothing
@@ -136,7 +145,7 @@ main = do
                 subAs <- forM spikeNodes $ \sNode ->
                   async $ enqueueSpikes sNode incomingSpikesChan
                 dequeueSpikesA <- async . forever $
-                                  fanoutSpikesToTrodes dsT incomingSpikesChan
+                                  fanoutSpikesToTrodes dsT incomingSpikesChan logSpikes
 
                 runGloss dsT fromMaster
 --                playIO (InWindow "ArteDecoder" (300,300) (10,10))
@@ -147,7 +156,9 @@ main = do
                 print "Past wait subAs"
 
                 putStrLn "start handle-spikes async"
-                handleSpikesAsync <- async $ fanoutSpikesToTrodes dsT incomingSpikesChan
+                handleSpikesAsync <-
+                  async $
+                  fanoutSpikesToTrodes dsT incomingSpikesChan logSpikes
                 _ <- wait subP
                 _ <- mapM wait subAs
                 wait handleSpikesAsync
@@ -211,17 +222,19 @@ main = do
                                 ds2 <- lift . atomically $ readTVar dsT
                                 pos2 <- lift . atomically $ readTVar (ds^.trackPos)
                                 p    <- lift . atomically $ readTVar (ds^.pos)
-                                lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike)
+                                lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike logSpikes)
   
 --                           (forever $ do
 --                               spike <- await
 --                               lift . atomically $ writeTQueue incomingSpikesChan spike)
 
-            reconstructionA <- async $ stepReconstruction 0.02 dsT
+            reconstructionA <- async $ stepReconstruction 0.02 dsT logDecoding
 
             fakeMaster <- atomically newTQueue
             runGloss dsT fakeMaster
-            
+            maybe (return ()) hClose logSpikes 
+            maybe (return ()) hClose logDecoding
+            putStrLn "Closed filehandles"
             putStrLn "wait for asyncs to finish"
             _ <- wait posAsync
             _ <- mapM wait spikeAsyncs
@@ -332,9 +345,11 @@ updatePos dsT p = let trackPos' = posToField track p kernel :: Map.Map TrackPos 
     writeTVar (ds^.pos) p
     writeTVar (ds^.trackPos) trackPos'
 
+
+------------------------------------------------------------------------------
 fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
-                      Position -> Field Double -> TrodeSpike -> IO ()
-fanoutSpikeToCells ds trodeName trode pos trackPos spike = do
+                      Position -> Field Double -> TrodeSpike -> Maybe Handle -> IO ()
+fanoutSpikeToCells ds trodeName trode pos trackPos spike p = do
   flip F.mapM_ (trode^.dUnits) $ \dpcT -> do
     DecodablePlaceCell pc tauN <- readTVarIO dpcT
     when (spikeInCluster (pc^.cluster) spike) $ do
@@ -342,10 +357,23 @@ fanoutSpikeToCells ds trodeName trode pos trackPos spike = do
                 then pc & countField %~ updateField (+) trackPos
                 else pc
           tauN' = tauN + 1
-      atomically . writeTVar dpcT $ DecodablePlaceCell pc' tauN'
-  
-fanoutSpikesToTrodes :: TVar DecoderState -> TQueue TrodeSpike -> IO ()
-fanoutSpikesToTrodes dsT sQueue = forever $ do
+      tNow <- getCurrentTime
+      atomically $ writeTVar dpcT $ DecodablePlaceCell pc' tauN'
+      tNow2 <- getCurrentTime
+--      when (doLog && (floor (utctDayTime tNow) `mod` 100 == 0)) $ BS.appendFile "spikes.txt" (toBS spike tNow)
+      when (isJust p) $ maybe (return ()) (flip BS.hPutStrLn (toBS spike tNow tNow2)) p
+--      when (doLog && (floor (utctDayTime tNow) `mod` 20 == 0)) $ modifyMVar (ds^.logData) (flip BS.append (toBS spike tNow))
+
+toBS :: TrodeSpike -> UTCTime -> UTCTime -> BS.ByteString
+toBS spike tNow tNow2 = BS.concat [(BS.pack . show . spikeTime) spike
+                            , ", "
+                            , (BS.filter (/= 's') . BS.take 9 . BS.pack . show . utctDayTime) tNow
+                            , ", "
+                            , (BS.filter (/= 's') . BS.take 9 . BS.pack . show . utctDayTime) tNow2]
+
+
+fanoutSpikesToTrodes :: TVar DecoderState -> TQueue TrodeSpike -> Maybe Handle -> IO ()
+fanoutSpikesToTrodes dsT sQueue logSpikesH = forever $ do
     s <- atomically $ readTQueue sQueue
 
     ds <- readTVarIO dsT
@@ -361,7 +389,7 @@ fanoutSpikesToTrodes dsT sQueue = forever $ do
         Just trode -> do
           p  <- readTVarIO (ds^.pos)
           tp <- readTVarIO (ds^.trackPos)
-          fanoutSpikeToCells ds sName trode p tp s
+          fanoutSpikeToCells ds sName trode p tp s logSpikesH
 --          return $ 
 --            (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+ 1))
       Clusterless tMap -> return ()

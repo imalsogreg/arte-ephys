@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module DecoderState where
 
@@ -11,6 +12,7 @@ import Control.Applicative
 import qualified Data.Map.Strict as Map
 import Control.Lens
 import Control.Concurrent.STM.TVar
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.CircularList as CL
   
 data DecoderState = DecoderState
@@ -21,6 +23,7 @@ data DecoderState = DecoderState
                     , _trodes         :: Trodes
                     , _decodedPos     :: TVar (Field Double)
                     , _trodeDrawOpt   :: TrodeDrawOptions
+--                    , _logData        :: TVar BS.ByteString
                     }
 
 $(makeLenses ''DecoderState)
@@ -30,7 +33,7 @@ track :: Track
 track = circularTrack (0,0) 0.57 0.5 0.25 0.15
 kernel :: PosKernel
 --kernel = PosDelta
-kernel  = PosGaussian 0.2
+kernel  = PosGaussian 0.1
 
 initialState :: IO DecoderState
 initialState = do
@@ -38,10 +41,11 @@ initialState = do
       p0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0 ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
       sZ = take 15 (repeat 0)
   DecoderState <$>
-    newTVarIO p0 <*>
-    newTVarIO zeroField <*>
-    newTVarIO zeroField <*>
-    newTVarIO zeroField <*>
-    return (Clustered Map.empty) <*>
-    newTVarIO zeroField <*> 
-    pure (clistTrodes (Clustered Map.empty))
+    newTVarIO p0
+    <*> newTVarIO zeroField
+    <*> newTVarIO zeroField
+    <*> newTVarIO zeroField
+    <*> return (Clustered Map.empty)
+    <*> newTVarIO zeroField
+    <*> pure (clistTrodes (Clustered Map.empty)) 
+--    <*> newTVarIO ""
