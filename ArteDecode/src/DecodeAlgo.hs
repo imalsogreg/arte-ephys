@@ -10,6 +10,7 @@ import Data.Ephys.PlaceCell
 import Data.Ephys.TrackPosition
 
 import Control.Concurrent
+import Control.Concurrent.Async
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (unionWith,unionsWith)
 import Control.Monad
@@ -34,6 +35,7 @@ stepReconstruction rTauSec dsT h = do
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
       go lastFields = do
+        delay <- async $ threadDelay (floor $ rTauSec * 1000000)
         (fields,counts) <- unzip <$> clusteredUnTVar clusteredTrodes
         occ <- readTVarIO occT
         let !estimate = clusteredReconstruction rTauSec lastFields counts occ
@@ -41,7 +43,7 @@ stepReconstruction rTauSec dsT h = do
         resetClusteredSpikeCounts clusteredTrodes
         tNow <- getCurrentTime
         maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
-        threadDelay (floor $ rTauSec * 1000000)
+        wait delay
         go fields
       fields0 = [] -- Will this work?
     in
@@ -106,4 +108,5 @@ posteriorOut f =
   $ f  
 
 showPosterior :: Field Double -> UTCTime -> String
-showPosterior f (UTCTime _ sec) = unlines [show sec, show $ posteriorOut f]
+showPosterior f (UTCTime _ sec) =
+  (take 10 $ show sec) ++ ", " ++ L.intercalate ", " (map show $ posteriorOut f)

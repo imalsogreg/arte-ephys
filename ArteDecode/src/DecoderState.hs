@@ -30,10 +30,10 @@ $(makeLenses ''DecoderState)
 
 -- TODO: Make decode general on tracks and kernels.  
 track :: Track
-track = circularTrack (0,0) 0.57 0.5 0.25 0.15
+track = circularTrack (0,0) 0.57 0.5 0.25 0.1
 kernel :: PosKernel
 --kernel = PosDelta
-kernel  = PosGaussian 0.1
+kernel  = PosGaussian 0.05
 
 initialState :: IO DecoderState
 initialState = do
