@@ -1,0 +1,38 @@
+% arteephysRealtimeelectrop-Ga.tex
+\begin{hcarentry}[new]{arte-ephys: Real-time electrophysiology}
+\report{Greg Hale}%11/13
+\status{work in progress}
+\participants{Alex Chen}
+\makeheader
+
+Arte-ephys is a soft real-time neural recording system for experimental
+systems neuroscientists.
+
+Our lab uses electrode arrays for brain recording in freely moving animals, to
+determine how these neurons build, remember, and use spatial maps.
+
+Previously we recorded and analyzed our data in two separate stages.  We are
+now building a recording system focused on streaming instead of offline
+analysis, for real-time feedback experiments.  For example, we found that
+activity in the brain of resting rats often wanders back to representations of
+specific parts of a recently-learned maze, and we would now like to
+automatically detect these events and reward the rat immediately for
+expressing them, to see if this influences either the speed of learning of a
+specific part of the maze or the nature of later spatial information coding.
+
+We now have a proof-of-concept that streams recorded data from disk, performs the necessary preprocessing, and accurately decodes neural signals in realtime, while drawing the results with gloss. Our next goal is to integrate this into a sytem that streams raw neural data during the experiment.
+
+%**<img width=770 src="./arte.png">
+%*ignore
+\begin{center}
+\includegraphics[width=0.9\textwidth]{html/arte.png}
+\end{center}
+%*endignore
+
+\FurtherReading
+\begin{compactitem}
+\item \url{http://github.com/ImAlsoGreg/arte-ephys}
+\item \url{http://github.com/ImAlsoGreg/haskell-tetrode-ephys}
+\item \url{http://web.mit.edu/wilsonlab/html/research.html}
+\end{compactitem}
+\end{hcarentry}
