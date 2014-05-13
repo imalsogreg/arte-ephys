@@ -5,7 +5,7 @@ module DecodeAlgo where
 import DecoderDefs
 import DecoderState
 import Data.Ephys.EphysDefs
-import Data.Ephys.Spike
+--import Data.Ephys.Spike
 import Data.Ephys.PlaceCell
 import Data.Ephys.TrackPosition
 
@@ -13,8 +13,9 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (unionWith,unionsWith)
-import Control.Monad
-import qualified Data.Foldable as F
+import Data.Ord
+--import Control.Monad
+--import qualified Data.Foldable as F
 import Control.Concurrent.STM
 import qualified Data.List as L
 import Control.Lens
@@ -104,6 +105,7 @@ posteriorOut f =
   map snd
   . filter ( ((==Outbound)._trackDir) . fst)
   . filter ( ((==InBounds)._trackEcc) . fst)
+  . L.sortBy (comparing (_binName . _trackBin . fst))
   . Map.toList
   $ f  
 
