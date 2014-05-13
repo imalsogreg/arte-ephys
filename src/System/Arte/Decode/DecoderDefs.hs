@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE BangPatterns #-}
 
-module DecoderDefs where
+module System.Arte.Decode.DecoderDefs where
 
 import Data.Ephys.EphysDefs
 import Data.Ephys.Spike

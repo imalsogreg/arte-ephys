@@ -1,6 +1,6 @@
-module DrawingHelpers where
+module System.Arte.Decode.DrawingHelpers where
 
-import DecoderDefs
+import System.Arte.Decode.DecoderDefs
 import Data.Ephys.EphysDefs
 
 import Control.Lens

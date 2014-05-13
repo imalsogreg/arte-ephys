@@ -1,4 +1,4 @@
-module Arte.Common.FileUtils where
+module System.Arte.FileUtils where
 
 import System.Directory
 import System.FilePath ((</>))

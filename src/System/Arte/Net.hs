@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings, TemplateHaskell, DeriveGeneric #-}
 
-module Arte.Common.Net where
+module System.Arte.Net where
 
 import Data.Ephys.EphysDefs
-import Arte.Common.NetMessage
+import System.Arte.NetMessage
 
 import Data.Text hiding (unwords,filter,head)
 import Control.Applicative

@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveGeneric, DeriveDataTypeable #-}
 
-module Arte.Common.NetMessage where
+module System.Arte.NetMessage where
 
 import Data.Ephys.EphysDefs
 import Data.Ephys.Cluster

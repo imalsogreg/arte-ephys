@@ -1,4 +1,4 @@
-module Arte.ArteDecode.KdMap where
+module System.Arte.Decode.KdMap where
 
 import Data.Vector.Unboxed hiding (fromList)
 import qualified Data.Vector.Unboxed as U

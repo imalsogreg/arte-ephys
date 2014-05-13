@@ -1,9 +1,9 @@
 {-# LANGUAGE BangPatterns #-}
 
-module DecodeAlgo where
+module System.Arte.Decode.DecodeAlgo where
 
-import DecoderDefs
-import DecoderState
+import System.Arte.Decode.DecoderDefs
+import System.Arte.Decode.DecoderState
 import Data.Ephys.EphysDefs
 --import Data.Ephys.Spike
 import Data.Ephys.PlaceCell

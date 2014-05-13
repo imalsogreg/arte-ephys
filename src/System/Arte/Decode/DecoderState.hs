@@ -1,10 +1,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module DecoderState where
+module System.Arte.Decode.DecoderState where
 
-import DrawingHelpers
-import DecoderDefs
+import System.Arte.Decode.DrawingHelpers
+import System.Arte.Decode.DecoderDefs
 import Data.Ephys.Position
 import Data.Ephys.TrackPosition
 

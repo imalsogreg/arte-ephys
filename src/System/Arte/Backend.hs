@@ -18,8 +18,8 @@ module Main where
 import System.Environment
 --import Data.Yaml
 --import DaqSettings
-import DataSource
-import DataSourceSettings
+import System.Arte.Backend.DataSource
+import System.Arte.Backend.DataSourceSettings
 
 initSimple :: IO (Context, Socket Rep, Socket Req)
 

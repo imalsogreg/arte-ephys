@@ -4,16 +4,16 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Main where
+module System.Arte.Decode where
 
-import DecoderState
-import DecoderDefs
-import DrawingHelpers
-import DecodeAlgo
+import System.Arte.Decode.DecoderState
+import System.Arte.Decode.DecoderDefs
+import System.Arte.Decode.DrawingHelpers
+import System.Arte.Decode.DecodeAlgo
 
-import Arte.Common.Net
-import Arte.Common.NetMessage
-import Arte.Common.FileUtils
+import System.Arte.Net
+import System.Arte.NetMessage
+import System.Arte.FileUtils
 import Data.Ephys.EphysDefs
 import Data.Ephys.Spike
 import Data.Ephys.Cluster
