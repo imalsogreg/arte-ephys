@@ -56,10 +56,10 @@ $(makeLenses ''NetConfig)
 
 ------------------------------------------------------------------------------
 sendData :: (S.Serialize a) => Handle -> a -> IO ()
-sendData h a = BS.hPut h . toPacket $ a
+sendData h a = sendLengthTaggedPacket h . toPacket $ a
 
 sendLengthTaggedPacket :: Handle -> BS.ByteString -> IO ()
-sendLengthTaggedPacket = BS.hPut
+sendLengthTaggedPacket h p = BS.hPut h p >> hFlush h
 
 toPacket :: (S.Serialize a) => a -> BS.ByteString
 toPacket a = BS.append lenBytes payload

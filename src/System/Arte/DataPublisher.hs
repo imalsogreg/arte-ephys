@@ -19,11 +19,12 @@ data DataPublisher a =
                 , _subscribers :: TVar [Handle] }
 $(makeLenses ''DataPublisher)
 
-runPublisher :: S.Serialize a => DataPublisher a -> IO ()
+runPublisher :: (Show a, S.Serialize a) => DataPublisher a -> IO ()
 runPublisher pub = forever $ do
   a <- atomically $ readTQueue (pub^.chan)
   let packet = toPacket a :: BS.ByteString
   subs <- atomically . readTVar $ pub^.subscribers
+  putStrLn $ "Pushing " ++ show a  ++ " to " ++ show subs
   forM_ subs $ flip sendLengthTaggedPacket packet
 
 ------------------------------------------------------------------------------
@@ -31,13 +32,13 @@ runPublisher pub = forever $ do
 acceptSubscribers :: Node -> DataPublisher a -> IO ()
 acceptSubscribers me pub = withSocketsDo $ do
   let topPort = me ^. nodeServerPort
-  putStrLn "About to listen."
   sock <- listenOn (PortNumber $ fromIntegral topPort)
-  putStrLn "Listening!"
   _ <- printf "%s listeting on port %d\n" (me^.nodeName) topPort
   forever $ do
     (handle, host, port) <- accept sock
-    _ <- printf "%s accepted connection from %s: %s" host (show port)
+    _ <- printf "%s accepted connection from %s" host (show port)
+    hSetBinaryMode handle True
+    hSetBuffering handle NoBuffering
     forkFinally (atomically $ addSubscriber pub handle) (\_ -> hClose handle)
 
 addSubscriber :: DataPublisher a -> Handle -> STM ()
@@ -47,5 +48,8 @@ withSubscription :: (S.Serialize a) => Node -> (Either String a -> IO b) -> IO (
 withSubscription node action = do
   h <- connectTo (node^.nodeHost.hostIp)
        (PortNumber . fromIntegral $ node^.nodeServerPort)
+  putStrLn "Got a connection"
+  hSetBinaryMode h True
+  hSetBuffering h NoBuffering
   forever $ action =<< recvData h
 

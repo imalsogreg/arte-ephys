@@ -11,7 +11,9 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM.TQueue
 import Control.Monad
 import Data.Maybe
+import Network
 import Options.Applicative
+import System.IO
 
 data Opts = Opts
             { server :: Bool
@@ -36,7 +38,7 @@ node h p = Node h (Host h h) (read p)
 
 run :: Opts -> IO ()
 run (Opts True False h p) = serve h p
-run (Opts False True h p) = cli   h p
+run (Opts False True h p) = cli2  h p
 run _ = error "Must run as either server or client"
 
 serve :: String -> String -> IO ()
@@ -44,18 +46,27 @@ serve h p = do
       q <- atomically $ newTQueue
       pub <- atomically $ DataPublisher q <$> newTVar []
       pubA <- async $ acceptSubscribers (node h p) pub
+      runA <- async $ runPublisher (pub :: DataPublisher Int) :: IO (Async ())
       forM_ [(1::Int)..] $ \n -> do
-        print $ "Writing to queue " ++ show n
         atomically (writeTQueue q n)
-        threadDelay 500000
+        threadDelay 1000000
       wait pubA
+      wait runA
 
 cli :: String -> String -> IO ()
 cli h p = do
       withSubscription (node h p) $ \a ->
+        putStrLn "Running" >>
         case (a :: Either String Int) of
           Left e           -> print $ "Error: " ++ e
           Right x -> print $ show x
+
+cli2 :: String -> String -> IO ()
+cli2 h p = do
+  hnd <- connectTo h (PortNumber . fromIntegral . read $ p)
+  forever $ do
+    c <- hGetChar hnd
+    putChar c
 
 main :: IO ()
 main = execParser opt >>= run
