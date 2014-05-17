@@ -2,46 +2,50 @@
 
 module System.Arte.Net where
 
-import Data.Ephys.EphysDefs
-import System.Arte.NetMessage
-
-import Data.Text hiding (unwords,filter,head)
 import Control.Applicative
-import Control.Monad
-import Control.Lens hiding ((.=))
-import Data.Aeson
-import Data.Yaml
---import Control.Lens.Aeson
-import qualified Data.ByteString.Char8 as BS
-import Data.Map (Map, keys, member)
-import System.Environment (lookupEnv)
-import Network
-import System.IO
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TQueue
-import qualified Data.Map as Map 
-import qualified Data.Vector as V
-import qualified System.ZMQ as ZMQ
-import Text.Printf
-import qualified Data.Serialize as S
 import Control.Exception
+import Control.Lens hiding ((.=))
+import Control.Monad
+import Control.Monad.Trans.Either
+import Control.Monad.Trans.Class
+import Data.Aeson
+import qualified Data.Serialize as S
+import qualified Data.Vector as V
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Base64 as B64
+import qualified Data.Map as Map 
+import Data.Map (Map, keys, member)
+import Data.Text hiding (unwords,filter,head)
+import Data.Yaml
+import Network
+import System.Environment (lookupEnv)
+import System.IO
+import GHC.Generics
+import Text.Printf
+
+import Data.Ephys.EphysDefs
+import System.Arte.NetMessage
+
 
 type IPAddy   = String
 type Port     = Int
 
 data Host = Host 
-            { _ip   :: IPAddy
-            } deriving (Eq, Show)
+            { _hostName :: String
+            , _hostIp   :: IPAddy
+            } deriving (Eq, Show, Generic)
 $(makeLenses ''Host)
 
 data Node = Node 
-            { _host :: Host
-            , _port :: Int
-            , _inPort   :: Maybe Int
-            } deriving (Eq, Show)
+            { _nodeName       :: String
+            , _nodeHost       :: Host
+            , _nodeServerPort :: Int
+            } deriving (Eq, Show, Generic)
 $(makeLenses ''Node)
 
 data NetConfig = NetConfig
@@ -50,11 +54,36 @@ data NetConfig = NetConfig
                  } deriving (Eq, Show)
 $(makeLenses ''NetConfig)
 
+------------------------------------------------------------------------------
+sendData :: (S.Serialize a) => Handle -> a -> IO ()
+sendData h a = BS.hPut h . toPacket $ a
+
+sendLengthTaggedPacket :: Handle -> BS.ByteString -> IO ()
+sendLengthTaggedPacket = BS.hPut
+
+toPacket :: (S.Serialize a) => a -> BS.ByteString
+toPacket a = BS.append lenBytes payload
+  where lenBytes = S.encode . BS.length $ payload
+        payload  = S.encode a
+                         
+recvData :: (S.Serialize a) => Handle -> IO (Either String a)
+recvData h = do
+  let encodedIntLen = BS.length (S.encode (1 :: Int))
+  l     <- S.decode <$> BS.hGet h encodedIntLen
+  case l of
+    Left err  -> return $ Left err
+    Right len -> S.decode <$> BS.hGet h len
+-- TODO: Learn to use ErrorT?
+
+  
+{-
 mkMsg :: String -> Maybe String -> TVar ExperimentTime -> MessageBody -> IO ArteMessage
 mkMsg fromN toN time' body = do
   t <- atomically . readTVar $ time' :: IO Double
   return $ ArteMessage t fromN toN body
+-}
 
+{-
 withMaster :: Node -> ((TQueue ArteMessage,TQueue ArteMessage) -> IO a) -> IO a
 withMaster masterNode f = case masterInPort' of
     Nothing           -> error "Bad configuration file - master has no inPort."
@@ -100,7 +129,9 @@ withMaster masterNode f = case masterInPort' of
   where masterIP      = masterNode^.host.ip
         masterPubPort = masterNode^.port
         masterInPort' = masterNode^.inPort
-        
+  -}
+
+{-
 getAppNode :: String -> Maybe FilePath -> IO (Either String Node)
 getAppNode name fn' = do
   fn <- netConfOrDefaultPath fn'
@@ -139,24 +170,31 @@ receiveWithSize h = do
         Left e  -> return . Left $ "Couldn't decode a value." ++ e
         Right a -> return $ Right a
 
+-}
+
+{-
 instance FromJSON Host where
-  parseJSON (Object v) = Host <$> v .: "ip"
+  parseJSON (Object v) = Host
+                         <$> v .: "hostName"
+                         <*> v .: "hostIp"
   parseJSON _  = mzero
 
 instance ToJSON Host where
-  toJSON (Host hIP) =
-    object ["ip"   .= hIP]
+  toJSON (Host nm ip) =
+    object [ "hostName" .= nm
+           , "hostIp"   .= ip]
 
 instance FromJSON Node where
-  parseJSON (Object v) = Node <$>
-                         v .:  "host" <*>
-                         v .:  "port" <*>
-                         v .:? "inPort"
+  parseJSON (Object v) = Node
+                         <$> v .: "nodeName"
+                         <*> v .: "nodeHost"
+                         <*> v .: "nodeServerPort"
   parseJSON _          = mzero
+
 
 instance ToJSON Node where
   toJSON (Node nHost nPort iPort) =
-    object (["host" .= nHost
+    object (["nodeHost" .= nHost
            ,"port" .= nPort] ++ inPortElem)
     where inPortElem = case iPort of 
             Nothing -> [] 
@@ -171,18 +209,6 @@ instance FromJSON NetConfig where
 
 instance ToJSON NetConfig where
   toJSON (NetConfig hs ns) =
-    object ["hosts" .= hs
-           ,"nodes" .= ns]
-
-type ZmqHost    = String
-type ZmqPort    = String
-type ZmqSockStr = String
-data ZmqProtocol = Tcp | Ipc deriving (Eq)
-
-instance Show ZmqProtocol where
-  show Tcp = "tcp"
-  show Ipc = "ipc"
-
-zmqStr :: ZmqProtocol -> ZmqHost -> ZmqPort -> ZmqSockStr
-zmqStr prot h p = 
-  show prot ++ "://" ++ h ++ ":" ++ p
+    object ["_hosts" .= hs
+           ,"_nodes" .= ns]
+-}

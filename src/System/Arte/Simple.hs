@@ -17,16 +17,15 @@ module Main where
 
 {-# LANGUAGE OverloadedStringss #-}
 
-import Arte.Common
-import Arte.Common.Net
-import Arte.Common.NetMessage
+import System.Arte.Net
+import System.Arte.NetMessage
 
 import Prelude as P
+import Options.Applicative
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C
 import System.Environment
 import System.IO
-import qualified System.ZMQ as ZMQ
 import Control.Monad
 import Control.Concurrent
 import Control.Concurrent.STM

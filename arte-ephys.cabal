@@ -20,6 +20,7 @@ library
   exposed-modules:     System.Arte.FileUtils
                      , System.Arte.Net
                      , System.Arte.NetMessage
+                     , System.Arte.DataPublisher
                      , System.Arte.Decode
                      , System.Arte.Decode.DecoderState
                      , System.Arte.Decode.DrawingHelpers
@@ -29,6 +30,7 @@ library
   build-depends:     aeson
                      , async 
                      , base >=4.6 && <4.7
+                     , base64-bytestring
                      , bytestring >=0.10 && <0.11
                      , cereal
                      , cmdargs >=0.10 && <0.11
@@ -36,10 +38,12 @@ library
                      , data-clist
                      , deepseq >=1.3 && <1.4
                      , directory >=1.2 && <1.3
+                     , either
                      , filepath >=1.3 && <1.4
                      , gloss
                      , lens >= 4.0
                      , network >=2.5 && <2.6
+                     , optparse-applicative
                      , pipes >= 4.0
                      , pipes-rt
                      , random >=1.0 && <1.1
@@ -50,7 +54,7 @@ library
                      , transformers >=0.3 && <0.4
                      , vector
                      , yaml 
-                     , zeromq-haskell
+--                     , zeromq-haskell
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:       -O2 -threaded -fllvm -fprof-auto -rtsopts "-with-rtsopts=-N4" -funbox-strict-fields
@@ -58,5 +62,11 @@ library
 executable arteDecode
    build-depends:    base >= 4.6 && < 5, arte-ephys
    main-is:          decode.hs
-   hs-source-dirs:   src-exec
+   hs-source-dirs:   exec
+   default-language: Haskell2010
+
+executable testPublisher
+   build-depends:    base >= 4.6 && < 5, async, stm, arte-ephys
+   main-is:          testPublisher.hs
+   hs-source-dirs:   exec
    default-language: Haskell2010

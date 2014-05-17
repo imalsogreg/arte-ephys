@@ -43,7 +43,6 @@ import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TQueue
 import Control.Concurrent.STM
 import Data.Either
-import qualified System.ZMQ as ZMQ
 import Control.Lens
 import qualified Data.Serialize as S
 import System.IO
@@ -127,14 +126,15 @@ main = do
       s <- openFile "spikes.txt" WriteMode
       d <- openFile "decoding.txt" WriteMode
       return (Just s, Just d)
-  masterNode' <- getAppNode "master" Nothing
-  pNode'      <- getAppNode "pos"    Nothing
-  spikeNodes  <- getAllSpikeNodes    Nothing
+--  masterNode' <- getAppNode "master" Nothing
+--  pNode'      <- getAppNode "pos"    Nothing
+--  spikeNodes  <- getAllSpikeNodes    Nothing
   incomingSpikesChan <- atomically newTQueue
-  case masterNode' of
-    Left e -> putStrLn $ "Faulty config file.  Error:" ++ e
-    Right masterNode ->
-      case mwlBaseDirectory opts of
+--  case masterNode' of
+--    Left e -> putStrLn $ "Faulty config file.  Error:" ++ e
+--    Right masterNode ->
+  case mwlBaseDirectory opts of
+    {-
         "" -> do
           withMaster masterNode $ \(toMaster,fromMaster) -> do
             case pNode' of
@@ -162,7 +162,7 @@ main = do
                 _ <- wait subP
                 _ <- mapM wait subAs
                 wait handleSpikesAsync
-
+-}
 
         basePath -> do
             putStrLn "Decoder streaming spikes and position from disk"
@@ -325,6 +325,7 @@ setTrodeClusters track dsT trodeName clusts  =
     ds' <- F.foldlM foldF ds (Map.toList clusts)
     writeTVar dsT ds'
 
+{- ZMQ block
 streamPos :: Node -> TVar DecoderState -> IO ()
 streamPos pNode dsT = ZMQ.withContext 1 $ \ctx ->
   ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
@@ -336,6 +337,7 @@ streamPos pNode dsT = ZMQ.withContext 1 $ \ctx ->
       case S.decode bs of
         Left  e -> putStrLn $ "Got a bad Position record." ++ e
         Right p -> updatePos dsT p
+-}
 
 updatePos :: TVar DecoderState -> Position -> IO ()
 updatePos dsT p = let trackPos' = posToField track p kernel :: Map.Map TrackPos Double in
@@ -424,6 +426,7 @@ handleSpikesNoQueue spikeNode dsT = do
                   (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+1))
 -}
 
+{-  ZMQ Block
 enqueueSpikes :: Node -> TQueue TrodeSpike -> IO ()
 enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
   ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
@@ -438,12 +441,15 @@ enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
           atomically $ writeTQueue queue spike
         Left  e     ->
           putStrLn ("Got a bad value on spike chan." ++ e)
+-}
 
+{- 
 getAllSpikeNodes :: Maybe FilePath -> IO [Node]
 getAllSpikeNodes configFilePath = 
   forM  ['A'..'Z'] 
   (\l -> getAppNode ("spikes" ++ [l]) configFilePath) >>= \nodes' ->
   return $ rights nodes'
+-}
 
 -- TODO: This is a place where having TVar in the middle is awkward.
 -- I think w/out tvars, I could just use lens to update the maps.  Not sure though.
