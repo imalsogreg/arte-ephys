@@ -45,7 +45,7 @@ addSubscriber pub h = modifyTVar (pub^.subscribers) (h:)
 
 withSubscription :: (S.Serialize a) => Node -> (Either String a -> IO b) -> IO ()
 withSubscription node action = do
-  h <- connectTo (node^.nodeHost.hostName)
+  h <- connectTo (node^.nodeHost.hostIp)
        (PortNumber . fromIntegral $ node^.nodeServerPort)
   forever $ action =<< recvData h
 
