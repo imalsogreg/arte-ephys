@@ -10,15 +10,15 @@ before_install:
  - sudo apt-get install libzmq3-dev freeglut3-dev liblapack-dev libblas-dev libgsl0-dev llvm
  - sudo apt-get install cabal-install-1.18 ghc-$GHCVER happy
  - export PATH=/opt/ghc/$GHCVER/bin:$PATH
+ - git clone http://github.com/ImAlsoGreg/haskell-tetrode-ephys
 
 install:
  - cabal-1.18 update
- - cabal-1.18 install --only-dependencies --enable-tests --enable-benchmarks
+ - cabal-1.18 sandbox init
+ - cabal-1.18 sandbox add-source haskell-tetrode-ephys
+ - cabal-1.18 install --only-dependencies
 
 script:
- - cd ArteCommon
- - cabal-1.18 configure --enable-tests --enable-benchmarks -v2
+ - cabal-1.18 configure
  - cabal-1.18 build
- - cd ../ArteMockSpikes
- - cabal-1.18 configure --enable-tests --enable-benchmarks -v2
- - cabal-1.18 build
+ - cabal-1.18 install
