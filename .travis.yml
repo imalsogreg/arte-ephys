@@ -9,7 +9,7 @@ before_install:
  - sudo apt-get update
  - sudo apt-get install cabal-install-1.18 ghc-$GHCVER happy
  - sudo apt-get install git
- - sudo apt-get install freeglut3-dev liblapack-dev libblas-dev libgsl0-dev
+ - sudo apt-get install freeglut3-dev liblapack-dev libblas-dev libgsl0-dev llvm
  - export PATH=/opt/ghc/$GHCVER/bin:$PATH
 
 install:
