@@ -39,7 +39,8 @@ acceptSubscribers me pub = withSocketsDo $ do
     _ <- printf "%s accepted connection from %s" host (show port)
     hSetBinaryMode handle True
     hSetBuffering handle NoBuffering
-    forkFinally (atomically $ addSubscriber pub handle) (\_ -> hClose handle)
+--    forkFinally (atomically $ addSubscriber pub handle) (\_ -> hClose handle)
+    atomically $ addSubscriber pub handle
 
 addSubscriber :: DataPublisher a -> Handle -> STM ()
 addSubscriber pub h = modifyTVar (pub^.subscribers) (h:)

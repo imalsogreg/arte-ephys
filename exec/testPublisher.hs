@@ -10,9 +10,11 @@ import Control.Concurrent.Async
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TQueue
 import Control.Monad
+import Data.Ord
 import Data.Maybe
 import Network
 import Options.Applicative
+import System.Posix
 import System.IO
 
 data Opts = Opts
@@ -38,11 +40,12 @@ node h p = Node h (Host h h) (read p)
 
 run :: Opts -> IO ()
 run (Opts True False h p) = serve h p
-run (Opts False True h p) = cli2  h p
+run (Opts False True h p) = cli   h p
 run _ = error "Must run as either server or client"
 
 serve :: String -> String -> IO ()
 serve h p = do
+      _ <- installHandler sigPIPE Ignore Nothing
       q <- atomically $ newTQueue
       pub <- atomically $ DataPublisher q <$> newTVar []
       pubA <- async $ acceptSubscribers (node h p) pub
@@ -64,9 +67,12 @@ cli h p = do
 cli2 :: String -> String -> IO ()
 cli2 h p = do
   hnd <- connectTo h (PortNumber . fromIntegral . read $ p)
+  putStrLn "Client got a connection!"
   forever $ do
+    putStrLn "hGetChar"
     c <- hGetChar hnd
-    putChar c
+    putStrLn "putChar"
+    putStrLn . show . fromEnum $ c
 
 main :: IO ()
 main = execParser opt >>= run
