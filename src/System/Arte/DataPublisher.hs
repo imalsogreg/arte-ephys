@@ -25,7 +25,10 @@ runPublisher pub = forever $ do
   let packet = toPacket a :: BS.ByteString
   subs <- atomically . readTVar $ pub^.subscribers
   putStrLn $ "Pushing " ++ show a  ++ " to " ++ show subs
-  forM_ subs $ flip sendLengthTaggedPacket packet
+  forM_ subs $ \h -> do
+    res <- sendPacket h packet
+    when (not res) $ 
+      atomically $ modifyTVar (pub^.subscribers) (filter (/= h))
 
 ------------------------------------------------------------------------------
 -- |Listen for clients wanting a subscription
@@ -39,18 +42,20 @@ acceptSubscribers me pub = withSocketsDo $ do
     _ <- printf "%s accepted connection from %s" host (show port)
     hSetBinaryMode handle True
     hSetBuffering handle NoBuffering
---    forkFinally (atomically $ addSubscriber pub handle) (\_ -> hClose handle)
     atomically $ addSubscriber pub handle
 
 addSubscriber :: DataPublisher a -> Handle -> STM ()
 addSubscriber pub h = modifyTVar (pub^.subscribers) (h:)
 
-withSubscription :: (S.Serialize a) => Node -> (Either String a -> IO b) -> IO ()
+withSubscription :: (S.Serialize a) => Node -> (Either String a -> IO Bool) -> IO ()
 withSubscription node action = do
   h <- connectTo (node^.nodeHost.hostIp)
        (PortNumber . fromIntegral $ node^.nodeServerPort)
-  putStrLn "Got a connection"
+  putStrLn $ "Got a connection. Handle: " ++ show h
   hSetBinaryMode h True
   hSetBuffering h NoBuffering
-  forever $ action =<< recvData h
-
+  loop h
+  hClose h
+    where loop h = do
+            b <- action =<< recvData h
+            when b $ loop h
