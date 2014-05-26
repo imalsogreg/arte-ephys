@@ -61,8 +61,9 @@ cli h p = do
       withSubscription (node h p) $ \a ->
         putStrLn "Running" >>
         case (a :: Either String Int) of
-          Left e           -> print $ "Error: " ++ e
-          Right x -> print $ show x
+          Left e           -> print ("Error: " ++ e) >>
+                              return False
+          Right x -> print (show x) >> return True
 
 cli2 :: String -> String -> IO ()
 cli2 h p = do

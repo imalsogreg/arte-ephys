@@ -22,6 +22,9 @@ import qualified Data.Map as Map
 import Data.Map (Map, keys, member)
 import Data.Text hiding (unwords,filter,head)
 import Data.Yaml
+import Foreign.Ptr
+import Foreign.Marshal.Alloc
+import Foreign.Storable
 import Network
 import System.Environment (lookupEnv)
 import System.IO
@@ -55,14 +58,22 @@ data NetConfig = NetConfig
 $(makeLenses ''NetConfig)
 
 ------------------------------------------------------------------------------
-sendData :: (S.Serialize a) => Handle -> a -> IO ()
-sendData h a = sendLengthTaggedPacket h . toPacket $ a
+sendData :: (S.Serialize a) => Handle -> a -> IO Bool
+sendData h a = do
+  sendPacket h $ toPacket a
 
-sendLengthTaggedPacket :: Handle -> BS.ByteString -> IO ()
-sendLengthTaggedPacket h p = BS.hPut h p >> hFlush h
+sendPacket :: Handle -> BS.ByteString -> IO Bool
+sendPacket h p = do
+  print "About to hPutNonBlocking"
+  res <- BS.hPutNonBlocking h p
+  print "Got past hPutNonBlocking"
+  case res of
+    "" -> hFlush h >> print "Empty" >> return True
+    _        -> return False
 
 toPacket :: (S.Serialize a) => a -> BS.ByteString
-toPacket a = BS.append lenBytes payload
+toPacket a = do
+  BS.append lenBytes payload
   where lenBytes = S.encode . BS.length $ payload
         payload  = S.encode a
                          
