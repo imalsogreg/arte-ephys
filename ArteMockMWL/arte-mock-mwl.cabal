@@ -17,7 +17,6 @@ Build-Type:         Simple
 executable arteMockSpikes
   Build-Depends:    base,
                     arte-common,
-                    zeromq-haskell,
                     pipes (>= 4.0),
                     pipes-rt (>= 0.4),
                     tetrode-ephys,
@@ -32,7 +31,8 @@ executable arteMockSpikes
                     cereal,
                     lens,
                     async,
-                    network
+                    network,
+                    gtk
   Main-Is:          ArteMockMWL.hs
   ghc-options:      -O2 -threaded -fprof-auto "-with-rtsopts=-N3"
   hs-source-dirs:   src

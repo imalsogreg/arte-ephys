@@ -1,0 +1,37 @@
+\documentclass[DIV16,twocolumn,10pt]{scrreprt}
+\usepackage{paralist}
+\usepackage{graphicx}
+\usepackage[final]{hcar}
+
+%include polycode.fmt
+
+\begin{document}
+
+\begin{hcarentry}{arte-ephys: Real-time electrophysiology}
+\report{Greg Hale}
+\status{Work in progress}
+\participants{Alex Chen, Sarah Walker}
+\makeheader
+
+Arte-ephys is a soft real-time neural recording system for experimental systems neuroscientists.
+
+Our lab uses electrode arrays for brain recording in freely moving animals, to determine how these neurons build, remember, and use spatial maps.
+
+We previously recorded and analyzed our data in two separate stages.  We are now building a recording system focused on streaming instead of offline analysis, for real-time feedback experiments.  For example, we found that activity in the brain of resting rats often wanders back to representations of specific parts of a recently-learned maze, and we would now like to automatically detect these events and reward the rat immediately for expressing them, to see if this influences either the speed of learning of a specific part of the maze or the nature of later spatial information coding.
+
+We have a working (though outdated) backend system written in c++ that communicates with analog signal acquisition boards, performs simple signal conditioning, and broadcasts nearly-raw data through ZMQ.  Our work on real-time neuron extraction, position-tracking, and neural information decoding in Haskell is still preliminary.  Our immediate goal is to implement the high-level decoding system (which we can test using already-recorded data), and then to implement the lower-level data acquisition components piece-by-piece.
+
+\includegraphics[scale=0.22]{arte_screenshot2}
+
+
+We enthusiastically welcome participation from anyone interested in seeing Haskell creep into the domain of wet-lab science.
+
+\FurtherReading
+\begin{compactitem}
+\item \url{http://github.com/ImAlsoGreg/arte-ephys}
+\item \url{http://github.com/ImAlsoGreg/haskell-tetrode-ephys}
+\item \url{http://web.mit.edu/wilsonlab/html/research.html}
+\end{compactitem}
+\end{hcarentry}
+
+\end{document}
