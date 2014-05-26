@@ -21,6 +21,7 @@ library
                      , System.Arte.Net
                      , System.Arte.NetMessage
                      , System.Arte.DataPublisher
+                     , System.Arte.CommandPort
                      , System.Arte.Decode
                      , System.Arte.Decode.DecoderState
                      , System.Arte.Decode.DrawingHelpers

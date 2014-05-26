@@ -42,6 +42,7 @@ acceptSubscribers me pub = withSocketsDo $ do
 --    forkFinally (atomically $ addSubscriber pub handle) (\_ -> hClose handle)
     atomically $ addSubscriber pub handle
 
+--internal
 addSubscriber :: DataPublisher a -> Handle -> STM ()
 addSubscriber pub h = modifyTVar (pub^.subscribers) (h:)
 
