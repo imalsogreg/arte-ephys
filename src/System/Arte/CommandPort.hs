@@ -35,7 +35,7 @@ withCommandPort server action = do
 
 -- internal
 talk :: Handle -> (BSL.ByteString -> IO BSL.ByteString) -> IO ()
-talk h talker = do
+talk h talker = forever $ do
   l <- BSL.fromStrict <$> BS.hGetLine h
   putStrLn $ "Got message: " ++ BSL.unpack l
   resp <- talker l

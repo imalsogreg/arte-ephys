@@ -1,14 +1,22 @@
 module System.Arte.FileUtils where
 
-import System.Directory
-import System.FilePath ((</>))
 import Control.Monad
-import Data.List
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Writer.Strict
+import Data.List
+import qualified Data.ByteString.Char8 as BS
+import System.Directory
+import System.Environment
+import System.FilePath ((</>))
 
 type FileExtension = String
 
+processPath :: String -> IO (Either String [FilePath])
+processPath s = foldM processToken (Right []) tokens
+ where
+   tokens = map BS.unpack . BS.split '/' . BS.pack $ s
+   processToken acc t = undefined
+   
 getFilesAndDirs :: FilePath -> IO ([FilePath],[FilePath])
 getFilesAndDirs basePath =
   let notDot = (\p -> (p /= ".") && (p /= ".."))

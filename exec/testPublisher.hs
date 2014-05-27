@@ -65,9 +65,12 @@ serve h p = do
   c   <- async $ acceptClients node2 (handleCmd t)
   pubA <- async $ acceptSubscribers (node h p) pub
   runA <- async $ runPublisher (pub :: DataPublisher Integer) :: IO (Async ())
-  forM_ [(1::Integer)..] $ \n -> do
-    atomically $ readTVar t >>= ((writeTQueue q) . (+n))
-    threadDelay 1000000
+  forM_ [(1000000::Integer)..] $ \n -> do
+    v <- atomically $ do
+         v <- readTVar t
+         writeTQueue q  (v+n)
+         return v
+    threadDelay $ fromIntegral (v+n)
   wait pubA
   wait runA
 
@@ -78,10 +81,11 @@ handleCmd :: TVar Integer -> BSL.ByteString -> IO BSL.ByteString
 handleCmd r req =
   case (req ^? key "command") of
     Just (String "setMult") ->
-      case req ^? key "args" . _Value . nth 0 . _Integral of
-        Just n  -> atomically $ writeTVar r n >> return "{\"response\":\"ok\"}"
-        Nothing -> return "{\"response\":\"badRequest\"}"
-    _ -> return "{\"response\":\"badRequest\"}"
+      case req ^? key "args" . _Value  . nth 0 . _String of
+        Just n  -> atomically $ writeTVar r (read . T.unpack $ n) >>
+                   return "{\"response\":\"ok\"}"
+        Nothing -> return "{\"response\":\"badRequest: no args [0]\"}"
+    _ -> return "{\"response\":\"badRequest: no command\"}"
 
 cli :: String -> String -> IO ()
 cli h p = do
