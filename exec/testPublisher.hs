@@ -1,7 +1,11 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+
 module Main where
 
 import System.Arte.DataPublisher
 import System.Arte.Net
+import System.Arte.CommandPort
 
 import Control.Applicative
 import System.Environment
@@ -9,9 +13,17 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TQueue
+import Control.Lens
 import Control.Monad
+import qualified Data.HashMap.Strict as Hash
+import Data.Aeson
+import Data.Aeson.Lens
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy as BSL
 import Data.Ord
 import Data.Maybe
+import qualified Data.Text as T
+import qualified Data.Vector as V
 import Network
 import Options.Applicative
 import System.Posix
@@ -45,26 +57,58 @@ run _ = error "Must run as either server or client"
 
 serve :: String -> String -> IO ()
 serve h p = do
-      _ <- installHandler sigPIPE Ignore Nothing
-      q <- atomically $ newTQueue
-      pub <- atomically $ DataPublisher q <$> newTVar []
-      pubA <- async $ acceptSubscribers (node h p) pub
-      runA <- async $ runPublisher (pub :: DataPublisher Int) :: IO (Async ())
-      forM_ [(1::Int)..] $ \n -> do
-        atomically (writeTQueue q n)
-        threadDelay 1000000
-      wait pubA
-      wait runA
+  _ <- installHandler sigPIPE Ignore Nothing
+  q <- atomically $ newTQueue
+  t <- atomically $ newTVar 1
+  let node2 = Node h (Host h h) ((read p)+portAdd)
+  pub <- atomically $ DataPublisher q <$> newTVar []
+  c   <- async $ acceptClients node2 (handleCmd t)
+  pubA <- async $ acceptSubscribers (node h p) pub
+  runA <- async $ runPublisher (pub :: DataPublisher Integer) :: IO (Async ())
+  forM_ [(1::Integer)..] $ \n -> do
+    atomically $ readTVar t >>= ((writeTQueue q) . (+n))
+    threadDelay 1000000
+  wait pubA
+  wait runA
+
+portAdd = 1
+
+------------------------------------------------------------------------------
+handleCmd :: TVar Integer -> BSL.ByteString -> IO BSL.ByteString
+handleCmd r req =
+  case (req ^? key "command") of
+    Just (String "setMult") ->
+      case req ^? key "args" . _Value . nth 0 . _Integral of
+        Just n  -> atomically $ writeTVar r n >> return "{\"response\":\"ok\"}"
+        Nothing -> return "{\"response\":\"badRequest\"}"
+    _ -> return "{\"response\":\"badRequest\"}"
 
 cli :: String -> String -> IO ()
 cli h p = do
-      withSubscription (node h p) $ \a ->
-        putStrLn "Running" >>
-        case (a :: Either String Int) of
-          Left e           -> print ("Error: " ++ e) >>
-                              return False
-          Right x -> print (show x) >> return True
+  listener <- async $ withSubscription (node h p) $ \a ->
+    putStrLn "Running" >>
+    case (a :: Either String Integer) of
+      Left e           -> print ("Error: " ++ e) >>
+                          return False
+      Right x -> print (show x) >> return True
+  let node = (Node h (Host h h) ((read p)+portAdd))
+  withCommandPort node $ \hCmd -> forever $ do
+    l <- (T.words . T.pack) <$> getLine
+    BSL.putStrLn . encode . makeCommand $ l
+    BS.hPutStrLn hCmd . BSL.toStrict . encode . makeCommand $ l
 
+makeCommand :: [T.Text] -> Object
+makeCommand xs = Hash.fromList [("command",String $ head xs)
+                               ,("args",Array args)]
+  where args = V.fromList $ map String (tail xs)
+
+main :: IO ()
+main = execParser opt >>= run
+  where opt = info (helper <*> opts)
+         (fullDesc <> progDesc "Test" <> header "Test")
+
+
+-- a little test
 cli2 :: String -> String -> IO ()
 cli2 h p = do
   hnd <- connectTo h (PortNumber . fromIntegral . read $ p)
@@ -75,7 +119,3 @@ cli2 h p = do
     putStrLn "putChar"
     putStrLn . show . fromEnum $ c
 
-main :: IO ()
-main = execParser opt >>= run
-  where opt = info (helper <*> opts)
-         (fullDesc <> progDesc "Test" <> header "Test")

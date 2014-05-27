@@ -8,26 +8,39 @@ import Control.Concurrent
 import Data.Aeson
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
+import qualified Data.Text as T
+import Data.Text.Encoding
 import Network
 import System.IO
 import Text.Printf
 
 import System.Arte.Net
 
-acceptClients :: Node -> (Maybe Object -> IO Object) -> IO ()
+------------------------------------------------------------------------------
+acceptClients :: Node -> (BSL.ByteString -> IO BSL.ByteString) -> IO ()
 acceptClients rep talker = do
   sock <- listenOn (PortNumber $ fromIntegral (rep^.nodeServerPort))
   forever $ do
-    (handle,host,port) <- accept sock
+    (h,host,port) <- accept sock
     _ <- printf "%s accepted command connection from %s\n" host (show port)
-    hSetBuffering handle LineBuffering
-    forkFinally (talk handle talker) (\_ -> hClose handle)
+    hSetBuffering h NoBuffering
+    forkFinally (putStrLn "Talking!" >> talk h talker) (\_ -> hClose h)
 
-talk :: Handle -> (Maybe Object -> IO Object) -> IO ()
+withCommandPort :: Node -> (Handle -> IO a) -> IO a
+withCommandPort server action = do
+  h <- connectTo (server ^. nodeHost . hostIp)
+    (PortNumber $ fromIntegral (server ^. nodeServerPort))
+  putStrLn "Got a client connection to command port."
+  action h
+
+-- internal
+talk :: Handle -> (BSL.ByteString -> IO BSL.ByteString) -> IO ()
 talk h talker = do
-  l <- BS.hGetLine h
-  resp <- talker $ decode (BSL.fromChunks [l]) :: IO Object
+  l <- BSL.fromStrict <$> BS.hGetLine h
+  putStrLn $ "Got message: " ++ BSL.unpack l
+  resp <- talker l
   catch
-    (BSL.hPutStrLn h. encode $ resp)
+    (BSL.hPutStrLn h resp >> putStrLn ("Sent: " ++ BSL.unpack resp))
     (\e -> putStrLn $ show (e :: IOException))
+    
         

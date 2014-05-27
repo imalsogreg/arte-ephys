@@ -24,7 +24,7 @@ runPublisher pub = forever $ do
   a <- atomically $ readTQueue (pub^.chan)
   let packet = toPacket a :: BS.ByteString
   subs <- atomically . readTVar $ pub^.subscribers
-  putStrLn $ "Pushing " ++ show a  ++ " to " ++ show subs
+--  putStrLn $ "Pushing " ++ show a  ++ " to " ++ show subs
   forM_ subs $ \h -> do
     res <- sendPacket h packet
     when (not res) $ 

@@ -64,11 +64,9 @@ sendData h a = do
 
 sendPacket :: Handle -> BS.ByteString -> IO Bool
 sendPacket h p = do
-  print "About to hPutNonBlocking"
   res <- BS.hPutNonBlocking h p
-  print "Got past hPutNonBlocking"
   case res of
-    "" -> hFlush h >> print "Empty" >> return True
+    "" -> hFlush h >> return True
     _        -> return False
 
 toPacket :: (S.Serialize a) => a -> BS.ByteString
