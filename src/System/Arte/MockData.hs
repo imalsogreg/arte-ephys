@@ -10,7 +10,10 @@ import Data.Ephys.OldMWL.FileInfo
 import Data.Ephys.OldMWL.Parse
 import Data.Ephys.OldMWL.ParseClusterFile
 import Data.Ephys.OldMWL.ParsePFile
-import Arte.Common
+import System.Arte.Net
+import System.Arte.FileUtils
+import System.Arte.DataPublisher
+import System.Arte.CommandPort
 
 import Pipes.RealTime
 
@@ -19,13 +22,10 @@ import Network
 import Control.Applicative
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as BS
-import qualified System.ZMQ as ZMQ
 import Pipes ( (>->), lift )
 import qualified Pipes as P
 import qualified Pipes.Prelude as PP
-import Data.Yaml
 import System.Directory
-import System.Console.CmdArgs
 import System.FilePath ((</>))
 import Control.Monad.Trans.Writer.Strict
 import Control.Concurrent
@@ -38,30 +38,32 @@ import Data.Text (Text,pack,unpack)
 import qualified Data.Serialize as S
 import Control.Lens
 
-data ArteMockSpikes = MockCmd
-                      { immediateStart        :: Bool
-                      , startExperimentTime   :: Double
-                      , spikeFileExtension    :: String
-                      , eegFileExtention      :: String
-                      , pFileExtention        :: String
-                      , clusterBoundsFileName :: String
-                      , arteFileExtension     :: String
-                      , baseDirectory         :: String
-                      , searchDepth           :: Int
-                      } deriving (Show, Data, Typeable)
+data MockStatus = Seeking | Waiting | Streaming
+                deriving (Eq, Show)
 
-mockCmd :: ArteMockSpikes
-mockCmd =
-  MockCmd { immediateStart        = True         &= help "Immediate mode"
-          , startExperimentTime   = 0.0          &= typ "Time (seconds) in files to start"
-          , spikeFileExtension    = "tt"         &= typ "EXT"
-          , eegFileExtention      = "eeg"        &= typ "EXT"
-          , pFileExtention        = "p"          &= typ "EXT"
-          , arteFileExtension     = "data"      &= typ "EXT"
-          , clusterBoundsFileName = "cbfile-run" &= typ "FILENAME"
-          , baseDirectory = "." &= help "(default \".\")"
-          , searchDepth = 0 &= help "Recursion depth for file search"
-          }
+data DataFormat = JSON | Binary
+                deriving (Eq, Show)
+
+data DataSource a = DataSource {
+    _dsThread   :: ThreadId
+  , _dsProducer :: P.Producer IO a ()
+  , _dsWaiting  :: TQueue a
+  , _dsPub      :: DataPublisher a
+  , _dsNode     :: Node
+  , _dsFormat   :: DataFormat
+  }
+
+data MockState = MockState
+                 { _mockStatus       :: MockStatus
+                 , _mockSpikeSources :: [DataSource TrodeSpike]
+                 , _mockPosSources   :: [DataSource Position]
+--                 , _mockLFPSources   :: [DataSource Lfp]
+                 , _mockNode         :: Node
+                 , _readAheadSec     :: Double
+                 , _waitAfterSeek    :: Bool
+                 , _defaultSeekPoint :: Double
+                 }
+
 
 --TODO Make mockData work on general tracks
 track :: Track
