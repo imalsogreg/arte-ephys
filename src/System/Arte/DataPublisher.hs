@@ -2,7 +2,6 @@
 
 module System.Arte.DataPublisher where
 
-import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Lens
 import Control.Monad

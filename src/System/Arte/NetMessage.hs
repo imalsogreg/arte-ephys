@@ -7,8 +7,6 @@ import Data.Ephys.Cluster
 
 import GHC.Generics (Generic)
 import Data.Serialize
-import Data.Time
-import Data.Time.Clock
 import qualified Data.Map as Map
 
 data ArteMessage = ArteMessage { msgTime :: ExperimentTime

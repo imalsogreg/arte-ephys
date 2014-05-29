@@ -1,7 +1,8 @@
-{-# LANGUAGE DeriveDataTypeable, NoMonomorphismRestriction #-}
+{-# LANGUAGE DeriveDataTypeable, NoMonomorphismRestriction, TemplateHaskell #-}
 
 module Main where
 
+import Data.Ephys.EphysDefs
 import Data.Ephys.Spike
 import Data.Ephys.Cluster
 import Data.Ephys.Position
@@ -22,6 +23,7 @@ import Network
 import Control.Applicative
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as BS
+import Data.Time.Clock
 import Pipes ( (>->), lift )
 import qualified Pipes as P
 import qualified Pipes.Prelude as PP
@@ -35,6 +37,7 @@ import Control.Concurrent.Async
 --import Control.Concurrent.STM.TQueue
 import Control.Monad
 import Data.Text (Text,pack,unpack)
+import qualified Data.Map as M
 import qualified Data.Serialize as S
 import Control.Lens
 
@@ -45,29 +48,67 @@ data DataFormat = JSON | Binary
                 deriving (Eq, Show)
 
 data DataSource a = DataSource {
-    _dsThread   :: ThreadId
-  , _dsProducer :: P.Producer IO a ()
-  , _dsWaiting  :: TQueue a
-  , _dsPub      :: DataPublisher a
-  , _dsNode     :: Node
-  , _dsFormat   :: DataFormat
+    _dsProducers :: [P.Producer a IO ()]
+  , _dsWaiting   :: TVar (M.Map ExperimentTime a)
+  , _dsGetTS     :: (a -> ExperimentTime)
+  , _dsPub       :: DataPublisher a
+  , _dsNode      :: Node
+  , _dsFormat    :: DataFormat
   }
+$(makeLenses ''DataSource)
 
 data MockState = MockState
-                 { _mockStatus       :: MockStatus
+                 { _mockStatus       :: TVar MockStatus
+                 , _mockWallTimeFun  :: TVar (UTCTime -> ExperimentTime)
                  , _mockSpikeSources :: [DataSource TrodeSpike]
                  , _mockPosSources   :: [DataSource Position]
 --                 , _mockLFPSources   :: [DataSource Lfp]
                  , _mockNode         :: Node
-                 , _readAheadSec     :: Double
+                 , _readAheadSec     :: ExperimentTime
                  , _waitAfterSeek    :: Bool
                  , _defaultSeekPoint :: Double
                  }
+$(makeLenses ''MockState)
 
+------------------------------------------------------------------------------
+runDataSource :: MockState -> DataSource a -> IO ()
+runDataSource opts ds = do
+  inThread  <- async $ runInput
+  outThread <- async $ runOutput
+  wait [inThread,outThread]
+    where
+      runInput = do
+        tTarget <- spoolToTime
+        forM (ds^.dsProducers) $ \p ->
+          P.for (p >-> PP.takeWhile (\a -> (ds^.dsGetTS $ a) <= tTarget))
+          (\a -> atomically $ M.insert (ds^.dsGetTS $ a) a (ds^.dsWaiting))
+
+      runOutput = P.for (outProducer >-> relativeTimeCat (ds^.dsGetTS))
+                  (atomically $ writeTQueue (ds^.dsPub.chan))
+      outProducer = forever $ do
+        v <- atomically $ do
+          m <- readTVar $ ds^.dsWaiting 
+          case M.lookupIndex 0 m of
+            Nothing    -> retry
+            Just (k,v) -> return k
+        yield v
+
+      spoolToTime :: IO ExperimentTime
+      spoolToTime = do
+        f <- atomically $ readTVar ds^.mockWallTimeFun
+        t <- getCurrentTime
+        return $ f t + opts^.readAheadSec
+      
+            
+  
 
 --TODO Make mockData work on general tracks
 track :: Track
 track = circularTrack (0,0) 0.57 0.5 0.25 0.15
+
+main :: IO ()
+main = do
+ undefined
 
 queueToNetwork :: (S.Serialize a, Show a) => Bool -> TQueue a -> Node -> IO ()
 queueToNetwork verbose q node = do
