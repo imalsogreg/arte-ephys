@@ -70,10 +70,22 @@ data MockState = MockState
                  }
 $(makeLenses ''MockState)
 
+mkSource :: [P.Producer a IO ()] -> (a -> ExperimentTime) -> Node ->
+            DataFormat -> ExperimentTime -> 
+            IO (DataSource a)
+mkSource producers timeFun node format tTarget = do
+  q <- atomically . newTVar $ M.empty
+  s <- atomically . newTVar $ Seeking
+  p <- DataPublisher <$> (atomically $ newTQueue) <*> newTVarIO []
+  return $ DataSource (seq prods' prods') q timeFun p node format
+    where prods' = map (>-> PP.dropWhile (\a -> timeFun a < tTarget)) producers
+
 ------------------------------------------------------------------------------
 runDataSource :: MockState -> DataSource a -> IO ()
 runDataSource opts ds = do
-  inThread  <- async $ runInput
+  inThread  <- async $ (atomically $ readTVar (ds^.mockStatus) >>= \r ->
+                         unless (r == Waiting) retry)
+               >> runInput
   outThread <- async $ runOutput
   wait [inThread,outThread]
     where
@@ -110,6 +122,7 @@ main :: IO ()
 main = do
  undefined
 
+{-
 queueToNetwork :: (S.Serialize a, Show a) => Bool -> TQueue a -> Node -> IO ()
 queueToNetwork verbose q node = do
   let portStr = zmqStr Tcp "*" (show $node ^. port)
@@ -136,6 +149,7 @@ toNetwork verbose pubSock lock a = do
   withMVar lock $ \_ -> do
     when verbose $ print a
     ZMQ.send pubSock (S.encode a) []
+-}
 
 {- These have been moved to haskel-tetrode-ephys
 -- "path/to/0224.tt" -> "24"
@@ -187,6 +201,7 @@ seekAndWait goSignal toTime target produce = do
 
 -}
 
+{-
 orderClusters :: TQueue ArteMessage -> FilePath -> FilePath -> IO ()
 orderClusters queue cFile ttFile = do 
   let trodeName = unpack $ mwlTrodeNameFromPath ttFile
@@ -284,6 +299,8 @@ handleEvents sub goSign = forever $ do
   case msgBody m of
     Request StartAcquisition -> putStrLn "Got Go signal!" >> atomically (putTMVar goSign ())
     _ -> putStrLn $ "Got and ignored a message: " ++ (take 40 . show . msgBody $ m)
+-}
+
 
 {-
 acceptDataClients :: Node -> IO ()
