@@ -144,12 +144,10 @@ instance Timestamp TrodeSpike where
 instance Timestamp Position where
   getTS = _posTime
 
-data AnyDataSource = DSSpikes (DataSource TrodeSpike)
-                   | DSPos    (DataSource Position)
 
 ------------------------------------------------------------------------------
-mkSource :: Conf.Config -> MockOpts -> DataSourceOpts -> IO (AnyDataSource)
-mkSource cfg mock source = do
+mkSpikeSource :: Conf.Config -> MockOpts -> DataSourceOpts -> IO (DataSource TrodeSpike)
+mkSpikeSource cfg mock source = do
   q <- atomically . newTVar $ M.empty
   s <- atomically . newTVar $ Seeking
   p <- DataPublisher <$> (atomically $ newTQueue) <*> newTVarIO []
@@ -158,23 +156,21 @@ mkSource cfg mock source = do
       prods <- forM (source^.dsFilePaths) $ \fn -> do
         let tName = read . reverse . dropWhile (/= '.') . drop 3 . reverse $ fn :: TrodeName
         (getMWLSpikeProducer fn tName)
-      return . DSSpikes $ DataSource (catMaybes prods) q p
-    MwlP  -> do
-      prod <- getMWLPProducer cfg (
+      return $ DataSource (catMaybes prods) q p
+    _  -> error "inappropriate filetype for a spike source"
 
-{-
-          (posTime, getMWLPProducer)
-      x = fileSpecifics :: (a -> ExperimentTime, Conf.Config -> FilePath -> IO(Maybe(P.Producer a IO ())))
-  let node = source ^. dsNode
-      format = Main.Binary
-      tTarg = mock ^. mockFirstSeekTime
-  case fileSpecifics of
-    (timeFun, Just getProducer) -> do
-      prods' <- forM (source^.dsFilePaths) $ \fn -> do
-        producer <- getProducer fn
-        (producer >-> Prelude.dropWhile (\a -> timeFun a < tTarg))
-      return $ DataSource (seq prods' prods') q timeFun p node format
--}
+mkPosSource :: Conf.Config -> MockOpts -> DataSourceOpts -> IO (DataSource Position)
+mkPosSource cfg _ source = do
+  q <- atomically . newTVar $ M.empty
+  p <- DataPublisher <$> (atomically $ newTQueue) <*> newTVarIO []
+  case (source^.dsFileType, source^.dsFilePaths) of
+    (MwlP, fn:_) -> do
+      ds' <- getMWLPProducer cfg fn
+      case ds' of
+        Right ds -> return $ DataSource [ds] q p
+        Left e -> error $ "Couldn't make position producer. " ++ e
+    _ -> error "Improper position configuration"
+
 
 getMWLSpikeProducer :: FilePath -> TrodeName ->
                        IO (Maybe (P.Producer TrodeSpike IO ()))
@@ -187,17 +183,20 @@ getMWLSpikeProducer fn tName = do
     Left _ -> return Nothing
 
 getMWLPProducer :: Conf.Config -> FilePath ->
-                   IO (Maybe (P.Producer Position IO ()))
+                   IO (Either String (P.Producer Position IO ()))
 getMWLPProducer cfg fp = do
-  hints' <- runMaybeT $ do
-    pxX <- MaybeT $ Conf.lookup cfg "mwlPHints.originXPixel"
-    pxY <- MaybeT $ Conf.lookup cfg "mwlPHints.originXPixel"
-    pS  <- MaybeT $ Conf.lookup cfg "mwlPHints.pxPerMeter"
-    pH  <- MaybeT $ Conf.lookup cfg "mwlPHints.trackHeight"
-    return $ PosMWLShim pxX pxY pS pH
+  hints' <- runEitherT $ PosMWLShim
+    <$> (noteT "No xOrigin hint" $
+           MaybeT $ Conf.lookup cfg "mwlPHints.originXPixel")
+    <*> (noteT "No yOrigin hint" $ MaybeT $
+           Conf.lookup cfg "mwlPHints.originXPixel")
+    <*> (noteT "No scale hint" $ MaybeT $
+           Conf.lookup cfg "mwlPHints.pxPerMeter")
+    <*> (noteT "No height hint" $ MaybeT $
+           Conf.lookup cfg "mwlPHints.trackHeight")
   case hints' of
-    Nothing -> return Nothing
-    Just hints -> return . Just $ producePosition hints fp
+    Left e -> return $ Left e
+    Right hints -> return . Right $ producePosition hints fp
 
 ------------------------------------------------------------------------------
 runDataSource :: Timestamp a => MockOpts -> MockState -> DataSourceOpts ->
