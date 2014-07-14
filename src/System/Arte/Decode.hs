@@ -28,8 +28,8 @@ import Data.Ephys.OldMWL.ParseClusterFile
 
 import Data.Time.Clock
 import Pipes.RealTime
-import System.Console.CmdArgs
 import System.Directory
+import System.Console.CmdArgs
 import Control.Applicative ((<$>),(<*>),pure)
 import qualified Data.Text as Text
 import qualified Data.Traversable as T
@@ -65,28 +65,13 @@ import qualified Data.ByteString.Lazy as BSL
 
 
 ------------------------------------------------------------------------------
-data DecoderArgs = DecoderArgs {mwlBaseDirectory    :: FilePath
-                               ,startExperimentTime :: Double
-                               ,doLogging           :: Bool}
-                 deriving (Show,Data,Typeable)
-decoderArgs :: DecoderArgs
-decoderArgs = DecoderArgs { mwlBaseDirectory =
-                             "" &= 
-                             help "Data directory when not using network data"
-                          , startExperimentTime =
-                            0 &=
-                            help "Start time when spooling from disk directly"
-                          , doLogging =
-                            False &= help "Commit data to log files"
-                          }
-
 draw :: TVar DecoderState -> DecoderState -> IO Picture
 draw _ ds = do
-  -- Node:: Not deadlocking on this read
+
   p    <- readTVarIO $ ds^.pos
   occ  <- readTVarIO $ ds^.occupancy
   dPos <- readTVarIO $ ds^.decodedPos
-  -- End note above
+
   let trackPicture = drawTrack track
       posPicture = drawPos p
       drawOpt :: TrodeDrawOption
@@ -96,7 +81,7 @@ draw _ ds = do
       optsPicture = translate (-1) (-1) . scale 0.1 0.1 $ maybe (Text "Opts Problem")
                     (scale 0.2 0.2 . drawDrawOptionsState (ds^.trodeDrawOpt))
                     (join $ CL.focus <$> CL.focus (ds^.trodeDrawOpt))
---  putStrLn $ unwords ["Focus:", show drawOpt, "of options", show (ds^.trodeDrawOpt)]
+
   field <- case drawOpt of 
     (DrawOccupancy) -> do
       return $ drawNormalizedField occ
@@ -201,7 +186,10 @@ main = do
               fi' <- getFileInfo sf
               case fi' of
                 Left e -> error $ unwords ["Error getting info on file",sf,":",e]
-                Right fi -> do
+                Right fi | clusterless opts -> do
+                  
+        
+                Right fi | not (clusterless opts) -> do
                   let cbFilePath = Text.unpack $ cbNameFromTTPath "cbfile-run" sf
                   clusters' <- getClusters cbFilePath sf
                   case clusters' of
@@ -252,6 +240,7 @@ pos0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
        ConfSure sZ sZ (-100 :: Double) (Location 0 0 0)
        where sZ = take 5 (repeat 0)
 
+-- caillou/112812clip2 MWL-to-SIUnits TODO make general
 posShortcut :: ((Double,Double),Double,Double)
 posShortcut = ((166,140),156.6, 0.5)
 

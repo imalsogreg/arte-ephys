@@ -38,7 +38,8 @@ kernel  = PosGaussian 0.05
 initialState :: IO DecoderState
 initialState = do
   let zeroField = Map.fromList [(tp,0.1) | tp <- allTrackPos track]
-      p0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0 ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
+      p0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
+           ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
       sZ = take 15 (repeat 0)
   DecoderState <$>
     newTVarIO p0
@@ -48,4 +49,18 @@ initialState = do
     <*> return (Clustered Map.empty)
     <*> newTVarIO zeroField
     <*> pure (clistTrodes (Clustered Map.empty)) 
---    <*> newTVarIO ""
+
+{- Nevermind - will hack this into the main function until
+   the MockData is built
+------------------------------------------------------------------------------
+initialTrodes :: DecoderArgs -> IO (Trodes, TrodeDrawOptions)
+initialTrodes opts = case mwlBaseDirectory opts of
+
+  ""   -> let cs = if (clusterless opts)
+                   then Clusterless Map.empty
+                   else Clustered   Map.empty
+          in return (cs, clistTrodes cs)
+
+  path -> do
+    spikeFiles <- getFilesByExtension path 2 "tt"
+-}
