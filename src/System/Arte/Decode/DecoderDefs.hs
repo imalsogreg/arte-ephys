@@ -43,11 +43,13 @@ data PlaceCellTrode = PlaceCellTrode {
              
 $(makeLenses ''PlaceCellTrode)
 
-type NotClusts = KDMap Point4 ClusterlessPoint
+type NotClust = KDMap ClusterlessPoint MostRecentTime
 
-data ClusterlessTrode = ClusterlessTrode { _dtNonClusts :: NotClusts
-                                         , _dtTauN      :: [TrodeSpike]
-                                         } deriving (Eq, Show)
+data ClusterlessTrode = ClusterlessTrode
+                        { _dtNotClust :: NotClust
+                        , _dtTauN     :: [(ClusterlessPoint,MostRecentTime)]
+                        } deriving (Eq, Show)
+
 
 data Trodes = Clusterless (Map.Map TrodeName (TVar ClusterlessTrode))
             | Clustered   (Map.Map TrodeName PlaceCellTrode)
@@ -89,12 +91,15 @@ instance KDKey ClusterlessPoint where
 newtype MostRecentTime = MostRecentTime { unMostRecentTime :: Double}
                          deriving (Eq,Ord,Show,Num,Real)
 
+
 instance Monoid MostRecentTime where
   mempty = MostRecentTime (-1/0)
   a `mappend` b = max a b
 
+
 $(makeLenses ''Trodes)
 $(makePrisms ''Trodes)
+$(makeLenses ''ClusterlessTrode)
 
 
 ------------------------------------------------------------------------------
@@ -104,6 +109,8 @@ data DecoderArgs = DecoderArgs {mwlBaseDirectory    :: FilePath
                                ,clusterless         :: Bool
                                }
                  deriving (Show,Data,Typeable)
+
+
 decoderArgs :: DecoderArgs
 decoderArgs = DecoderArgs { mwlBaseDirectory =
                              "" &= 

@@ -23,7 +23,6 @@ data DecoderState = DecoderState
                     , _trodes         :: Trodes
                     , _decodedPos     :: TVar (Field Double)
                     , _trodeDrawOpt   :: TrodeDrawOptions
---                    , _logData        :: TVar BS.ByteString
                     }
 
 $(makeLenses ''DecoderState)
@@ -49,18 +48,3 @@ initialState = do
     <*> return (Clustered Map.empty)
     <*> newTVarIO zeroField
     <*> pure (clistTrodes (Clustered Map.empty)) 
-
-{- Nevermind - will hack this into the main function until
-   the MockData is built
-------------------------------------------------------------------------------
-initialTrodes :: DecoderArgs -> IO (Trodes, TrodeDrawOptions)
-initialTrodes opts = case mwlBaseDirectory opts of
-
-  ""   -> let cs = if (clusterless opts)
-                   then Clusterless Map.empty
-                   else Clustered   Map.empty
-          in return (cs, clistTrodes cs)
-
-  path -> do
-    spikeFiles <- getFilesByExtension path 2 "tt"
--}

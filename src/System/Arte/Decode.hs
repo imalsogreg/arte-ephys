@@ -3,6 +3,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module System.Arte.Decode where
 
@@ -25,8 +26,10 @@ import Data.Ephys.OldMWL.FileInfo
 import Data.Ephys.OldMWL.Parse
 import Data.Ephys.OldMWL.ParsePFile
 import Data.Ephys.OldMWL.ParseClusterFile
+import Data.Map.KDMap
 
 import Data.Time.Clock
+import qualified Data.Vector.Unboxed as U
 import Pipes.RealTime
 import System.Directory
 import System.Console.CmdArgs
@@ -150,84 +153,91 @@ main = do
 -}
 
         basePath -> do
-            putStrLn "Decoder streaming spikes and position from disk"
-            incomingSpikesChan <- atomically newTQueue
+          putStrLn "Decoder streaming spikes and position from disk"
+          incomingSpikesChan <- atomically newTQueue
               
-            [spikeFiles,pFiles] <- mapM (getFilesByExtension basePath 2)
-                                              ["tt","p"]
-            putStrLn $ "spikeFiles: " ++ show spikeFiles
-            putStrLn $ "pFiles: "     ++ show pFiles
-            let ((pX0,pY0),pixPerM,h) = posShortcut
+          [spikeFiles,pFiles] <- mapM (getFilesByExtension basePath 2)
+                                 ["tt","p"]
+          putStrLn $ "spikeFiles: " ++ show spikeFiles
+          putStrLn $ "pFiles: "     ++ show pFiles
+          let ((pX0,pY0),pixPerM,h) = posShortcut
 
-            putStrLn "Start pos async"
-            posAsync <- do
-              f <- BSL.readFile (head pFiles)
-              ds' <- readTVarIO dsT
-              async . runEffect $
-                dropResult (produceMWLPos f) >->
-                runningPosition (pX0,pY0) pixPerM h pos0 >->
-                relativeTimeCatDelayedBy _posTime (negate $ startExperimentTime opts) >->
-                (forever $ do
-                    p <- await
-                    lift . atomically $ do
-                      occ <- readTVar (ds^.occupancy)
-                      let posField = posToField track p kernel
-                      writeTVar (ds'^.pos) p
-                      writeTVar (ds'^.trackPos)  posField
-                      when (p^.speed > runningThresholdSpeed)
-                       (writeTVar (ds'^.occupancy) (updateField (+) occ posField))
-                )
+          putStrLn "Start pos async"
+          posAsync <- do
+            f <- BSL.readFile (head pFiles)
+            ds' <- readTVarIO dsT
+            async . runEffect $
+              dropResult (produceMWLPos f) >->
+              runningPosition (pX0,pY0) pixPerM h pos0 >->
+              relativeTimeCatDelayedBy _posTime (negate $ startExperimentTime opts) >->
+              (forever $ do
+                  p <- await
+                  lift . atomically $ do
+                    occ <- readTVar (ds^.occupancy)
+                    let posField = posToField track p kernel
+                    writeTVar (ds'^.pos) p
+                    writeTVar (ds'^.trackPos)  posField
+                    when (p^.speed > runningThresholdSpeed)
+                      (writeTVar (ds'^.occupancy) (updateField (+) occ posField))
+              )
                 
+          putStrLn "Start Spike file asyncs"
+          spikeAsyncs <- forM spikeFiles $ \sf -> do
+            let tName = read . Text.unpack $ mwlTrodeNameFromPath sf
+            print $ "working on file" ++ sf
+            fi' <- getFileInfo sf
+            case fi' of
+              Left e -> error $ unwords ["Error getting info on file",sf,":",e]
+              Right fi | clusterless opts -> do
+                addClusterlessTrode dsT tName
+                f <- BSL.readFile sf
+                async $ runEffect $
+                  dropResult (produceTrodeSpikes tName fi f) >->
+                  relativeTimeCat (\s -> spikeTime s - startExperimentTime opts) >->
+                  (forever $ do
+                      spike <- await
+                      ds2  <- lift . atomically $ readTVar dsT
+                      pos2 <- lift . atomically $ readTVar (ds^.trackPos)
+                      p    <- lift . atomically $ readTVar (ds^.pos)
+                      lift $ clusterlessAddSpike ds2 tName p pos2 spike logSpikes)
+              Right fi | otherwise -> do
+                let cbFilePath = Text.unpack $ cbNameFromTTPath "cbfile-run" sf
+                clusters' <- getClusters cbFilePath sf
+                case clusters' of
+                  Left e -> error $ unwords ["Error in clusters from file",cbFilePath,":",e]
+                  Right clusters -> do
+                    setTrodeClusters track dsT tName clusters
+                    ds' <- readTVarIO dsT
+                    case Map.lookup tName (ds'^.trodes._Clustered) of
+                      Nothing -> error $ unwords ["Shouldn't happen, couldn't find",tName]
+                      Just pcTrode -> do
+                        f <- BSL.readFile sf
+                        async $ runEffect $ 
+                          dropResult (produceTrodeSpikes tName fi f) >->
+                          relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
+                          (forever $ do
+                              spike <- await
+                              ds2 <- lift . atomically $ readTVar dsT
+                              pos2 <- lift . atomically $ readTVar (ds^.trackPos)
+                              p    <- lift . atomically $ readTVar (ds^.pos)
+                              lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike logSpikes)
 
-            putStrLn "Start Spike file asyncs"
-            spikeAsyncs <- forM spikeFiles $ \sf -> do
-              let tName = read . Text.unpack $ mwlTrodeNameFromPath sf
-              print $ "working on file" ++ sf
-              fi' <- getFileInfo sf
-              case fi' of
-                Left e -> error $ unwords ["Error getting info on file",sf,":",e]
-                Right fi | clusterless opts -> do
-                  
-        
-                Right fi | not (clusterless opts) -> do
-                  let cbFilePath = Text.unpack $ cbNameFromTTPath "cbfile-run" sf
-                  clusters' <- getClusters cbFilePath sf
-                  case clusters' of
-                    Left e -> error $ unwords ["Error in clusters from file",cbFilePath,":",e]
-                    Right clusters -> do
-                      setTrodeClusters track dsT tName clusters
-                      ds' <- readTVarIO dsT
-                      case Map.lookup tName (ds'^.trodes._Clustered) of
-                        Nothing -> error $ unwords ["Shouldn't happen, couldn't find",tName]
-                        Just pcTrode -> do
-                          f <- BSL.readFile sf
-
-                          async $ runEffect $ 
-                            dropResult (produceTrodeSpikes tName fi f) >->
-                            relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
-                            (forever $ do
-                                spike <- await
-                                ds2 <- lift . atomically $ readTVar dsT
-                                pos2 <- lift . atomically $ readTVar (ds^.trackPos)
-                                p    <- lift . atomically $ readTVar (ds^.pos)
-                                lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike logSpikes)
-  
 --                           (forever $ do
 --                               spike <- await
 --                               lift . atomically $ writeTQueue incomingSpikesChan spike)
 
-            reconstructionA <- async $ stepReconstruction 0.02 dsT logDecoding
-
-            fakeMaster <- atomically newTQueue
-            runGloss dsT fakeMaster
-            maybe (return ()) hClose logSpikes 
-            maybe (return ()) hClose logDecoding
-            putStrLn "Closed filehandles"
-            putStrLn "wait for asyncs to finish"
-            _ <- wait posAsync
-            _ <- mapM wait spikeAsyncs
-            _ <- wait reconstructionA
-            return ()
+          reconstructionA <- async $ stepReconstruction 0.02 dsT logDecoding
+          
+          fakeMaster <- atomically newTQueue
+          runGloss dsT fakeMaster
+          maybe (return ()) hClose logSpikes 
+          maybe (return ()) hClose logDecoding
+          putStrLn "Closed filehandles"
+          putStrLn "wait for asyncs to finish"
+          _ <- wait posAsync
+          _ <- mapM wait spikeAsyncs
+          _ <- wait reconstructionA
+          return ()
 
 runGloss :: TVar DecoderState -> TQueue ArteMessage -> IO ()
 runGloss dsT fromMaster = do
@@ -328,8 +338,19 @@ streamPos pNode dsT = ZMQ.withContext 1 $ \ctx ->
         Right p -> updatePos dsT p
 -}
 
+------------------------------------------------------------------------------
+addClusterlessTrode :: TVar DecoderState -> TrodeName -> IO ()
+addClusterlessTrode dsT tName = do
+  clusterlessTrode <- newTVarIO $ ClusterlessTrode KDEmpty []
+  atomically . modifyTVar dsT $ \ds' ->
+    ds' {_trodes = Clusterless $ Map.insert tName clusterlessTrode
+                    (ds'^.trodes._Clusterless)
+        }                
+
+
+------------------------------------------------------------------------------
 updatePos :: TVar DecoderState -> Position -> IO ()
-updatePos dsT p = let trackPos' = posToField track p kernel :: Map.Map TrackPos Double in
+updatePos dsT p = let trackPos' = posToField track p kernel in
   atomically $ do
     ds <- readTVar dsT
     modifyTVar' (ds^.occupancy) (updateField (+) trackPos')
@@ -363,7 +384,9 @@ toBS spike tNow tNow2 = BS.concat [(BS.pack . show . spikeTime) spike
                             , (BS.filter (/= 's') . BS.take 9 . BS.pack . show . utctDayTime) tNow2]
 
 
-fanoutSpikesToTrodes :: TVar DecoderState -> TQueue TrodeSpike -> Maybe Handle -> IO ()
+------------------------------------------------------------------------------
+fanoutSpikesToTrodes :: TVar DecoderState -> TQueue TrodeSpike -> Maybe Handle
+                     -> IO ()
 fanoutSpikesToTrodes dsT sQueue logSpikesH = forever $ do
     s <- atomically $ readTQueue sQueue
 
@@ -375,18 +398,34 @@ fanoutSpikesToTrodes dsT sQueue logSpikesH = forever $ do
       Clustered tMap -> case Map.lookup (sName :: Int) tMap of
         Nothing    -> do
           --putStrLn ("Orphan spike: " ++ show sName)
-          --return ds
           return ()
         Just trode -> do
           p  <- readTVarIO (ds^.pos)
           tp <- readTVarIO (ds^.trackPos)
           fanoutSpikeToCells ds sName trode p tp s logSpikesH
---          return $ 
---            (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+ 1))
       Clusterless tMap -> return ()
---    return ds'
 
 
+------------------------------------------------------------------------------
+clusterlessAddSpike :: DecoderState -> TrodeName -> Position -> Field Double
+                    -> TrodeSpike -> Maybe Handle -> IO ()
+clusterlessAddSpike ds tName p tPos spike log =
+  case Map.lookup tName (ds^.trodes._Clusterless :: Map.Map TrodeName (TVar ClusterlessTrode)) of
+    Nothing -> putStrLn "Orphan spike"
+    Just t' -> do
+      atomically $ do
+        tPos <- readTVar (ds^.trackPos)
+        let spike' = (makeCPoint spike tPos , MostRecentTime $ spikeTime spike ) 
+        modifyTVar t' $ \(t::ClusterlessTrode) -> t & dtTauN %~ (spike':)
+
+makeCPoint :: TrodeSpike -> Field Double -> ClusterlessPoint
+makeCPoint spike tPos = ClusterlessPoint {
+    pAmplitude = U.convert . spikeAmplitudes $ spike
+  , pWeight    = 1
+  , pField     = tPos
+  }
+
+------------------------------------------------------------------------------
 stepSpikeHistory :: TrodeSpike -> SpikeHistory -> SpikeHistory
 stepSpikeHistory s sHist = sHist + 1 -- TODO real function
 
