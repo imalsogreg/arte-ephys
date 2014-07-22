@@ -47,7 +47,7 @@ type NotClust = KDMap ClusterlessPoint MostRecentTime
 
 data ClusterlessTrode = ClusterlessTrode
                         { _dtNotClust :: NotClust
-                        , _dtTauN     :: [(ClusterlessPoint,MostRecentTime)]
+                        , _dtTauN     :: [(ClusterlessPoint,MostRecentTime,Bool)]
                         } deriving (Eq, Show)
 
 
@@ -87,6 +87,7 @@ instance KDKey ClusterlessPoint where
   dSucc p d   = succ d `mod` pointSize p
   dPred p d   = pred d `mod` pointSize p
 
+
 ------------------------------------------------------------------------------
 newtype MostRecentTime = MostRecentTime { unMostRecentTime :: Double}
                          deriving (Eq,Ord,Show,Num,Real)
@@ -112,14 +113,9 @@ data DecoderArgs = DecoderArgs {mwlBaseDirectory    :: FilePath
 
 
 decoderArgs :: DecoderArgs
-decoderArgs = DecoderArgs { mwlBaseDirectory =
-                             "" &= 
-                             help "Data directory when not using network data"
-                          , startExperimentTime =
-                            0 &=
-                            help "Start time when spooling from disk directly"
-                          , doLogging =
-                            False &= help "Commit data to log files"
-                          , clusterless =
-                            False &= help "Perform clusterless decoding"
-                          }
+decoderArgs = DecoderArgs
+  { mwlBaseDirectory = "" &= help "Data directory when not using network data"
+  , startExperimentTime = 0 &= help "Start time when spooling from disk"
+  , doLogging = False &= help "Commit data to log files"
+  , clusterless = False &= help "Perform clusterless decoding"
+  }

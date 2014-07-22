@@ -62,8 +62,12 @@ import qualified Data.ByteString.Lazy as BSL
 -- UI timing here is handled by gloss,
 -- So decoderState top-level fields
 -- probably don't need to be in TVars.
--- Also ought to be using lens right
--- here...
+--
+-- Also ought to be using lens better
+-- 
+-- Divide up into modules. No big mess
+--
+-- Get data from distributed-process
 ---------------------------------------
 
 
@@ -78,12 +82,13 @@ draw _ ds = do
   let trackPicture = drawTrack track
       posPicture = drawPos p
       drawOpt :: TrodeDrawOption
-      drawOpt = case join $ CL.focus `fmap` CL.focus (ds^.trodeDrawOpt) of
+      drawOpt = case join $ (CL.focus . CL.rotN (ds^.clustInd)) `fmap`
+                     CL.focus (CL.rotN (ds^.trodeInd) (ds^.trodeDrawOpt)) of
         Nothing  -> DrawError "CList error"
         Just opt -> opt
-      optsPicture = translate (-1) (-1) . scale 0.1 0.1 $ maybe (Text "Opts Problem")
-                    (scale 0.2 0.2 . drawDrawOptionsState (ds^.trodeDrawOpt))
-                    (join $ CL.focus <$> CL.focus (ds^.trodeDrawOpt))
+      optsPicture = translate (-1) (-1) . scale 0.1 0.1 .
+                    scale 0.2 0.2 $ drawDrawOptionsState ds
+
 
   field <- case drawOpt of 
     (DrawOccupancy) -> do
@@ -182,16 +187,18 @@ main = do
               )
                 
           putStrLn "Start Spike file asyncs"
-          spikeAsyncs <- forM spikeFiles $ \sf -> do
+          asyncsAndTrodes <- forM spikeFiles $ \sf -> do
             let tName = read . Text.unpack $ mwlTrodeNameFromPath sf
             print $ "working on file" ++ sf
             fi' <- getFileInfo sf
             case fi' of
+
               Left e -> error $ unwords ["Error getting info on file",sf,":",e]
+
               Right fi | clusterless opts -> do
-                addClusterlessTrode dsT tName
+                trodeTVar <- addClusterlessTrode dsT tName
                 f <- BSL.readFile sf
-                async $ runEffect $
+                a <- async $ runEffect $
                   dropResult (produceTrodeSpikes tName fi f) >->
                   relativeTimeCat (\s -> spikeTime s - startExperimentTime opts) >->
                   (forever $ do
@@ -200,6 +207,8 @@ main = do
                       pos2 <- lift . atomically $ readTVar (ds^.trackPos)
                       p    <- lift . atomically $ readTVar (ds^.pos)
                       lift $ clusterlessAddSpike ds2 tName p pos2 spike logSpikes)
+                return (a, DrawClusterless trodeTVar)
+                
               Right fi | otherwise -> do
                 let cbFilePath = Text.unpack $ cbNameFromTTPath "cbfile-run" sf
                 clusters' <- getClusters cbFilePath sf
@@ -212,7 +221,7 @@ main = do
                       Nothing -> error $ unwords ["Shouldn't happen, couldn't find",tName]
                       Just pcTrode -> do
                         f <- BSL.readFile sf
-                        async $ runEffect $ 
+                        a <- async $ runEffect $ 
                           dropResult (produceTrodeSpikes tName fi f) >->
                           relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
                           (forever $ do
@@ -221,14 +230,21 @@ main = do
                               pos2 <- lift . atomically $ readTVar (ds^.trackPos)
                               p    <- lift . atomically $ readTVar (ds^.pos)
                               lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike logSpikes)
+                        t <- newTVarIO pcTrode
+                        return (a, undefined :: TrodeDrawOption)
 
 --                           (forever $ do
 --                               spike <- await
 --                               lift . atomically $ writeTQueue incomingSpikesChan spike)
 
-          reconstructionA <- async $ stepReconstruction 0.02 dsT logDecoding
+          reconstructionA <-
+            async $ if clusterless opts
+                    then runClusterlessReconstruction
+                         defaultClusterlessOpts   0.02 dsT logDecoding
+                    else runClusterReconstruction 0.02 dsT logDecoding
           
           fakeMaster <- atomically newTQueue
+          let spikeAsyncs = map fst asyncsAndTrodes
           runGloss dsT fakeMaster
           maybe (return ()) hClose logSpikes 
           maybe (return ()) hClose logDecoding
@@ -258,14 +274,16 @@ glossInputs :: TVar DecoderState -> Event -> DecoderState -> IO DecoderState
 glossInputs dsT e ds =
   case e of
     EventMotion _ -> return ds
-    EventKey (SpecialKey k) Up _ _ -> do
-      print "About to do key swap"
-      let ds' = ds & trodeDrawOpt %~ stepDrawOpt k
-      _ <- atomically $ swapTVar dsT ds'
-      print "Done key swap"
-      return ds'
+    EventKey (SpecialKey k) Up _ _ ->
+      let f = case k of
+            KeyRight -> (trodeInd %~ succ) . (clustInd .~ 0)
+            KeyLeft  -> (trodeInd %~ pred) . (clustInd .~ 0)
+            KeyUp    -> clustInd  %~ succ
+            KeyDown  -> clustInd  %~ pred
+            _        -> id
+      in atomically (modifyTVar dsT f) >> return (f ds)  -- which copy is actually used?
     EventKey _ Down _ _ -> return ds   
-    e -> putStrLn ("Ignoring event " ++ show e) >> return ds
+    _ -> putStrLn ("Ignoring event " ++ show e) >> return ds
 
 stepIO :: Track -> TQueue ArteMessage -> TVar DecoderState -> Float -> DecoderState -> IO DecoderState
 stepIO track queue dsT t ds = do
@@ -306,12 +324,16 @@ handleRequests queue dsT track = do
   -}
               
               ds <- readTVarIO dsT
-              print $ "SetAllClusters Finished modifying tvar, got opts: " ++ show (ds^.trodeDrawOpt)
+              print $ "SetAllClusters Finished modifying tvar, got opts: "
+                ++ show (ds^.trodeDrawOpt)
             Request  r ->
-              putStrLn (unwords ["Caught and ignored request:" ,(take 20 . show $ r),"..."]) >>
+              putStrLn
+              (unwords ["Caught and ignored request:"
+                       ,(take 20 . show $ r),"..."]) >>
               return ()
             Response r -> 
-              putStrLn (unwords ["Caught and ignored response:",(take 20 . show $ r),"..."]) >>
+              putStrLn (unwords ["Caught and ignored response:"
+                                ,(take 20 . show $ r),"..."]) >>
               return ()
 
 setTrodeClusters :: Track -> TVar DecoderState -> TrodeName
@@ -339,13 +361,15 @@ streamPos pNode dsT = ZMQ.withContext 1 $ \ctx ->
 -}
 
 ------------------------------------------------------------------------------
-addClusterlessTrode :: TVar DecoderState -> TrodeName -> IO ()
+addClusterlessTrode :: TVar DecoderState -> TrodeName
+                    -> IO (TVar ClusterlessTrode)
 addClusterlessTrode dsT tName = do
   clusterlessTrode <- newTVarIO $ ClusterlessTrode KDEmpty []
   atomically . modifyTVar dsT $ \ds' ->
     ds' {_trodes = Clusterless $ Map.insert tName clusterlessTrode
                     (ds'^.trodes._Clusterless)
-        }                
+        }
+  return clusterlessTrode
 
 
 ------------------------------------------------------------------------------
@@ -415,14 +439,17 @@ clusterlessAddSpike ds tName p tPos spike log =
     Just t' -> do
       atomically $ do
         tPos <- readTVar (ds^.trackPos)
-        let spike' = (makeCPoint spike tPos , MostRecentTime $ spikeTime spike ) 
+        let forKDE = (p^.speed) >= runningThresholdSpeed
+        let spike' = (makeCPoint spike tPos,
+                      MostRecentTime $ spikeTime spike,
+                      forKDE) 
         modifyTVar t' $ \(t::ClusterlessTrode) -> t & dtTauN %~ (spike':)
 
 makeCPoint :: TrodeSpike -> Field Double -> ClusterlessPoint
 makeCPoint spike tPos = ClusterlessPoint {
     pAmplitude = U.convert . spikeAmplitudes $ spike
   , pWeight    = 1
-  , pField     = tPos
+  , pField     = normalize $ gt0 tPos
   }
 
 ------------------------------------------------------------------------------
@@ -548,4 +575,26 @@ orderClusters queue cFile ttFile = do
       Left _         -> return ()
       Right clusts -> atomically . writeTQueue queue $
                       (ArteMessage 0 "" Nothing (Request $ TrodeSetAllClusters (read trodeName) clusts))
-  -- TODO: Unsafe use of read!!
+  -- TODO: safeRead instead
+
+
+
+
+------------------------------------------------------------------------------
+initialState :: IO DecoderState
+initialState =
+  let zeroField = Map.fromList [(tp,0.1) | tp <- allTrackPos track]
+      p0        = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
+                  ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
+      sZ        = take 15 (repeat 0)
+  in DecoderState <$>
+    newTVarIO p0
+    <*> newTVarIO zeroField
+    <*> newTVarIO zeroField
+    <*> newTVarIO zeroField
+    <*> return (Clustered Map.empty)
+    <*> newTVarIO zeroField
+    <*> pure (clistTrodes (Clustered Map.empty))
+    <*> pure 0
+    <*> pure 0
+    <*> pure False
