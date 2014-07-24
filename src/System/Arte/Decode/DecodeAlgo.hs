@@ -10,17 +10,17 @@ import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Lens
 import           Control.Monad
-import qualified Data.List as L
-import qualified Data.Map.Strict as Map
-import           Data.Map.Strict (unionWith,unionsWith)
+import qualified Data.List                as L
+import qualified Data.Map.Strict          as Map
+import           Data.Map.Strict          (unionWith,unionsWith)
 import           Data.Ord
 import           Data.Time.Clock
+import qualified Data.Vector.Unboxed      as U
 import           System.IO
 ------------------------------------------------------------------------------
 import           System.Arte.Decode.DecoderDefs
 import           System.Arte.Decode.DecoderState
 import           Data.Ephys.EphysDefs
---import Data.Ephys.Spike
 import           Data.Map.KDMap
 import qualified Data.Map.KDMap                   as KDMap
 import           Data.Ephys.PlaceCell
@@ -84,7 +84,7 @@ gt0 = Map.map (\n -> if n > 0 then n else 0.1)
 
 ------------------------------------------------------------------------------
 normalize :: Field Double -> Field Double
-normalize f = let fieldSum = sum (Map.elems f)
+normalize f = let fieldSum = L.foldl' (+) 0 (Map.elems f)
                   coef = 1/fieldSum
               in  Map.map (*coef) f
 
@@ -140,13 +140,13 @@ runClusterlessReconstruction :: ClusterlessOpts -> Double -> TVar DecoderState
                              -> Maybe Handle -> IO ()
 runClusterlessReconstruction rOpts rTauSec dsT h = go
   where go = do
-          putStrLn "Go"
           timer  <- async $ threadDelay (floor $ rTauSec * 1e6)
           worker <- async $ do
             ds <- readTVarIO dsT
-            trodeEstimates <- forM
-                              (Map.elems $ ds^.trodes._Clusterless) $
-                              stepTrode rOpts
+            trodeEstimatesA <- forM
+                               (Map.elems $ ds^.trodes._Clusterless) $
+                               (async . stepTrode rOpts)
+            trodeEstimates <- mapM wait trodeEstimatesA
             let fieldProduct = unionsWith (*) trodeEstimates
             atomically . writeTVar (ds^.decodedPos) $ normalize fieldProduct
           mapM_ wait [timer,worker]
@@ -160,15 +160,17 @@ stepTrode opts trode' = do
     trode <- readTVar trode'
     let spikesTimes = (trode^.dtTauN)
     let kde = (trode^.dtNotClust)
-        f m k = KDMap.add m 1 (fst3 k) (snd3 k)
-        spikesForField = filter trd3 spikesTimes
+        f m k = KDMap.add m (kdClumpThreshold opts) (fst3 k) (snd3 k)
+        spikesForField  = filter trd3 spikesTimes
     writeTVar trode' $
       ClusterlessTrode (L.foldl' f  kde spikesForField) []
     return $ (map fst3 spikesTimes,kde)
-  return . unionsWith (*) $ map (\s -> sampleKDE opts s kde) spikes
+  return . unionsWith (*) $
+    map (\s -> sampleKDE opts s kde) (filter amp spikes)
   where fst3 (a,_,_) = a
         snd3 (_,b,_) = b
         trd3 (_,_,c) = c
+        amp  p       = U.maximum (pAmplitude p) >= amplitudeThreshold opts
 
 ------------------------------------------------------------------------------
 sampleKDE :: ClusterlessOpts -> ClusterlessPoint -> NotClust -> Field Double
@@ -183,9 +185,11 @@ sampleKDE ClusterlessOpts{..} point points =
 
 ------------------------------------------------------------------------------
 data ClusterlessOpts = ClusterlessOpts {
-    kernelVariance :: Double
-  , cutoffDist2    :: Double
+    kernelVariance     :: Double
+  , cutoffDist2        :: Double
+  , amplitudeThreshold :: Voltage
+  , kdClumpThreshold   :: Double
   } deriving (Eq, Show)
 
 defaultClusterlessOpts :: ClusterlessOpts
-defaultClusterlessOpts =  ClusterlessOpts 100e-6 500e-6
+defaultClusterlessOpts =  ClusterlessOpts 200e-6 5000e-6 100e-6 0.0002

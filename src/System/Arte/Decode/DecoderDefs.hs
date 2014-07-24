@@ -1,6 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module System.Arte.Decode.DecoderDefs where
@@ -13,11 +13,11 @@ import           Data.Monoid
 import qualified Data.Vector.Unboxed as U
 import           System.Console.CmdArgs
 ------------------------------------------------------------------------------
-import Data.Ephys.EphysDefs
-import Data.Ephys.TrackPosition
-import Data.Ephys.Spike
-import Data.Ephys.PlaceCell
-import Data.Map.KDMap
+import           Data.Ephys.EphysDefs
+import           Data.Ephys.TrackPosition
+import           Data.Ephys.Spike
+import           Data.Ephys.PlaceCell
+import           Data.Map.KDMap
 
 
 

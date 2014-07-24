@@ -24,6 +24,7 @@ import Data.Ephys.TrackPosition
 import Data.Ephys.GlossPictures
 import Data.Ephys.OldMWL.FileInfo
 import Data.Ephys.OldMWL.Parse
+import Data.Ephys.OldMWL.ParseSpike
 import Data.Ephys.OldMWL.ParsePFile
 import Data.Ephys.OldMWL.ParseClusterFile
 import Data.Map.KDMap
@@ -206,7 +207,9 @@ main = do
                       ds2  <- lift . atomically $ readTVar dsT
                       pos2 <- lift . atomically $ readTVar (ds^.trackPos)
                       p    <- lift . atomically $ readTVar (ds^.pos)
-                      lift $ clusterlessAddSpike ds2 tName p pos2 spike logSpikes)
+                      lift $ clusterlessAddSpike ds2 tName p pos2 spike logSpikes
+                      return ()
+                  )
                 return (a, DrawClusterless trodeTVar)
                 
               Right fi | otherwise -> do
@@ -444,6 +447,7 @@ clusterlessAddSpike ds tName p tPos spike log =
                       MostRecentTime $ spikeTime spike,
                       forKDE) 
         modifyTVar t' $ \(t::ClusterlessTrode) -> t & dtTauN %~ (spike':)
+        return ()
 
 makeCPoint :: TrodeSpike -> Field Double -> ClusterlessPoint
 makeCPoint spike tPos = ClusterlessPoint {

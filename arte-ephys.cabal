@@ -65,10 +65,11 @@ executable arteDecode
    build-depends:    base >= 4.6 && < 5, arte-ephys
    main-is:          decode.hs
    hs-source-dirs:   exec
+   ghc-options:      -O2 -threaded -fllvm -fprof-auto -rtsopts "-with-rtsopts=-N4" -funbox-strict-fields
    default-language: Haskell2010
 
 executable testPublisher
-   build-depends:    base >= 4.6 && < 5, async, stm, arte-ephys, network, optparse-applicative, unix, vector,unordered-containers, aeson, text, bytestring, lens
+   build-depends:    base >= 4.6 && < 5, async, stm, arte-ephys, network, optparse-applicative, unix, vector, unordered-containers, aeson, text, bytestring, lens
    main-is:          testPublisher.hs
    hs-source-dirs:   exec
    default-language: Haskell2010
