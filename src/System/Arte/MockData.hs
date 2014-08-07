@@ -1,23 +1,12 @@
-{-# LANGUAGE DeriveDataTypeable, NoMonomorphismRestriction, TemplateHaskell, TupleSections, OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
-import Data.Ephys.EphysDefs
-import Data.Ephys.Spike
-import Data.Ephys.Cluster
-import Data.Ephys.Position
-import Data.Ephys.TrackPosition
-import Data.Ephys.OldMWL.FileInfo
-import Data.Ephys.OldMWL.Parse
-import Data.Ephys.OldMWL.ParseClusterFile
-import Data.Ephys.OldMWL.ParsePFile
-import System.Arte.Net
-import System.Arte.FileUtils
-import System.Arte.DataPublisher
-import System.Arte.CommandPort
-
+------------------------------------------------------------------------------
 import Pipes.RealTime
-
 import System.IO
 import Network
 import Control.Applicative
@@ -39,15 +28,30 @@ import qualified Pipes as P
 import qualified Pipes.Prelude as PP
 import System.Directory
 import System.FilePath ((</>))
-
---import Control.Concurrent.STM.TQueue
+------------------------------------------------------------------------------
 import Control.Monad
 import Data.Text hiding (reverse, dropWhile, drop)
 import qualified Data.Text as T hiding (reverse, dropWhile, drop)
 import qualified Data.Map as M
 import qualified Data.Serialize as S
 import Control.Lens
+------------------------------------------------------------------------------
+import Data.Ephys.EphysDefs
+import Data.Ephys.Spike
+import Data.Ephys.Cluster
+import Data.Ephys.Position
+import Data.Ephys.TrackPosition
+import Data.Ephys.OldMWL.FileInfo
+import Data.Ephys.OldMWL.Parse
+import Data.Ephys.OldMWL.ParseClusterFile
+import Data.Ephys.OldMWL.ParsePFile
+import System.Arte.Net
+import System.Arte.FileUtils
+import System.Arte.DataPublisher
+import System.Arte.CommandPort
 
+
+------------------------------------------------------------------------------
 data MockStatus = Seeking | Waiting | Streaming
                 deriving (Eq, Show, Read)
 
@@ -57,28 +61,31 @@ data DataFormat = JSON | Binary
 data InputFileType = MwlEEG | MwlTT | MwlP
                    deriving (Eq, Show, Read)
 
+
+------------------------------------------------------------------------------
 data DataSourceOpts = DataSourceOpts {
-    _dsNode      :: Node
-  , _dsFormat    :: DataFormat
-  , _dsFilePaths :: [FilePath]
-  , _dsFileType  :: InputFileType
+    dsNode      :: Node
+  , dsFormat    :: DataFormat
+  , dsFilePaths :: [FilePath]
+  , dsFileType  :: InputFileType
   }
-$(makeLenses ''DataSourceOpts)
+
 
 data DataSource a = DataSource {
-    _dsProducers :: [P.Producer a IO ()]
-  , _dsWaiting   :: TVar (M.Map ExperimentTime a)
-  , _dsPub       :: DataPublisher a
+    dsProducers :: [P.Producer a IO ()]
+  , dsWaiting   :: TVar (M.Map ExperimentTime a)
+  , dsPub       :: DataPublisher a
   }
-$(makeLenses ''DataSource)
 
+
+------------------------------------------------------------------------------
 data MockOpts = MockOpts {
-    _mockNode          :: Node
-  , _mockReadAheadTime :: ExperimentTime
-  , _mockWaitAfterSeek :: Bool
-  , _mockFirstSeekTime :: ExperimentTime
+    mockNode          :: Node
+  , mockReadAheadTime :: ExperimentTime
+  , mockWaitAfterSeek :: Bool
+  , mockFirstSeekTime :: ExperimentTime
   } deriving (Eq, Show)
-$(makeLenses ''MockOpts)
+
 
 data MockState = MockState
                  { _mockStatus       :: TVar MockStatus
@@ -88,6 +95,7 @@ data MockState = MockState
 --                 , _mockLFPSources   :: [DataSource Lfp]
                  }
 $(makeLenses ''MockState)
+
 
 ------------------------------------------------------------------------------
 getSourceOpts :: Conf.Config -> IO [DataSourceOpts]
@@ -109,6 +117,8 @@ getSourceOpts conf = catMaybes <$> sources
                return . Just $ DataSourceOpts node (read fM) expPaths (read fT)
              _ -> return Nothing
 
+
+------------------------------------------------------------------------------
 getMockOpts :: FilePath -> IO (Either String MockOpts)
 getMockOpts f = do
   config <- Conf.load [Conf.Required f]
@@ -128,20 +138,19 @@ getMockOpts f = do
        (fromInt . read $ cmdPort))
       (read lookAhead) seekWait (read seekTime)
 
-fromInt :: Integral a => Int -> a
-fromInt = fromIntegral
+
 
 main :: IO ()
 main = do
   undefined
 
-class Timestamp a where
+class Timestamped a where
   getTS :: a -> ExperimentTime
 
-instance Timestamp TrodeSpike where
+instance Timestamped TrodeSpike where
   getTS = spikeTime
 
-instance Timestamp Position where
+instance Timestamped Position where
   getTS = _posTime
 
 
@@ -198,16 +207,25 @@ getMWLPProducer cfg fp = do
     Left e -> return $ Left e
     Right hints -> return . Right $ producePosition hints fp
 
+
 ------------------------------------------------------------------------------
-runDataSource :: Timestamp a => MockOpts -> MockState -> DataSourceOpts ->
-                 DataSource a-> IO ()
+runDataSource :: Timestamped a
+                 => MockOpts
+                 -> MockState
+                 -> DataSourceOpts
+                 -> DataSource a-> IO ()
 runDataSource opts mockS dsOpt dsState = do
+
   inThread  <- async $ (atomically $ readTVar (mockS^.mockStatus) >>= \r ->
                          unless (r == Waiting) retry)
                >> runInput
+
   outThread <- async $ runOutput
+
   mapM_ wait [inThread,outThread]
+
     where
+
       runInput = do
         tTarget <- spoolToTime
         forM_ (dsState^.dsProducers) $ \p ->
@@ -218,6 +236,7 @@ runDataSource opts mockS dsOpt dsState = do
       runOutput = P.runEffect $
                   P.for (outProducer >-> relativeTimeCat getTS)
                   (lift . atomically . writeTQueue (dsState^.dsPub.chan))
+
       outProducer = forever $ do
         v <- lift $ atomically $ do
           m <- readTVar $ dsState^.dsWaiting
@@ -233,13 +252,26 @@ runDataSource opts mockS dsOpt dsState = do
       
             
   
-
+------------------------------------------------------------------------------
 --TODO Make mockData work on general tracks
 track :: Track
 track = circularTrack (0,0) 0.57 0.5 0.25 0.15
 
 
+------------------------------------------------------------------------------
+seekAndWait :: (Show a) => TMVar ()
+                        -> (a -> Double)
+                        -> Double
+                        -> P.Pipe a a IO ()
+                        -> P.Pipe a a IO ()
+seekAndWait goSignal toTime target produce = do
+  dropWhile' ((< target) . toTime)
+  lift $ print "Seek and wait ready."
+  () <- lift . atomically . readTMVar $ goSignal  -- Block here
+  produce
 
+
+------------------------------------------------------------------------------
 dropWhile' :: (Monad m) => (a -> Bool) -> P.Pipe a a m ()
 dropWhile' p = do
   v <- P.await
@@ -250,10 +282,7 @@ dropWhile' p = do
 dropWhile'' :: (Monad m) => (a -> Bool) -> P.Pipe a a m ()
 dropWhile'' _ = P.cat
 
-seekAndWait :: (Show a) => TMVar () -> (a -> Double) -> Double -> P.Pipe a a IO () -> P.Pipe a a IO ()
-seekAndWait goSignal toTime target produce = do
-  dropWhile' ((< target) . toTime)
-  lift $ print "Seek and wait ready."
-  () <- lift . atomically . readTMVar $ goSignal  -- Block here
-  produce
 
+------------------------------------------------------------------------------
+fromInt :: Integral a => Int -> a
+fromInt = fromIntegral
