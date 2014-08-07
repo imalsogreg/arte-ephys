@@ -9,16 +9,19 @@ before_install:
  - sudo apt-get update
  - sudo apt-get install libzmq3-dev freeglut3-dev liblapack-dev libblas-dev libgsl0-dev llvm
  - sudo apt-get install cabal-install-1.18 ghc-$GHCVER happy
+ - sudo apt-get install git
+ - sudo apt-get install freeglut3-dev liblapack-dev libblas-dev libgsl0-dev llvm
  - export PATH=/opt/ghc/$GHCVER/bin:$PATH
  - git clone http://github.com/ImAlsoGreg/haskell-tetrode-ephys
 
 install:
  - cabal-1.18 update
- - cabal-1.18 sandbox init
- - cabal-1.18 sandbox add-source haskell-tetrode-ephys
- - cabal-1.18 install --only-dependencies
 
 script:
+ - cabal-1.18 sandbox init
+ - git clone https://github.com/ImAlsoGreg/haskell-tetrode-ephys.git
+ - cabal-1.18 sandbox add-source haskell-tetrode-ephys
+ - cabal-1.18 install --only-dependencies --enable-tests --enable-benchmarks
  - cabal-1.18 configure
  - cabal-1.18 build
  - cabal-1.18 install
