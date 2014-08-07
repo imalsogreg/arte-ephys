@@ -30,7 +30,7 @@ library
   other-modules:     Paths_arte_ephys
   build-depends:     aeson
                      , async 
-                     , base >=4.6 && <4.7
+                     , base >=4.6 && <4.8
                      , base64-bytestring
                      , bytestring >=0.10 && <0.11
                      , cereal
