@@ -1,6 +1,8 @@
 arte-ephys
 ==========
 
+[![Build Status](https://secure.travis-ci.org/ImAlsoGreg/arte-ephys.png)](http://travis-ci.org/ImAlsoGreg/arte-ephys)
+
 Soft realtime electrophysiology setup
 
 This is the beginning of a rewrite of the c/c++ work at arte-ephys.googlecode.com.  I want to try to write the backend in ocaml, and the visualization, extraction, etc in ocaml and haskell.  Also want to use json as the network data format, disk format, config file format.
