@@ -120,13 +120,7 @@ main = do
       s <- openFile "spikes.txt" WriteMode
       d <- openFile "decoding.txt" WriteMode
       return (Just s, Just d)
---  masterNode' <- getAppNode "master" Nothing
---  pNode'      <- getAppNode "pos"    Nothing
---  spikeNodes  <- getAllSpikeNodes    Nothing
   incomingSpikesChan <- atomically newTQueue
---  case masterNode' of
---    Left e -> putStrLn $ "Faulty config file.  Error:" ++ e
---    Right masterNode ->
   case mwlBaseDirectory opts of
     {-
         "" -> do
@@ -193,9 +187,7 @@ main = do
             print $ "working on file" ++ sf
             fi' <- getFileInfo sf
             case fi' of
-
               Left e -> error $ unwords ["Error getting info on file",sf,":",e]
-
               Right fi | clusterless opts -> do
                 trodeTVar <- addClusterlessTrode dsT tName
                 f <- BSL.readFile sf
@@ -349,19 +341,6 @@ setTrodeClusters track dsT trodeName clusts  =
     ds' <- F.foldlM foldF ds (Map.toList clusts)
     writeTVar dsT ds'
 
-{- ZMQ block
-streamPos :: Node -> TVar DecoderState -> IO ()
-streamPos pNode dsT = ZMQ.withContext 1 $ \ctx ->
-  ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
-    ZMQ.connect sub $ zmqStr Tcp (pNode^.host.ip) (show $ pNode^.port)
-    ZMQ.subscribe sub ""
---    print "Finished subscribing"
-    forever $ do
-      bs <- ZMQ.receive sub []
-      case S.decode bs of
-        Left  e -> putStrLn $ "Got a bad Position record." ++ e
-        Right p -> updatePos dsT p
--}
 
 ------------------------------------------------------------------------------
 addClusterlessTrode :: TVar DecoderState -> TrodeName
@@ -372,6 +351,8 @@ addClusterlessTrode dsT tName = do
     ds' {_trodes = Clusterless $ Map.insert tName clusterlessTrode
                     (ds'^.trodes._Clusterless)
         }
+  putStrLn $ unwords ["Added clusterless trode", show tName
+                     ," 
   return clusterlessTrode
 
 
