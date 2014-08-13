@@ -112,7 +112,7 @@ main :: IO ()
 main = do
   opts <- cmdArgs decoderArgs
   print args
-  ds   <- initialState
+  ds   <- initialState opts
   dsT  <- newTVarIO ds
   (logSpikes,logDecoding) <- case (doLogging opts) of
     False -> return (Nothing, Nothing)
@@ -180,7 +180,7 @@ main = do
                     when (p^.speed > runningThresholdSpeed)
                       (writeTVar (ds'^.occupancy) (updateField (+) occ posField))
               )
-                
+
           putStrLn "Start Spike file asyncs"
           asyncsAndTrodes <- forM spikeFiles $ \sf -> do
             let tName = read . Text.unpack $ mwlTrodeNameFromPath sf
@@ -188,6 +188,8 @@ main = do
             fi' <- getFileInfo sf
             case fi' of
               Left e -> error $ unwords ["Error getting info on file",sf,":",e]
+
+              -- Clusterless case ------------------------------------------
               Right fi | clusterless opts -> do
                 trodeTVar <- addClusterlessTrode dsT tName
                 f <- BSL.readFile sf
@@ -203,7 +205,8 @@ main = do
                       return ()
                   )
                 return (a, DrawClusterless trodeTVar)
-                
+
+              -- Clustered case ---------------------------------------------
               Right fi | otherwise -> do
                 let cbFilePath = Text.unpack $ cbNameFromTTPath "cbfile-run" sf
                 clusters' <- getClusters cbFilePath sf
@@ -240,7 +243,7 @@ main = do
           
           fakeMaster <- atomically newTQueue
           let spikeAsyncs = map fst asyncsAndTrodes
-          runGloss dsT fakeMaster
+          runGloss opts dsT fakeMaster
           maybe (return ()) hClose logSpikes 
           maybe (return ()) hClose logDecoding
           putStrLn "Closed filehandles"
@@ -250,9 +253,9 @@ main = do
           _ <- wait reconstructionA
           return ()
 
-runGloss :: TVar DecoderState -> TQueue ArteMessage -> IO ()
-runGloss dsT fromMaster = do
-  ds <- initialState
+runGloss :: DecoderArgs -> TVar DecoderState -> TQueue ArteMessage -> IO ()
+runGloss opts dsT fromMaster = do
+  ds <- initialState opts
   playIO (InWindow "ArteDecoder" (500,500) (10,10))
     white 30 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
 
@@ -282,10 +285,11 @@ glossInputs dsT e ds =
 
 stepIO :: Track -> TQueue ArteMessage -> TVar DecoderState -> Float -> DecoderState -> IO DecoderState
 stepIO track queue dsT t ds = do
-  handleRequests queue dsT track
+  -- handleRequests queue dsT track -- TODO this is distributed-process' job
   ds' <- readTVarIO dsT
   return ds'
 
+{-
 -- handleRequests must be called by stepIO so gloss can treat it
 -- as a state.  Otherwise local changes to decoder state won't
 -- be seen by the rest of the program.
@@ -330,6 +334,7 @@ handleRequests queue dsT track = do
               putStrLn (unwords ["Caught and ignored response:"
                                 ,(take 20 . show $ r),"..."]) >>
               return ()
+-}
 
 setTrodeClusters :: Track -> TVar DecoderState -> TrodeName
                     -> Map.Map PlaceCellName ClusterMethod -> IO ()
@@ -343,17 +348,21 @@ setTrodeClusters track dsT trodeName clusts  =
 
 
 ------------------------------------------------------------------------------
-addClusterlessTrode :: TVar DecoderState -> TrodeName
-                    -> IO (TVar ClusterlessTrode)
+addClusterlessTrode ::
+  TVar DecoderState -> TrodeName -> IO (TVar ClusterlessTrode)
 addClusterlessTrode dsT tName = do
   clusterlessTrode <- newTVarIO $ ClusterlessTrode KDEmpty []
   atomically . modifyTVar dsT $ \ds' ->
-    ds' {_trodes = Clusterless $ Map.insert tName clusterlessTrode
+    let trodes' = Clusterless $ Map.insert tName clusterlessTrode
                     (ds'^.trodes._Clusterless)
-        }
-  putStrLn $ unwords ["Added clusterless trode", show tName
-                     ," 
-  return clusterlessTrode
+    in
+    ds' {_trodes = trodes'
+        ,_trodeDrawOpt = clistTrodes trodes'}
+  ds' <- atomically $ readTVar dsT
+  putStrLn $ unwords ["length: ", show (Map.size $ ds'^.trodes._Clusterless)]
+
+  putStrLn $ unwords ["Added clusterless trode", show tName] -- "trodes:", show t]
+  return $! clusterlessTrode
 
 
 ------------------------------------------------------------------------------
@@ -364,7 +373,7 @@ updatePos dsT p = let trackPos' = posToField track p kernel in
     modifyTVar' (ds^.occupancy) (updateField (+) trackPos')
     writeTVar (ds^.pos) p
     writeTVar (ds^.trackPos) trackPos'
-
+{-# INLINE updatePos #-}
 
 ------------------------------------------------------------------------------
 fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
@@ -383,6 +392,7 @@ fanoutSpikeToCells ds trodeName trode pos trackPos spike p = do
 --      when (doLog && (floor (utctDayTime tNow) `mod` 100 == 0)) $ BS.appendFile "spikes.txt" (toBS spike tNow)
       when (isJust p) $ maybe (return ()) (flip BS.hPutStrLn (toBS spike tNow tNow2)) p
 --      when (doLog && (floor (utctDayTime tNow) `mod` 20 == 0)) $ modifyMVar (ds^.logData) (flip BS.append (toBS spike tNow))
+{-# INLINE fanoutSpikeToCells #-}
 
 toBS :: TrodeSpike -> UTCTime -> UTCTime -> BS.ByteString
 toBS spike tNow tNow2 = BS.concat [(BS.pack . show . spikeTime) spike
@@ -429,7 +439,9 @@ clusterlessAddSpike ds tName p tPos spike log =
                       forKDE) 
         modifyTVar t' $ \(t::ClusterlessTrode) -> t & dtTauN %~ (spike':)
         return ()
+{-# INLINE clusterlessAddSpike #-}
 
+------------------------------------------------------------------------------
 makeCPoint :: TrodeSpike -> Field Double -> ClusterlessPoint
 makeCPoint spike tPos = ClusterlessPoint {
     pAmplitude = U.convert . spikeAmplitudes $ spike
@@ -441,58 +453,8 @@ makeCPoint spike tPos = ClusterlessPoint {
 stepSpikeHistory :: TrodeSpike -> SpikeHistory -> SpikeHistory
 stepSpikeHistory s sHist = sHist + 1 -- TODO real function
 
-{-
--- Takes the place of enqueue and fanoutToTrodes.  performance experiment
-handleSpikesNoQueue :: Node -> TVar DecoderState -> IO () 
-handleSpikesNoQueue spikeNode dsT = do
-  ZMQ.withContext 1 $ \ctx -> ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
-    ZMQ.connect sub $
-      zmqStr Tcp (spikeNode^.host.ip) (show $ spikeNode^.port)
-    ZMQ.subscribe sub ""
-    forever $ do
-      bs <- ZMQ.receive sub []
-      case S.decode bs of
-        Left e -> putStrLn ("Got a bad value on spike chan: " ++ e)
-        Right spike -> do
-          let sName = spikeTrodeName spike :: Int
-          ds <- readTVarIO dsT
-          case ds^.trodes of
-            Clustered tMap -> case Map.lookup (sName :: Int) tMap of
-              Nothing -> return ()
-              Just trode -> do
-                p   <- readTVarIO (ds^.trackPos)
-                ds' <- fanoutSpikeToCells ds sName trode p spike
-                atomically . writeTVar dsT $
-                  (ds' & trodes . _Clustered . ix sName . pcTrodeHistory %~ (+1))
--}
 
-{-  ZMQ Block
-enqueueSpikes :: Node -> TQueue TrodeSpike -> IO ()
-enqueueSpikes spikeNode queue = ZMQ.withContext 1 $ \ctx ->
-  ZMQ.withSocket ctx ZMQ.Sub $ \sub -> do
-    ZMQ.connect sub $
-      zmqStr Tcp (spikeNode^.host.ip) (show $ spikeNode^.port)
-    ZMQ.subscribe sub ""
-    forever $ do
---      print $ zmqStr Tcp (spikeNode^.host.ip) (show $ spikeNode^.port)
-      bs <- ZMQ.receive sub [] 
-      case S.decode bs of
-        Right spike -> do
-          atomically $ writeTQueue queue spike
-        Left  e     ->
-          putStrLn ("Got a bad value on spike chan." ++ e)
--}
-
-{- 
-getAllSpikeNodes :: Maybe FilePath -> IO [Node]
-getAllSpikeNodes configFilePath = 
-  forM  ['A'..'Z'] 
-  (\l -> getAppNode ("spikes" ++ [l]) configFilePath) >>= \nodes' ->
-  return $ rights nodes'
--}
-
--- TODO: This is a place where having TVar in the middle is awkward.
--- I think w/out tvars, I could just use lens to update the maps.  Not sure though.
+------------------------------------------------------------------------------
 setTrodeCluster :: Track
                 -> DecoderState
                 -> TrodeName
@@ -503,7 +465,6 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
   case ds^.trodes of
     Clusterless _ -> error "Tried to set cluster in a clusterless context"
     Clustered tMap -> do
---      print $ "Adding placeCell name " ++ show placeCellName 
       dsNewClusts <- case Map.lookup trodeName tMap of
         -- if trode doesn't exist, make a new one.  there's no history, so make an empty history
         -- and build a new place cell from that empty history
@@ -529,10 +490,11 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
                 (newPlaceCell track ds trodeName clustMethod) 0
               return ds
       let drawOpts' = clistTrodes $ dsNewClusts^.trodes
---      putStrLn $ unwords ["drawOpt is now:",show drawOpts']
       return $
         dsNewClusts { _trodeDrawOpt = drawOpts' }
-   
+
+
+------------------------------------------------------------------------------
 newPlaceCell :: Track
              -> DecoderState
              -> TrodeName
@@ -550,6 +512,8 @@ newPlaceCell track ds trodeName cMethod = do
           PlaceCell cMethod (Map.fromList [(p,0)|p <- allTrackPos track])
           -- TODO: Build from spike history! 
 
+
+------------------------------------------------------------------------------
 orderClusters :: TQueue ArteMessage -> FilePath -> FilePath -> IO ()
 orderClusters queue cFile ttFile = do 
   let trodeName = Text.unpack $ mwlTrodeNameFromPath ttFile
@@ -566,12 +530,15 @@ orderClusters queue cFile ttFile = do
 
 
 ------------------------------------------------------------------------------
-initialState :: IO DecoderState
-initialState =
+initialState :: DecoderArgs -> IO DecoderState
+initialState opts =
   let zeroField = Map.fromList [(tp,0.1) | tp <- allTrackPos track]
       p0        = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
                   ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
       sZ        = take 15 (repeat 0)
+      clusts    = if clusterless opts
+                  then clistTrodes $ Clusterless Map.empty
+                  else clistTrodes $ Clusterless Map.empty
   in DecoderState <$>
     newTVarIO p0
     <*> newTVarIO zeroField
@@ -579,7 +546,7 @@ initialState =
     <*> newTVarIO zeroField
     <*> return (Clustered Map.empty)
     <*> newTVarIO zeroField
-    <*> pure (clistTrodes (Clustered Map.empty))
+    <*> pure clusts
     <*> pure 0
     <*> pure 0
     <*> pure False

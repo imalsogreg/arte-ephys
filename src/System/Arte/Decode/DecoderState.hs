@@ -55,7 +55,7 @@ type TrodeDrawOptions = CL.CList (CL.CList TrodeDrawOption)
 ------------------------------------------------------------------------------
 -- TODO: Make decode general on tracks and kernels.  
 track :: Track
-track = circularTrack (0,0) 0.57 0.5 0.25 0.3
+track = circularTrack (0,0) 0.57 0.5 0.25 0.2
 kernel :: PosKernel
 --kernel = PosDelta
 kernel  = PosGaussian 0.05

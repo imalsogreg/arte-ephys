@@ -38,6 +38,7 @@ clistTrodes (Clustered tMap) =
       clistTrode (PlaceCellTrode units _) =
         CL.fromList $ map (\(n,u) -> DrawPlaceCell n u)
         (Map.toList units)
-        -- [DrawPlaceCell tName cName | cName <- Map.keys (cMap^.dUnits)]  
 clistTrodes (Clusterless tMap) =
-  CL.fromList $ map (CL.singleton . DrawClusterless) (Map.elems tMap)
+  CL.fromList $ (map (CL.singleton . DrawClusterless) (Map.elems tMap)) ++
+  [CL.singleton DrawOccupancy, CL.singleton DrawDecoding]
+

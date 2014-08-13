@@ -85,7 +85,7 @@ gt0 = Map.map (\n -> if n > 0 then n else 0.1)
 ------------------------------------------------------------------------------
 normalize :: Field Double -> Field Double
 normalize f = let fieldSum = L.foldl' (+) 0 (Map.elems f)
-                  coef = 1/fieldSum
+                  coef = 1/ max 0.1 fieldSum
               in  Map.map (*coef) f
 
 ------------------------------------------------------------------------------
@@ -110,10 +110,6 @@ resetClusteredSpikeCounts clusteredTrodes =
 liftTC :: (a -> b) -> TrodeCollection a -> TrodeCollection b
 liftTC f tca = Map.map (Map.map f) tca
 
-{-
-liftTC2 :: (a -> a -> a) -> TrodeCollection a -> TrodeCollection a -> TrodeCollection a
-liftTC2 = unionWith
--}
 
 ------------------------------------------------------------------------------
 keyFilter :: (Ord k) => (k -> Bool) -> Map.Map k a -> Map.Map k a
@@ -185,10 +181,10 @@ sampleKDE ClusterlessOpts{..} point points =
 
 ------------------------------------------------------------------------------
 data ClusterlessOpts = ClusterlessOpts {
-    kernelVariance     :: Double
-  , cutoffDist2        :: Double
-  , amplitudeThreshold :: Voltage
-  , kdClumpThreshold   :: Double
+    kernelVariance     :: !Double
+  , cutoffDist2        :: !Double
+  , amplitudeThreshold :: !Voltage
+  , kdClumpThreshold   :: !Double
   } deriving (Eq, Show)
 
 defaultClusterlessOpts :: ClusterlessOpts
