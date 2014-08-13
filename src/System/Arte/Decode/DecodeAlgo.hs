@@ -137,15 +137,15 @@ runClusterlessReconstruction :: ClusterlessOpts -> Double -> TVar DecoderState
 runClusterlessReconstruction rOpts rTauSec dsT h = go
   where go = do
           timer  <- async $ threadDelay (floor $ rTauSec * 1e6)
-          worker <- async $ do
+          do
             ds <- readTVarIO dsT
             trodeEstimatesA <- forM
                                (Map.elems $ ds^.trodes._Clusterless) $
-                               (async . stepTrode rOpts)
-            trodeEstimates <- mapM wait trodeEstimatesA
-            let fieldProduct = unionsWith (*) trodeEstimates
+                               (stepTrode rOpts)
+--            trodeEstimates <- mapM wait trodeEstimatesA
+            let fieldProduct = unionsWith (*) trodeEstimatesA
             atomically . writeTVar (ds^.decodedPos) $ normalize fieldProduct
-          mapM_ wait [timer,worker]
+          wait timer
           go
   
 
