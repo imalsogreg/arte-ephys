@@ -29,7 +29,7 @@ import           Data.Ephys.TrackPosition
 
 ------------------------------------------------------------------------------
 pcFieldRate :: Field Double -> Field Double -> Field Double
-pcFieldRate occ field = Map.unionWith (/) field occ
+pcFieldRate occ field = zipWith (\(x,y) (_,y') -> (x,y/y')) field occ
 
 
 ------------------------------------------------------------------------------
@@ -63,11 +63,13 @@ runClusterReconstruction rTauSec dsT h = do
 ------------------------------------------------------------------------------
 -- P(x|n) = C(tau,N) * P(x) * Prod_i(f_i(x) ^ n_i) * exp (-tau * Sum_i( f_i(x) ))
 --                                                               |sumFields|
-clusteredReconstruction :: Double -> [Field Double] -> [Int] -> Field Double -> Field Double
+clusteredReconstruction :: Double -> [Field] -> [Int] -> Field -> Field
 clusteredReconstruction rTauSecs clusterFields clusterCounts occ =
-  let clusterFieldsGt0 = map gt0 clusterFields
-      sumFields      = unionWith (/) (unionsWith (+) clusterFieldsGt0) occ :: Field Double
-      bayesField f c = Map.map (^c) (unionWith (/) f occ)
+  let clusterFieldsGt0 = map gt0 clusterFields :: [Field]
+      sumFields      = V.zipWith (/)
+                       (mapSnd (+) clusterFieldsGt0)
+                       occ
+      bayesField f c = mapSnd (^c) (zipWithSnd (/) f occ)
       prodPart       = unionsWith (*) (zipWith bayesField clusterFieldsGt0 clusterCounts)
       exponPart      = Map.map (exp . (* negate rTauSecs)) sumFields
       likelihoodPart = unionWith (*) prodPart exponPart
@@ -79,7 +81,7 @@ clusteredReconstruction rTauSecs clusterFields clusterCounts occ =
 
 ------------------------------------------------------------------------------
 gt0 :: Field Double -> Field Double
-gt0 = Map.map (\n -> if n > 0 then n else 0.1)
+gt0 = map (\(t,n) -> if n > 0 then (t,n) else (t,0.1))
 
 
 ------------------------------------------------------------------------------

@@ -69,11 +69,11 @@ data ClusterlessPoint = ClusterlessPoint {
 
 ------------------------------------------------------------------------------
 instance Monoid ClusterlessPoint where
-  mempty = ClusterlessPoint (U.fromList []) 0 (Map.empty)
+  mempty = ClusterlessPoint (U.fromList []) 0 ([] :: Field Double)
   a `mappend` b = ClusterlessPoint
                   (U.zipWith (weightedSum) (pAmplitude a) (pAmplitude b))
                   (pWeight a + pWeight b)
-                  (Map.unionWith (weightedSum) (pField a) (pField b))
+                  (zipWith (\(x,y) (_,y') -> (x,weightedSum y y')) (pField a) (pField b))
     where
       weightedSum x y  = let wA = pWeight a
                              wB = pWeight b
