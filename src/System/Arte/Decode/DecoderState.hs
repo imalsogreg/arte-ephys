@@ -6,48 +6,64 @@ module System.Arte.Decode.DecoderState where
 ------------------------------------------------------------------------------
 import System.Arte.Decode.DecoderDefs    (Trodes(..),ClusterlessTrode(..),DecodablePlaceCell(..))
 import Data.Ephys.Position               (Position(..), Location(..), Angle(..), PosConf(..))
-import Data.Ephys.TrackPosition          (Field, Track(..), PosKernel(..), allTrackPos, circularTrack)
+import Data.Ephys.TrackPosition          (Field, Track(..), TrackPos(..), PosKernel(..), allTrackPos, circularTrack)
 import Data.Ephys.EphysDefs
 ------------------------------------------------------------------------------
 import           Control.Applicative
 import           Control.Lens
 import           Control.Concurrent.STM.TVar
 import qualified Data.ByteString.Char8       as BS
+import           Data.Time.Clock
 import qualified Data.CircularList           as CL
 import qualified Data.Map.Strict             as Map
+import qualified Data.Vector                 as V
 
 
 ------------------------------------------------------------------------------
 data DecoderState = DecoderState
                     { _pos           :: TVar Position
-                    , _trackPos      :: TVar (Field Double)
-                    , _occupancy     :: TVar (Field Double)
-                    , _maybeunused   :: TVar (Field Double) 
+                    , _trackPos      :: TVar (Field)
+                    , _occupancy     :: TVar (Field)
+                    , _maybeunused   :: TVar (Field) 
                     , _trodes        :: Trodes
-                    , _decodedPos    :: TVar (Field Double)
+                    , _decodedPos    :: TVar (Field)
                     , _trodeDrawOpt  :: TrodeDrawOptions
                     , _trodeInd      :: Int
                     , _clustInd      :: Int
                     , _drawKDESample :: Bool
+                    , _toExpTime     :: UTCTime -> Double
                     }
 
 
 ------------------------------------------------------------------------------
-data TrodeDrawOption = DrawPlaceCell   PlaceCellName (TVar DecodablePlaceCell)
-                     | DrawClusterless (TVar ClusterlessTrode)
-                     | DrawOccupancy
-                     | DrawDecoding
-                     | DrawError String
-                     deriving (Eq)
+data TrodeDrawOption =
+    DrawPlaceCell   PlaceCellName (TVar DecodablePlaceCell)
+  | DrawClusterless TrodeName     (TVar ClusterlessTrode) ClessDraw
+  | DrawOccupancy
+  | DrawDecoding
+  | DrawError String
+  deriving (Eq)
+
+
+------------------------------------------------------------------------------
+newtype XChan = XChan Int deriving (Eq)
+newtype YChan = YChan Int deriving (Eq)
+newtype ClessPoint = ClessPoint (Double,Double,Double,Double)
+                    deriving (Eq)
+
+
+------------------------------------------------------------------------------
+data ClessDraw = ClessDraw XChan YChan (Maybe ClessPoint)
+  deriving (Eq)
 
 
 ------------------------------------------------------------------------------
 instance Show TrodeDrawOption where
-  show (DrawPlaceCell name _) = "DrawPlaceCell " ++ show name
-  show (DrawClusterless _)    = "DrawClusterless"
-  show  DrawOccupancy         = "DrawOccupancy"
-  show  DrawDecoding          = "DrawDecoding"
-  show (DrawError s)          = "DrawError " ++ s
+  show (DrawPlaceCell n _)     = "DrawPlaceCell " ++ show n
+  show (DrawClusterless n _ _) = "DrawClusterless " ++ show n
+  show  DrawOccupancy          = "DrawOccupancy"
+  show  DrawDecoding           = "DrawDecoding"
+  show (DrawError s)           = "DrawError " ++ s
 
 type TrodeDrawOptions = CL.CList (CL.CList TrodeDrawOption)
 
@@ -60,4 +76,16 @@ kernel :: PosKernel
 --kernel = PosDelta
 kernel  = PosGaussian 0.05
 
+------------------------------------------------------------------------------
+trackBins0 :: V.Vector TrackPos
+trackBins0 = allTrackPos track
+
+
+------------------------------------------------------------------------------
+emptyField :: Field
+emptyField = let l = V.length trackBins0
+             in  V.replicate l (1 / fromIntegral l)
+
+
+------------------------------------------------------------------------------
 $(makeLenses ''DecoderState)

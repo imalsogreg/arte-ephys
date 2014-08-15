@@ -10,6 +10,7 @@ import           Control.Concurrent.STM.TVar
 import           Control.Lens
 import qualified Data.Map.Strict as Map
 import           Data.Monoid
+import qualified Data.Vector         as V
 import qualified Data.Vector.Unboxed as U
 import           System.Console.CmdArgs
 ------------------------------------------------------------------------------
@@ -63,17 +64,17 @@ data Trodes = Clusterless (Map.Map TrodeName (TVar ClusterlessTrode))
 data ClusterlessPoint = ClusterlessPoint {
     pAmplitude  :: U.Vector Voltage
   , pWeight     :: !Double
-  , pField      :: Field Double
+  , pField      :: Field
   } deriving (Eq, Show)
 
 
 ------------------------------------------------------------------------------
 instance Monoid ClusterlessPoint where
-  mempty = ClusterlessPoint (U.fromList []) 0 ([] :: Field Double)
+  mempty = ClusterlessPoint (U.fromList []) 0 (V.empty :: Field)
   a `mappend` b = ClusterlessPoint
-                  (U.zipWith (weightedSum) (pAmplitude a) (pAmplitude b))
+                  (U.zipWith weightedSum (pAmplitude a) (pAmplitude b))
                   (pWeight a + pWeight b)
-                  (zipWith (\(x,y) (_,y') -> (x,weightedSum y y')) (pField a) (pField b))
+                  (V.zipWith weightedSum (pField a) (pField b))
     where
       weightedSum x y  = let wA = pWeight a
                              wB = pWeight b

@@ -16,6 +16,7 @@ import           Data.Map.Strict          (unionWith,unionsWith)
 import           Data.Ord
 import           Data.Time.Clock
 import qualified Data.Vector.Unboxed      as U
+import qualified Data.Vector              as V
 import           System.IO
 ------------------------------------------------------------------------------
 import           System.Arte.Decode.DecoderDefs
@@ -28,8 +29,8 @@ import           Data.Ephys.TrackPosition
 
 
 ------------------------------------------------------------------------------
-pcFieldRate :: Field Double -> Field Double -> Field Double
-pcFieldRate occ field = zipWith (\(x,y) (_,y') -> (x,y/y')) field occ
+pcFieldRate :: Field -> Field -> Field
+pcFieldRate occ field = V.zipWith (/) field occ
 
 
 ------------------------------------------------------------------------------
@@ -41,6 +42,7 @@ runClusterReconstruction :: Double ->
                       TVar DecoderState -> Maybe Handle -> 
                       IO ()
 runClusterReconstruction rTauSec dsT h = do
+--  print "RUN CLUSTER RECONSTRUCTION"
   ds <- readTVarIO $ dsT
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
@@ -53,9 +55,10 @@ runClusterReconstruction rTauSec dsT h = do
         resetClusteredSpikeCounts clusteredTrodes
         tNow <- getCurrentTime
         maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
+        putStrLn $ showPosterior estimate tNow
         wait delay
         go fields
-      fields0 = [] -- Will this work?
+      fields0 = [] -- Will this work? (if you don't handle that case in clusteredReconstruction, no!)
     in
    go fields0
 
@@ -64,40 +67,44 @@ runClusterReconstruction rTauSec dsT h = do
 -- P(x|n) = C(tau,N) * P(x) * Prod_i(f_i(x) ^ n_i) * exp (-tau * Sum_i( f_i(x) ))
 --                                                               |sumFields|
 clusteredReconstruction :: Double -> [Field] -> [Int] -> Field -> Field
+clusteredReconstruction _        []            _           occ   =
+  V.replicate (V.length occ) (1 / (fromIntegral $ V.length occ))
 clusteredReconstruction rTauSecs clusterFields clusterCounts occ =
   let clusterFieldsGt0 = map gt0 clusterFields :: [Field]
       sumFields      = V.zipWith (/)
-                       (mapSnd (+) clusterFieldsGt0)
+                       (L.foldl1' (V.zipWith (+)) clusterFieldsGt0)
                        occ
-      bayesField f c = mapSnd (^c) (zipWithSnd (/) f occ)
-      prodPart       = unionsWith (*) (zipWith bayesField clusterFieldsGt0 clusterCounts)
-      exponPart      = Map.map (exp . (* negate rTauSecs)) sumFields
-      likelihoodPart = unionWith (*) prodPart exponPart
-      posteriorPart  = unionWith (*) occ likelihoodPart :: Field Double
-      posteriorSum   = sum . Map.elems $ posteriorPart
+      bayesField f c = V.map (^c) (V.zipWith (/) f occ) :: Field
+      prodPart       = L.foldl1' (V.zipWith (*))
+                       (zipWith bayesField clusterFieldsGt0 clusterCounts)
+      exponPart      = V.map (exp . (* negate rTauSecs)) sumFields
+      likelihoodPart = V.zipWith (*) prodPart exponPart
+      posteriorPart  = V.zipWith (*) occ likelihoodPart :: Field
+      invPostSum     = 1 / V.sum  posteriorPart
   in
-   Map.map (/posteriorSum) posteriorPart 
+   V.map (* invPostSum) posteriorPart 
 
 
 ------------------------------------------------------------------------------
-gt0 :: Field Double -> Field Double
-gt0 = map (\(t,n) -> if n > 0 then (t,n) else (t,0.1))
+gt0 :: Field -> Field
+gt0 = V.map (\x -> if x > 0 then x else 0.1)
 
 
 ------------------------------------------------------------------------------
-normalize :: Field Double -> Field Double
-normalize f = let fieldSum = L.foldl' (+) 0 (Map.elems f)
+normalize :: Field -> Field
+normalize f = let fieldSum = V.foldl' (+) 0 f
                   coef = 1/ max 0.1 fieldSum
-              in  Map.map (*coef) f
+              in  V.map (*coef) f
+{-# INLINE normalize #-}
 
 ------------------------------------------------------------------------------
-clusteredUnTVar :: Map.Map PlaceCellName PlaceCellTrode -> IO [(Field Double,Int)]
+clusteredUnTVar :: Map.Map PlaceCellName PlaceCellTrode -> IO [(Field,Int)]
 clusteredUnTVar pcMap = fmap concat $ atomically . mapM trodeFields . Map.elems $ pcMap
   where
-    trodeFields :: PlaceCellTrode -> STM [(Field Double,Int)]
+    trodeFields :: PlaceCellTrode -> STM [(Field,Int)]
     trodeFields pct = mapM countsOneCell
                       (Map.elems . _dUnits $ pct)
-    countsOneCell :: TVar DecodablePlaceCell -> STM (Field Double, Int)
+    countsOneCell :: TVar DecodablePlaceCell -> STM (Field, Int)
     countsOneCell dpcT = do
       dpc <- readTVar dpcT
       return (dpc^.dpCell.countField, dpc^.dpCellTauN)
@@ -118,16 +125,18 @@ keyFilter :: (Ord k) => (k -> Bool) -> Map.Map k a -> Map.Map k a
 keyFilter p m = Map.filterWithKey (\k _ -> p k) m
 
 ------------------------------------------------------------------------------
-posteriorOut :: Field Double -> [Double]
-posteriorOut f =
+posteriorOut :: Field -> [Double]
+posteriorOut f = V.toList f
+  {-
   map snd
   . filter ( ((==Outbound)._trackDir) . fst)
   . filter ( ((==InBounds)._trackEcc) . fst)
   . L.sortBy (comparing (_binName . _trackBin . fst))
   . Map.toList
-  $ f  
+  $ f
+-}
 
-showPosterior :: Field Double -> UTCTime -> String
+showPosterior :: Field -> UTCTime -> String
 showPosterior f (UTCTime _ sec) =
   (take 10 $ show sec) ++ ", " ++ L.intercalate ", " (map show $ posteriorOut f)
 
@@ -141,44 +150,54 @@ runClusterlessReconstruction rOpts rTauSec dsT h = go
           timer  <- async $ threadDelay (floor $ rTauSec * 1e6)
           do
             ds <- readTVarIO dsT
-            trodeEstimatesA <- forM
-                               (Map.elems $ ds^.trodes._Clusterless) $
-                               (stepTrode rOpts)
---            trodeEstimates <- mapM wait trodeEstimatesA
-            let fieldProduct = unionsWith (*) trodeEstimatesA
+            !trodeEstimates <- forM
+                              (Map.elems $ ds^.trodes._Clusterless) $
+                              (stepTrode rOpts)
+--            trodeEstimates <- return [emptyField]
+--            print . head $ trodeEstimates
+            let !fieldProduct = L.foldl1' (V.zipWith (*)) trodeEstimates
             atomically . writeTVar (ds^.decodedPos) $ normalize fieldProduct
           wait timer
           go
   
 
 ------------------------------------------------------------------------------
-stepTrode :: ClusterlessOpts -> TVar ClusterlessTrode -> IO (Field Double)
+stepTrode :: ClusterlessOpts -> TVar ClusterlessTrode -> IO Field
 stepTrode opts trode' = do
   (spikes,kde) <- atomically $ do
+
     trode <- readTVar trode'
     let spikesTimes = (trode^.dtTauN)
     let kde = (trode^.dtNotClust)
         f m k = KDMap.add m (kdClumpThreshold opts) (fst3 k) (snd3 k)
         spikesForField  = filter trd3 spikesTimes
+
     writeTVar trode' $
       ClusterlessTrode (L.foldl' f  kde spikesForField) []
+
     return $ (map fst3 spikesTimes,kde)
-  return . unionsWith (*) $
+
+--  putStrLn $ "KDE size: " ++ show (length . KDMap.toList $ kde)
+  return $ L.foldl' (V.zipWith (*)) emptyField $
     map (\s -> sampleKDE opts s kde) (filter amp spikes)
+--    map (const emptyField) (filter amp spikes)
   where fst3 (a,_,_) = a
         snd3 (_,b,_) = b
         trd3 (_,_,c) = c
         amp  p       = U.maximum (pAmplitude p) >= amplitudeThreshold opts
 
 ------------------------------------------------------------------------------
-sampleKDE :: ClusterlessOpts -> ClusterlessPoint -> NotClust -> Field Double
+sampleKDE :: ClusterlessOpts -> ClusterlessPoint -> NotClust -> Field
 sampleKDE ClusterlessOpts{..} point points =
-  let nearbyPoints   = map fst $ allInRange (sqrt cutoffDist2) point points
-      distExponent p = (1 / ) $ exp((-1) * (pointDistSq p point)/
-                                           (2*kernelVariance))
-      expField  p    = Map.map (** distExponent p) (pField p)
-      scaledField p  = Map.map (/ (sum $ Map.elems p)) p
-  in unionsWith (*) $ map (scaledField . expField) nearbyPoints
+  let nearbyPoints   = map fst $ allInRange (sqrt cutoffDist2) point points :: [ClusterlessPoint]
+      distExponent :: ClusterlessPoint -> Double
+      distExponent p = (1 / ) $
+                       exp((-1) * (pointDistSq p point :: Double)/(2*kernelVariance))
+      expField :: ClusterlessPoint -> Field
+      expField  p    = V.map (** distExponent p) (pField p)
+--      scaledField :: Field -> Field
+--      scaledField p  = V.map (/ (V.sum p)) p
+  in L.foldl1' (V.zipWith (*)) $ map (normalize . expField) nearbyPoints
 
 
 ------------------------------------------------------------------------------
@@ -190,4 +209,4 @@ data ClusterlessOpts = ClusterlessOpts {
   } deriving (Eq, Show)
 
 defaultClusterlessOpts :: ClusterlessOpts
-defaultClusterlessOpts =  ClusterlessOpts 200e-6 5000e-6 100e-6 0.0002
+defaultClusterlessOpts =  ClusterlessOpts 200e-6 5000e-6 200e-6 8e-6

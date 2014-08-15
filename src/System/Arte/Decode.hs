@@ -1,75 +1,73 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveDataTypeable        #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE TupleSections             #-}
+{-# LANGUAGE RecordWildCards           #-}
 
 module System.Arte.Decode where
 
-import System.Arte.Decode.DecoderState
-import System.Arte.Decode.DecoderDefs
-import System.Arte.Decode.DrawingHelpers
-import System.Arte.Decode.DecodeAlgo
+------------------------------------------------------------------------------
+import           Control.Applicative                (pure, (<$>), (<*>))
+import           Control.Concurrent                 hiding (Chan)
+import           Control.Concurrent.Async
+import           Control.Concurrent.STM
+import           Control.Lens
+import           Control.Monad
+import qualified Data.ByteString.Char8              as BS
+import qualified Data.ByteString.Lazy               as BSL
+import qualified Data.CircularList                  as CL
+import qualified Data.Foldable                      as F
+import qualified Data.Map.Strict                    as Map
+import           Data.Maybe
+import qualified Data.Text                          as Text
+import           Data.Time.Clock
+import qualified Data.Vector                        as V
+import qualified Data.Vector.Unboxed                as U
+import           Graphics.Gloss
+import           Graphics.Gloss.Interface.IO.Game
+import           Pipes
+import           Pipes.RealTime
+import           System.Console.CmdArgs
+import           System.Directory
+import           System.IO
+------------------------------------------------------------------------------
+import           Data.Ephys.Cluster
+import           Data.Ephys.EphysDefs
+import           Data.Ephys.GlossPictures
+import           Data.Ephys.OldMWL.FileInfo
+import           Data.Ephys.OldMWL.Parse
+import           Data.Ephys.OldMWL.ParseClusterFile
+import           Data.Ephys.OldMWL.ParsePFile
+import           Data.Ephys.OldMWL.ParseSpike
+import           Data.Ephys.PlaceCell
+import           Data.Ephys.Position
+import           Data.Ephys.Spike
+import           Data.Ephys.TrackPosition
+import           Data.Map.KDMap
+import           System.Arte.FileUtils
+import           System.Arte.Net
+import           System.Arte.NetMessage
+------------------------------------------------------------------------------
+import           System.Arte.Decode.DecodeAlgo
+import           System.Arte.Decode.DecoderDefs
+import           System.Arte.Decode.DecoderState
+import           System.Arte.Decode.DrawingHelpers
 
-import System.Arte.Net
-import System.Arte.NetMessage
-import System.Arte.FileUtils
-import Data.Ephys.EphysDefs
-import Data.Ephys.Spike
-import Data.Ephys.Cluster
-import Data.Ephys.PlaceCell
-import Data.Ephys.Position
-import Data.Ephys.TrackPosition
-import Data.Ephys.GlossPictures
-import Data.Ephys.OldMWL.FileInfo
-import Data.Ephys.OldMWL.Parse
-import Data.Ephys.OldMWL.ParseSpike
-import Data.Ephys.OldMWL.ParsePFile
-import Data.Ephys.OldMWL.ParseClusterFile
-import Data.Map.KDMap
 
-import Data.Time.Clock
-import qualified Data.Vector.Unboxed as U
-import Pipes.RealTime
-import System.Directory
-import System.Console.CmdArgs
-import Control.Applicative ((<$>),(<*>),pure)
-import qualified Data.Text as Text
-import qualified Data.Traversable as T
-import qualified Data.Foldable    as F
-import qualified Data.Map.Strict as Map
-import Data.Maybe
-import Control.Monad
-import Control.Concurrent hiding (Chan)
-import Control.Concurrent.Async
-import Control.Concurrent.STM.TVar
-import Control.Concurrent.STM.TQueue
-import Control.Concurrent.STM
-import Data.Either
-import Control.Lens
-import qualified Data.Serialize as S
-import System.IO
-import Pipes
-import qualified Pipes.Prelude as P
-import Graphics.Gloss
-import Graphics.Gloss.Interface.IO.Game
-import qualified Data.CircularList as CL
-import qualified Data.ByteString.Char8 as BS
-import qualified Data.ByteString.Lazy as BSL
-
-----------------------------------------
--- TODO: There is way too much STM here
--- UI timing here is handled by gloss,
--- So decoderState top-level fields
--- probably don't need to be in TVars.
---
--- Also ought to be using lens better
--- 
--- Divide up into modules. No big mess
---
--- Get data from distributed-process
----------------------------------------
+------------------------------------------
+-- TODO: There is way too much STM here --
+-- UI timing here is handled by gloss,  --
+-- So decoderState top-level fields     --
+-- probably don't need to be in TVars.  --
+--                                      --
+-- Also ought to be using lens better   --
+--                                      --
+-- Divide up into modules. No big mess  --
+--                                      --
+-- Get data from distributed-process    --
+------------------------------------------
 
 
 ------------------------------------------------------------------------------
@@ -90,24 +88,36 @@ draw _ ds = do
       optsPicture = translate (-1) (-1) . scale 0.1 0.1 .
                     scale 0.2 0.2 $ drawDrawOptionsState ds
 
-
-  field <- case drawOpt of 
+  (field,overlay) <- case drawOpt of
     (DrawOccupancy) -> do
-      return $ drawNormalizedField occ
-    (DrawDecoding)  -> return $ drawNormalizedField
-                       (Map.map (\v -> if v > 0.05 then v - 0.05 else 0) dPos)
+      return . (,pictures []) $  drawNormalizedField (V.zip trackBins0 occ)  -- TODO find better name tb0
+    (DrawDecoding)  -> return . (,pictures []) . drawNormalizedField $
+                       V.zip trackBins0
+                       (V.map (\v -> if v > 0.05 then v - 0.05 else 0) dPos)
+
     (DrawPlaceCell n dUnit') -> do
       dUnit <- readTVarIO dUnit'
-      return . drawNormalizedField $ placeField (dUnit^.dpCell) occ
+      return . (,pictures []) . drawNormalizedField $
+        (V.zip trackBins0 $ placeField (dUnit^.dpCell) occ)
 
-    (DrawClusterless tName) ->
-      return $ scale 0.5 0.5 $ Text "Clusterless Draw not implemented"
+    (DrawClusterless tName kdT (ClessDraw xC yC mPt)) -> do
+      tNow <- (ds^.toExpTime) <$> getCurrentTime
+      kd   <- atomically $ readTVar kdT
+      let treePic = drawTree xC yC tNow (kd^.dtNotClust)
+      return $ (pictures[], pictures [(scale 0.2 0.2 $ Text ("Clustless " ++ show tName))
+                                     , translate (-200) (-200) . scale 2000000 2000000
+                                       $ treePic])
     (DrawError e) -> do
       print $ "Draw was told to print DrawError" ++ e
-      return $ scale 50 50 $ Text e
+      return $ (pictures [] , scale 50 50 $ Text e)
+      
   threadDelay 30000
-  return . scale 200 200 $ pictures [posPicture, trackPicture, field, optsPicture ]
+  return $ pictures (overlay :
+                     (map $ scale 200 200 )
+                     [posPicture, trackPicture, field, optsPicture ])
 
+
+------------------------------------------------------------------------------
 main :: IO ()
 main = do
   opts <- cmdArgs decoderArgs
@@ -155,7 +165,7 @@ main = do
         basePath -> do
           putStrLn "Decoder streaming spikes and position from disk"
           incomingSpikesChan <- atomically newTQueue
-              
+
           [spikeFiles,pFiles] <- mapM (getFilesByExtension basePath 2)
                                  ["tt","p"]
           putStrLn $ "spikeFiles: " ++ show spikeFiles
@@ -204,7 +214,7 @@ main = do
                       lift $ clusterlessAddSpike ds2 tName p pos2 spike logSpikes
                       return ()
                   )
-                return (a, DrawClusterless trodeTVar)
+                return (a, undefined) -- DrawClusterless trodeTVar)
 
               -- Clustered case ---------------------------------------------
               Right fi | otherwise -> do
@@ -219,7 +229,7 @@ main = do
                       Nothing -> error $ unwords ["Shouldn't happen, couldn't find",tName]
                       Just pcTrode -> do
                         f <- BSL.readFile sf
-                        a <- async $ runEffect $ 
+                        a <- async $ runEffect $
                           dropResult (produceTrodeSpikes tName fi f) >->
                           relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
                           (forever $ do
@@ -238,13 +248,13 @@ main = do
           reconstructionA <-
             async $ if clusterless opts
                     then runClusterlessReconstruction
-                         defaultClusterlessOpts   0.02 dsT logDecoding
-                    else runClusterReconstruction 0.02 dsT logDecoding
-          
+                         defaultClusterlessOpts   0.020 dsT logDecoding
+                    else runClusterReconstruction 0.020 dsT logDecoding
+
           fakeMaster <- atomically newTQueue
           let spikeAsyncs = map fst asyncsAndTrodes
           runGloss opts dsT fakeMaster
-          maybe (return ()) hClose logSpikes 
+          maybe (return ()) hClose logSpikes
           maybe (return ()) hClose logDecoding
           putStrLn "Closed filehandles"
           putStrLn "wait for asyncs to finish"
@@ -280,7 +290,7 @@ glossInputs dsT e ds =
             KeyDown  -> clustInd  %~ pred
             _        -> id
       in atomically (modifyTVar dsT f) >> return (f ds)  -- which copy is actually used?
-    EventKey _ Down _ _ -> return ds   
+    EventKey _ Down _ _ -> return ds
     _ -> putStrLn ("Ignoring event " ++ show e) >> return ds
 
 stepIO :: Track -> TQueue ArteMessage -> TVar DecoderState -> Float -> DecoderState -> IO DecoderState
@@ -321,7 +331,7 @@ handleRequests queue dsT track = do
                 writeTVar dsT ds'
                 return ()
   -}
-              
+
               ds <- readTVarIO dsT
               print $ "SetAllClusters Finished modifying tvar, got opts: "
                 ++ show (ds^.trodeDrawOpt)
@@ -330,7 +340,7 @@ handleRequests queue dsT track = do
               (unwords ["Caught and ignored request:"
                        ,(take 20 . show $ r),"..."]) >>
               return ()
-            Response r -> 
+            Response r ->
               putStrLn (unwords ["Caught and ignored response:"
                                 ,(take 20 . show $ r),"..."]) >>
               return ()
@@ -377,7 +387,7 @@ updatePos dsT p = let trackPos' = posToField track p kernel in
 
 ------------------------------------------------------------------------------
 fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
-                      Position -> Field Double -> TrodeSpike -> Maybe Handle -> IO ()
+                      Position -> Field -> TrodeSpike -> Maybe Handle -> IO ()
 fanoutSpikeToCells ds trodeName trode pos trackPos spike p = do
   flip F.mapM_ (trode^.dUnits) $ \dpcT -> do
     DecodablePlaceCell pc tauN <- readTVarIO dpcT
@@ -425,7 +435,7 @@ fanoutSpikesToTrodes dsT sQueue logSpikesH = forever $ do
 
 
 ------------------------------------------------------------------------------
-clusterlessAddSpike :: DecoderState -> TrodeName -> Position -> Field Double
+clusterlessAddSpike :: DecoderState -> TrodeName -> Position -> Field
                     -> TrodeSpike -> Maybe Handle -> IO ()
 clusterlessAddSpike ds tName p tPos spike log =
   case Map.lookup tName (ds^.trodes._Clusterless :: Map.Map TrodeName (TVar ClusterlessTrode)) of
@@ -436,13 +446,13 @@ clusterlessAddSpike ds tName p tPos spike log =
         let forKDE = (p^.speed) >= runningThresholdSpeed
         let spike' = (makeCPoint spike tPos,
                       MostRecentTime $ spikeTime spike,
-                      forKDE) 
+                      forKDE)
         modifyTVar t' $ \(t::ClusterlessTrode) -> t & dtTauN %~ (spike':)
         return ()
 {-# INLINE clusterlessAddSpike #-}
 
 ------------------------------------------------------------------------------
-makeCPoint :: TrodeSpike -> Field Double -> ClusterlessPoint
+makeCPoint :: TrodeSpike -> Field -> ClusterlessPoint
 makeCPoint spike tPos = ClusterlessPoint {
     pAmplitude = U.convert . spikeAmplitudes $ spike
   , pWeight    = 1
@@ -479,13 +489,13 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
         Just (PlaceCellTrode pcs sHist) -> do
           case Map.lookup placeCellName pcs of
             Nothing -> do
-              dpc' <- newTVar $ DecodablePlaceCell 
+              dpc' <- newTVar $ DecodablePlaceCell
                       (newPlaceCell track ds trodeName clustMethod) 0
               let newTrode =
-                    PlaceCellTrode (Map.insert placeCellName dpc' pcs) sHist 
+                    PlaceCellTrode (Map.insert placeCellName dpc' pcs) sHist
               return $ (ds & trodes . _Clustered . at trodeName  ?~ newTrode)
             Just dpc -> do
-              _ <- swapTVar dpc $ 
+              _ <- swapTVar dpc $
                 DecodablePlaceCell
                 (newPlaceCell track ds trodeName clustMethod) 0
               return ds
@@ -506,16 +516,18 @@ newPlaceCell track ds trodeName cMethod = do
     Clustered   tMap ->
       case Map.lookup trodeName tMap of
         -- No trode by that name, so no history
-        Nothing -> PlaceCell cMethod (Map.fromList [(p,0)|p <- allTrackPos track])
+        Nothing -> PlaceCell cMethod
+                   (V.replicate (V.length $ allTrackPos track) 0)
         -- Found that trode, build cell to that name from history
         Just (PlaceCellTrode dpc sHist) ->
-          PlaceCell cMethod (Map.fromList [(p,0)|p <- allTrackPos track])
-          -- TODO: Build from spike history! 
+          PlaceCell cMethod
+          (V.replicate (V.length $ allTrackPos track) 0)
+          -- TODO: Build from spike history!
 
 
 ------------------------------------------------------------------------------
 orderClusters :: TQueue ArteMessage -> FilePath -> FilePath -> IO ()
-orderClusters queue cFile ttFile = do 
+orderClusters queue cFile ttFile = do
   let trodeName = Text.unpack $ mwlTrodeNameFromPath ttFile
   cExists <- doesFileExist cFile
   when cExists $ do
@@ -531,15 +543,16 @@ orderClusters queue cFile ttFile = do
 
 ------------------------------------------------------------------------------
 initialState :: DecoderArgs -> IO DecoderState
-initialState opts =
-  let zeroField = Map.fromList [(tp,0.1) | tp <- allTrackPos track]
+initialState DecoderArgs{..} = do
+  let zeroField = V.replicate (V.length $ allTrackPos track) 0
       p0        = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
                   ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
       sZ        = take 15 (repeat 0)
-      clusts    = if clusterless opts
+      clusts    = if clusterless
                   then clistTrodes $ Clusterless Map.empty
                   else clistTrodes $ Clusterless Map.empty
-  in DecoderState <$>
+  t0       <- getCurrentTime
+  DecoderState <$>
     newTVarIO p0
     <*> newTVarIO zeroField
     <*> newTVarIO zeroField
@@ -550,3 +563,4 @@ initialState opts =
     <*> pure 0
     <*> pure 0
     <*> pure False
+    <*> pure (\t -> startExperimentTime + realToFrac (diffUTCTime t t0))
