@@ -83,6 +83,11 @@ drawClusterlessPoint (XChan x) (YChan y) tNow (cP,t) =
            , circle (1e-6 + log (r2 $ pointW cP) / treeScale)
            ]
 
+pointAtSize
+  :: XChan -> YChan -> ClusterlessPoint -> Double -> Picture
+pointAtSize (XChan x) (YChan y) cP s =
+  translate (r2 $ pointD cP (Depth x)) (r2 $ pointD cP (Depth y)) $
+  circle (r2 s)
 
 ------------------------------------------------------------------------------
 drawTree

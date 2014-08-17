@@ -110,16 +110,20 @@ draw _ ds = do
       tNow <- (ds^.toExpTime) <$> getCurrentTime
       kd   <- atomically $ readTVar kdT
       let treePic = drawTree xC yC tNow (kd^.dtNotClust)
-          (samplePtPic :: Picture,sampleField) = case (ds^.samplePoint) of
+          (samplePtPic :: Picture,sampField) = case (ds^.samplePoint) of
             Nothing ->
               (Pictures [],
                Pictures [drawNormalizedField (labelField track emptyField)
                         ,scale 0.2 0.2 $ Text "No Field"])
             Just cp ->
-              (drawClusterlessPoint xC yC tNow (cp,MostRecentTime (tNow-10)),
-               Pictures [scale 0.2 0.2 $ Text "Sampling not implemented"])
-      putStrLn $ show (ds^.samplePoint)
-      return $ (pictures[], pictures [(scale 0.2 0.2 $
+              let k = sampleKDE defaultClusterlessOpts cp (kd^.dtNotClust)
+              in (pointAtSize xC yC cp 50e-6,
+                  drawNormalizedField (labelField track k))
+      let n = (\pt -> length $ allInRange (sqrt $ cutoffDist2 defaultClusterlessOpts) pt
+                     (kd^.dtNotClust)) <$> (ds^.samplePoint)
+      putStrLn $ show n ++ " in range of " ++ show (length $ toList (kd^.dtNotClust))
+      return $ (sampField,
+                pictures [(scale 0.2 0.2 $
                                        Text ("Clustless " ++ show tName))
                                      , translate treeTranslate treeTranslate
                                        . scale treeScale treeScale

@@ -197,7 +197,7 @@ sampleKDE ClusterlessOpts{..} point points =
       expField  p    = V.map (** distExponent p) (_pField p)
 --      scaledField :: Field -> Field
 --      scaledField p  = V.map (/ (V.sum p)) p
-  in L.foldl1' (V.zipWith (*)) $ map (normalize . expField) nearbyPoints
+  in L.foldl' (V.zipWith (*)) emptyField $ map (normalize . expField) nearbyPoints
 
 
 ------------------------------------------------------------------------------
@@ -209,4 +209,4 @@ data ClusterlessOpts = ClusterlessOpts {
   } deriving (Eq, Show)
 
 defaultClusterlessOpts :: ClusterlessOpts
-defaultClusterlessOpts =  ClusterlessOpts 200e-6 5000e-6 200e-6 8e-6
+defaultClusterlessOpts =  ClusterlessOpts (200e-6) ((50e-6)^2) 200e-6 8e-6
