@@ -71,6 +71,13 @@ import           System.Arte.Decode.DrawingHelpers
 
 
 ------------------------------------------------------------------------------
+focusCursor :: DecoderState -> TrodeDrawOption
+focusCursor ds = fromMaybe (DrawError "Couldn't index at cursor") $
+                 (ds^.trodeDrawOpt) ^? ix (ds^.trodeInd) . ix (ds^.clustInd)
+
+atCursor ds = trodeDrawOpt . ix (ds^.trodeInd) . ix (ds^.clustInd)
+
+------------------------------------------------------------------------------
 draw :: TVar DecoderState -> DecoderState -> IO Picture
 draw _ ds = do
 
@@ -81,36 +88,50 @@ draw _ ds = do
   let trackPicture = drawTrack track
       posPicture = drawPos p
       drawOpt :: TrodeDrawOption
-      drawOpt = case join $ (CL.focus . CL.rotN (ds^.clustInd)) `fmap`
-                     CL.focus (CL.rotN (ds^.trodeInd) (ds^.trodeDrawOpt)) of
-        Nothing  -> DrawError "CList error"
-        Just opt -> opt
+      drawOpt = focusCursor ds
       optsPicture = translate (-1) (-1) . scale 0.1 0.1 .
                     scale 0.2 0.2 $ drawDrawOptionsState ds
 
   (field,overlay) <- case drawOpt of
+    ------------------------------------------------------------------------------
     (DrawOccupancy) -> do
       return . (,pictures []) $  drawNormalizedField (V.zip trackBins0 occ)  -- TODO find better name tb0
+    ------------------------------------------------------------------------------
     (DrawDecoding)  -> return . (,pictures []) . drawNormalizedField $
                        V.zip trackBins0
                        (V.map (\v -> if v > 0.05 then v - 0.05 else 0) dPos)
-
+    ------------------------------------------------------------------------------
     (DrawPlaceCell n dUnit') -> do
       dUnit <- readTVarIO dUnit'
       return . (,pictures []) . drawNormalizedField $
         (V.zip trackBins0 $ placeField (dUnit^.dpCell) occ)
-
-    (DrawClusterless tName kdT (ClessDraw xC yC mPt)) -> do
+    ------------------------------------------------------------------------------
+    (DrawClusterless tName kdT (ClessDraw xC yC)) -> do
       tNow <- (ds^.toExpTime) <$> getCurrentTime
       kd   <- atomically $ readTVar kdT
       let treePic = drawTree xC yC tNow (kd^.dtNotClust)
-      return $ (pictures[], pictures [(scale 0.2 0.2 $ Text ("Clustless " ++ show tName))
-                                     , translate (-200) (-200) . scale 2000000 2000000
-                                       $ treePic])
+          (samplePtPic :: Picture,sampleField) = case (ds^.samplePoint) of
+            Nothing ->
+              (Pictures [],
+               Pictures [drawNormalizedField (labelField track emptyField)
+                        ,scale 0.2 0.2 $ Text "No Field"])
+            Just cp ->
+              (drawClusterlessPoint xC yC tNow (cp,MostRecentTime (tNow-10)),
+               Pictures [scale 0.2 0.2 $ Text "Sampling not implemented"])
+      putStrLn $ show (ds^.samplePoint)
+      return $ (pictures[], pictures [(scale 0.2 0.2 $
+                                       Text ("Clustless " ++ show tName))
+                                     , translate treeTranslate treeTranslate
+                                       . scale treeScale treeScale
+                                       $ treePic
+                                     , translate treeTranslate treeTranslate
+                                       . scale treeScale treeScale
+                                       $ samplePtPic])
+    ------------------------------------------------------------------------------
     (DrawError e) -> do
       print $ "Draw was told to print DrawError" ++ e
       return $ (pictures [] , scale 50 50 $ Text e)
-      
+    ------------------------------------------------------------------------------
   threadDelay 30000
   return $ pictures (overlay :
                      (map $ scale 200 200 )
@@ -278,8 +299,11 @@ pos0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
 posShortcut :: ((Double,Double),Double,Double)
 posShortcut = ((166,140),156.6, 0.5)
 
+
+------------------------------------------------------------------------------
 glossInputs :: TVar DecoderState -> Event -> DecoderState -> IO DecoderState
 glossInputs dsT e ds =
+  let drawOpt = focusCursor ds in
   case e of
     EventMotion _ -> return ds
     EventKey (SpecialKey k) Up _ _ ->
@@ -291,9 +315,32 @@ glossInputs dsT e ds =
             _        -> id
       in atomically (modifyTVar dsT f) >> return (f ds)  -- which copy is actually used?
     EventKey _ Down _ _ -> return ds
+    EventKey (MouseButton LeftButton) Up _ (mouseX,mouseY) ->
+      case drawOpt of
+        (DrawClusterless tName tTrode
+         (ClessDraw (XChan cX) (YChan cY))) ->
+          let (treeX, treeY) = screenToTree (mouseX, mouseY)
+              p'  = fromMaybe ((ClusterlessPoint
+                                (U.fromList [0,0,0,0]) 1000 emptyField))
+                               (ds^.samplePoint)
+              p   = Just ((p' & pAmplitude . ix cX .~ r2 treeX) &
+                           pAmplitude . ix cY .~ r2 treeY )
+              ds' = ds & samplePoint .~ p
+          in atomically (writeTVar dsT ds') >> return ds'
+        _ -> putStrLn "Ignoring left click" >> return ds
+    EventKey (MouseButton RightButton) Up _ _ ->
+      case drawOpt of
+        (DrawClusterless tName tTrode (ClessDraw cX cY)) ->
+          let ds' = ds & samplePoint .~ Nothing
+          in  atomically (writeTVar dsT ds') >> return ds'
+        _ -> putStrLn "Ignoring right click" >> return ds
     _ -> putStrLn ("Ignoring event " ++ show e) >> return ds
 
-stepIO :: Track -> TQueue ArteMessage -> TVar DecoderState -> Float -> DecoderState -> IO DecoderState
+
+
+------------------------------------------------------------------------------
+stepIO :: Track -> TQueue ArteMessage -> TVar DecoderState ->
+          Float -> DecoderState -> IO DecoderState
 stepIO track queue dsT t ds = do
   -- handleRequests queue dsT track -- TODO this is distributed-process' job
   ds' <- readTVarIO dsT
@@ -454,9 +501,9 @@ clusterlessAddSpike ds tName p tPos spike log =
 ------------------------------------------------------------------------------
 makeCPoint :: TrodeSpike -> Field -> ClusterlessPoint
 makeCPoint spike tPos = ClusterlessPoint {
-    pAmplitude = U.convert . spikeAmplitudes $ spike
-  , pWeight    = 1
-  , pField     = normalize $ gt0 tPos
+    _pAmplitude = U.convert . spikeAmplitudes $ spike
+  , _pWeight    = 1
+  , _pField     = normalize $ gt0 tPos
   }
 
 ------------------------------------------------------------------------------
@@ -564,3 +611,4 @@ initialState DecoderArgs{..} = do
     <*> pure 0
     <*> pure False
     <*> pure (\t -> startExperimentTime + realToFrac (diffUTCTime t t0))
+    <*> pure Nothing

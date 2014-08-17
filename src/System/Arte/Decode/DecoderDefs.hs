@@ -35,14 +35,13 @@ runningThresholdSpeed = 0.15;
 data DecodablePlaceCell = DecodablePlaceCell { _dpCell     :: !PlaceCell
                                              , _dpCellTauN :: !Int
                                              } deriving (Eq, Show)
-$(makeLenses ''DecodablePlaceCell)
 
 data PlaceCellTrode = PlaceCellTrode {
     _dUnits :: Map.Map PlaceCellName (TVar DecodablePlaceCell) 
   , _pcTrodeHistory :: !SpikeHistory
   } deriving (Eq)
              
-$(makeLenses ''PlaceCellTrode)
+
 
 type NotClust = KDMap ClusterlessPoint MostRecentTime
 
@@ -62,29 +61,30 @@ data Trodes = Clusterless (Map.Map TrodeName (TVar ClusterlessTrode))
 -- consider the weights (althought it should - so, TODO refactor KDMap
 -- add a KDValue class with weightedAppend method)
 data ClusterlessPoint = ClusterlessPoint {
-    pAmplitude  :: U.Vector Voltage
-  , pWeight     :: !Double
-  , pField      :: Field
+    _pAmplitude  :: U.Vector Voltage
+  , _pWeight     :: !Double
+  , _pField      :: Field
   } deriving (Eq, Show)
+
 
 
 ------------------------------------------------------------------------------
 instance Monoid ClusterlessPoint where
   mempty = ClusterlessPoint (U.fromList []) 0 (V.empty :: Field)
   a `mappend` b = ClusterlessPoint
-                  (U.zipWith weightedSum (pAmplitude a) (pAmplitude b))
-                  (pWeight a + pWeight b)
-                  (V.zipWith weightedSum (pField a) (pField b))
+                  (U.zipWith weightedSum (_pAmplitude a) (_pAmplitude b))
+                  (_pWeight a + _pWeight b)
+                  (V.zipWith weightedSum (_pField a) (_pField b))
     where
-      weightedSum x y  = let wA = pWeight a
-                             wB = pWeight b
+      weightedSum x y  = let wA = _pWeight a
+                             wB = _pWeight b
                              wR =1/ (wA + wB)
                          in  (x*wA + y*wB) * wR
         
 instance KDKey ClusterlessPoint where
-  pointD p i  = pAmplitude p U.! (fromIntegral i)
-  pointSize p = fromIntegral . U.length $ pAmplitude p
-  pointW p    = realToFrac $ pWeight p
+  pointD p i  = _pAmplitude p U.! (fromIntegral i)
+  pointSize p = fromIntegral . U.length $ _pAmplitude p
+  pointW p    = realToFrac $ _pWeight p
   dSucc p d   = succ d `mod` pointSize p
   dPred p d   = pred d `mod` pointSize p
 
@@ -99,6 +99,45 @@ instance Monoid MostRecentTime where
   a `mappend` b = max a b
 
 
+------------------------------------------------------------------------------
+newtype XChan = XChan Int deriving (Eq)
+newtype YChan = YChan Int deriving (Eq)
+
+
+------------------------------------------------------------------------------
+data ClessDraw = ClessDraw XChan YChan
+  deriving (Eq)
+
+
+------------------------------------------------------------------------------
+data TrodeDrawOption =
+    DrawPlaceCell   PlaceCellName (TVar DecodablePlaceCell)
+  | DrawClusterless TrodeName     (TVar ClusterlessTrode) ClessDraw
+  | DrawOccupancy
+  | DrawDecoding
+  | DrawError String
+  deriving (Eq)
+
+
+------------------------------------------------------------------------------
+instance Show TrodeDrawOption where
+  show (DrawPlaceCell n _)     = "DrawPlaceCell " ++ show n
+  show (DrawClusterless n _ _) = "DrawClusterless " ++ show n
+  show DrawOccupancy           = "DrawOccupancy"
+  show DrawDecoding            = "DrawDecoding"
+  show (DrawError s)           = "DrawError " ++ s
+
+--type TrodeDrawOptions = CL.CList (CL.CList TrodeDrawOption)
+--type TrodeDrawOptions = Map.Map String (Map.Map String TrodeDrawOption)
+type TrodeDrawOptions = [[TrodeDrawOption]]
+
+
+
+
+
+$(makeLenses ''PlaceCellTrode)
+$(makeLenses ''DecodablePlaceCell)
+$(makeLenses ''ClusterlessPoint)
 $(makeLenses ''Trodes)
 $(makePrisms ''Trodes)
 $(makeLenses ''ClusterlessTrode)
@@ -120,3 +159,5 @@ decoderArgs = DecoderArgs
   , doLogging = False &= help "Commit data to log files"
   , clusterless = False &= help "Perform clusterless decoding"
   }
+
+

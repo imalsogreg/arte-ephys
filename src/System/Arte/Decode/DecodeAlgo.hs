@@ -184,7 +184,7 @@ stepTrode opts trode' = do
   where fst3 (a,_,_) = a
         snd3 (_,b,_) = b
         trd3 (_,_,c) = c
-        amp  p       = U.maximum (pAmplitude p) >= amplitudeThreshold opts
+        amp  p       = U.maximum (_pAmplitude p) >= amplitudeThreshold opts
 
 ------------------------------------------------------------------------------
 sampleKDE :: ClusterlessOpts -> ClusterlessPoint -> NotClust -> Field
@@ -194,7 +194,7 @@ sampleKDE ClusterlessOpts{..} point points =
       distExponent p = (1 / ) $
                        exp((-1) * (pointDistSq p point :: Double)/(2*kernelVariance))
       expField :: ClusterlessPoint -> Field
-      expField  p    = V.map (** distExponent p) (pField p)
+      expField  p    = V.map (** distExponent p) (_pField p)
 --      scaledField :: Field -> Field
 --      scaledField p  = V.map (/ (V.sum p)) p
   in L.foldl1' (V.zipWith (*)) $ map (normalize . expField) nearbyPoints
