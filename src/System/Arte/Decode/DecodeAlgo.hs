@@ -53,7 +53,7 @@ runClusterReconstruction rTauSec dsT h = do
         resetClusteredSpikeCounts clusteredTrodes
         tNow <- getCurrentTime
         maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
-        putStrLn $ showPosterior estimate tNow
+--        putStrLn $ showPosterior estimate tNow
         wait delay
         go fields
       fields0 = [] -- TODO: fix. (locks up if clusteredReconstrution doesn't
@@ -92,7 +92,7 @@ gt0 = V.map (\x -> if x > 0 then x else 0.1)
 ------------------------------------------------------------------------------
 normalize :: Field -> Field
 normalize f = let fieldSum = V.foldl' (+) 0 f
-                  coef = 1/ max 0.1 fieldSum
+                  coef = 1/fieldSum
               in  V.map (*coef) f
 {-# INLINE normalize #-}
 
@@ -153,9 +153,10 @@ runClusterlessReconstruction rOpts rTauSec dsT h = go
                               (Map.elems $ ds^.trodes._Clusterless) $
                               (stepTrode rOpts)
 --            trodeEstimates <- return [emptyField]
---            print . head $ trodeEstimates
-            let !fieldProduct = L.foldl1' (V.zipWith (*)) trodeEstimates
-            atomically . writeTVar (ds^.decodedPos) $ normalize fieldProduct
+--            print . head .tail $ trodeEstimates
+            let !fieldProduct = collectFields trodeEstimates
+            atomically . writeTVar (ds^.decodedPos) .  normalize $ fieldProduct
+          putStrLn ""
           wait timer
           go
   
@@ -176,15 +177,30 @@ stepTrode opts trode' = do
 
     return $ (map fst3 spikesTimes,kde)
 
---  putStrLn $ "KDE size: " ++ show (length . KDMap.toList $ kde)
-  return $ L.foldl' (V.zipWith (*)) emptyField $
+  putStr $ show (length $ filter amp spikes) ++ "/" ++
+    show (length spikes) ++ " spikes. " 
+--    ++ show (map (\s -> length $ allInRange (sqrt $ cutoffDist2 defaultClusterlessOpts) s kde)
+--          (filter amp spikes))
+  return . collectFields $ 
     map (\s -> sampleKDE opts s kde) (filter amp spikes)
---    map (const emptyField) (filter amp spikes)
+
   where fst3 (a,_,_) = a
         snd3 (_,b,_) = b
         trd3 (_,_,c) = c
         amp  p       = U.maximum (_pAmplitude p) >= amplitudeThreshold opts
 
+
+sampleKDE :: ClusterlessOpts -> ClusterlessPoint -> NotClust -> Field
+sampleKDE ClusterlessOpts{..} point points =
+  let closestP = closest point points
+  in maybe emptyField (_pField . fst) closestP
+
+collectFields :: [Field] -> Field
+collectFields = normalize . V.map (exp)
+                . L.foldl' (V.zipWith (+)) zerosField
+                . map (V.map log)
+
+{-
 ------------------------------------------------------------------------------
 sampleKDE :: ClusterlessOpts -> ClusterlessPoint -> NotClust -> Field
 sampleKDE ClusterlessOpts{..} point points =
@@ -193,11 +209,13 @@ sampleKDE ClusterlessOpts{..} point points =
       distExponent p = (1 / ) $
                        exp((-1) * (pointDistSq p point :: Double)/(2*kernelVariance))
       expField :: ClusterlessPoint -> Field
-      expField  p    = V.map (** distExponent p) (_pField p)
+--      expField  p    = V.map (** distExponent p) (_pField p)
+      expField  p    = _pField p
 --      scaledField :: Field -> Field
 --      scaledField p  = V.map (/ (V.sum p)) p
-  in L.foldl' (V.zipWith (*)) emptyField $ map (normalize . expField) nearbyPoints
-
+  in bound 0.1 1000 $
+     L.foldl' (V.zipWith (*)) emptyField $ map (normalize . bound 0.1 1000 . expField) nearbyPoints
+-}
 
 ------------------------------------------------------------------------------
 data ClusterlessOpts = ClusterlessOpts {
@@ -208,4 +226,16 @@ data ClusterlessOpts = ClusterlessOpts {
   } deriving (Eq, Show)
 
 defaultClusterlessOpts :: ClusterlessOpts
-defaultClusterlessOpts =  ClusterlessOpts (200e-6) ((50e-6)^2) 200e-6 8e-6
+defaultClusterlessOpts =  ClusterlessOpts (200e-6) ((50e-6)^2) (20e-6) (20e-6)
+
+
+
+------------------------------------------------------------------------------
+unZero :: Double -> Field -> Field
+unZero baseline f = V.map (max baseline) f
+
+unInf :: Double -> Field -> Field
+unInf ceil f = V.map (min ceil) f
+
+bound :: Double -> Double -> Field -> Field
+bound l h = unInf h . unZero l

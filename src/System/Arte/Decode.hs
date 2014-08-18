@@ -27,6 +27,7 @@ import qualified Data.Vector                        as V
 import qualified Data.Vector.Unboxed                as U
 import           Graphics.Gloss
 import           Graphics.Gloss.Interface.IO.Game
+import qualified Graphics.Gloss.Data.Color          as Color
 import           Pipes
 import           Pipes.RealTime
 import           System.Console.CmdArgs
@@ -89,7 +90,7 @@ draw _ ds = do
       posPicture = drawPos p
       drawOpt :: TrodeDrawOption
       drawOpt = focusCursor ds
-      optsPicture = scale 10 10 $
+      optsPicture = translate (150) (-300) . scale 10 10 $
                     drawDrawOptionsState ds
 
   (field,overlay) <- case drawOpt of
@@ -117,20 +118,41 @@ draw _ ds = do
               (scale 0.2 0.2 $ Text "NoPoint",
                drawNormalizedField (labelField track emptyField))
             Just cp ->
-              let k        = sampleKDE defaultClusterlessOpts cp (kd^.dtNotClust)
-                  closestP = fromMaybe cp $ fst <$> closest cp (kd^.dtNotClust)
-                  
-              in (drawClusterlessPoint xC yC tNow (closestP,(MostRecentTime tNow)),
+              let k           = sampleKDE defaultClusterlessOpts cp (kd^.dtNotClust)
+                  closestP    = fromMaybe cp $ fst <$> closest cp (kd^.dtNotClust)
+                  psInRange   = map fst $ allInRange
+                                (sqrt $ cutoffDist2 defaultClusterlessOpts)
+                                cp (kd^.dtNotClust)
+                  selectColor = Color.makeColor 0 1 0 0.5
+              in (Pictures $ [drawClusterlessPoint xC yC tNow (closestP,(MostRecentTime tNow)),
+                              color (Color.makeColor 1 0 0 0.1) $
+                              pointAtSize xC yC cp (sqrt $ cutoffDist2 defaultClusterlessOpts)
+                             ] ++ (map (\pt -> color selectColor $
+                                               pointAtSize xC yC pt 1e-6) psInRange),
                   drawNormalizedField $ labelField track (closestP^.pField))
 --               (pointAtSize xC yC cp 50e-6,
 --                drawNormalizedField (labelField track k))
                  
-      let n = (\pt -> length $ allInRange
-                      (sqrt $ cutoffDist2 defaultClusterlessOpts) pt
-                     (kd^.dtNotClust))
-              <$> (ds^.samplePoint)
+      let inRng :: ClusterlessPoint -> [ClusterlessPoint]
+          inRng pt = map fst $ allInRange
+                     (sqrt $ cutoffDist2 defaultClusterlessOpts) pt
+                     (kd^.dtNotClust)
+
+          n       = (length . inRng) <$> ds^.samplePoint
+          f'      = (show . collectFields
+                    . map (\r -> sampleKDE defaultClusterlessOpts r (kd^.dtNotClust))
+                    . take 1 . inRng)
+                    <$> ds^.samplePoint
+          sampStr = fromMaybe "" f'
+          sampFld = (normalize . collectFields
+                     . map (\r -> bound 0.01 0.9 $ r ^. pField)
+                     . take 100 . inRng)
+                    <$> (ds^.samplePoint)
+          sampPic = maybe (Text "Nothing") (drawNormalizedField . labelField track) sampFld
+          sampLab = maybe (Text "Nothing") (labelNormalizedField . labelField track . V.map log) sampFld
       putStrLn $ show n ++ " in range of " ++ show (length $ toList (kd^.dtNotClust))
-      return $ (sampFieldPic,
+--      putStrLn $ "kde sample Max: " ++ sampStr
+      return $ ( pictures [sampPic,sampLab], -- sampFieldPic,
                 pictures [treePic
                          , translate treeTranslate treeTranslate
                            . scale treeScale treeScale
@@ -295,7 +317,7 @@ main = do
 runGloss :: DecoderArgs -> TVar DecoderState -> TQueue ArteMessage -> IO ()
 runGloss opts dsT fromMaster = do
   ds <- initialState opts
-  playIO (InWindow "ArteDecoder" (500,500) (10,10))
+  playIO (InWindow "ArteDecoder" (700,700) (10,10))
     white 30 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
 
 pos0 :: Position

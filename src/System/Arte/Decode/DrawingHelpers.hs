@@ -58,7 +58,7 @@ treeScale :: Float
 treeScale = 2e6
 
 treeTranslate :: Float
-treeTranslate = (-200)
+treeTranslate = (-300)
 
 
 ------------------------------------------------------------------------------
@@ -87,7 +87,7 @@ pointAtSize
   :: XChan -> YChan -> ClusterlessPoint -> Double -> Picture
 pointAtSize (XChan x) (YChan y) cP s =
   translate (r2 $ pointD cP (Depth x)) (r2 $ pointD cP (Depth y)) $
-  circle (r2 s)
+  circleSolid (r2 s)
 
 ------------------------------------------------------------------------------
 drawTree

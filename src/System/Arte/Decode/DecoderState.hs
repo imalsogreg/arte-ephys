@@ -42,7 +42,7 @@ data DecoderState = DecoderState
 ------------------------------------------------------------------------------
 -- TODO: Make decode general on tracks and kernels.
 track :: Track
-track = circularTrack (0,0) 0.57 0.5 0.25 0.2
+track = circularTrack (0,0) 0.57 0.5 0.25 0.3
 kernel :: PosKernel
 --kernel = PosDelta
 kernel  = PosGaussian 0.2
@@ -57,6 +57,9 @@ emptyField :: Field
 emptyField = let l = V.length trackBins0
              in  V.replicate l (1 / fromIntegral l)
 
+zerosField :: Field
+zerosField = let l = V.length trackBins0
+             in V.replicate l 0
 
 ------------------------------------------------------------------------------
 $(makeLenses ''DecoderState)
