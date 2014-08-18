@@ -12,8 +12,6 @@ import           Control.Lens
 import           Control.Monad
 import qualified Data.List                as L
 import qualified Data.Map.Strict          as Map
-import           Data.Map.Strict          (unionWith,unionsWith)
-import           Data.Ord
 import           Data.Time.Clock
 import qualified Data.Vector.Unboxed      as U
 import qualified Data.Vector              as V
@@ -58,7 +56,8 @@ runClusterReconstruction rTauSec dsT h = do
         putStrLn $ showPosterior estimate tNow
         wait delay
         go fields
-      fields0 = [] -- Will this work? (if you don't handle that case in clusteredReconstruction, no!)
+      fields0 = [] -- TODO: fix. (locks up if clusteredReconstrution doesn't
+                   --             check for exactly this case)
     in
    go fields0
 

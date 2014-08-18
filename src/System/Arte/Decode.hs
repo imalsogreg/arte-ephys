@@ -89,13 +89,13 @@ draw _ ds = do
       posPicture = drawPos p
       drawOpt :: TrodeDrawOption
       drawOpt = focusCursor ds
-      optsPicture = translate (-1) (-1) . scale 0.1 0.1 .
-                    scale 0.2 0.2 $ drawDrawOptionsState ds
+      optsPicture = scale 10 10 $
+                    drawDrawOptionsState ds
 
   (field,overlay) <- case drawOpt of
     ------------------------------------------------------------------------------
     (DrawOccupancy) -> do
-      return . (,pictures []) $  drawNormalizedField (V.zip trackBins0 occ)  -- TODO find better name tb0
+      return . (,pictures []) $  drawNormalizedField (V.zip trackBins0 occ)
     ------------------------------------------------------------------------------
     (DrawDecoding)  -> return . (,pictures []) . drawNormalizedField $
                        V.zip trackBins0
@@ -109,39 +109,41 @@ draw _ ds = do
     (DrawClusterless tName kdT (ClessDraw xC yC)) -> do
       tNow <- (ds^.toExpTime) <$> getCurrentTime
       kd   <- atomically $ readTVar kdT
-      let treePic    = drawTree xC yC tNow (kd^.dtNotClust)
-          overlayPic = translate treeTranslate treeTranslate
-                       . scale treeScale treeScale $ treePic
+      let treePic    = translate treeTranslate treeTranslate .
+                       scale treeScale treeScale $
+                       drawTree xC yC tNow (kd^.dtNotClust)
           (samplePtPic,sampFieldPic) = case (ds^.samplePoint) of
             Nothing ->
-              (Pictures [],
-               Pictures [drawNormalizedField (labelField track emptyField)
-                        ,scale 0.2 0.2 $ Text "No Field"])
+              (scale 0.2 0.2 $ Text "NoPoint",
+               drawNormalizedField (labelField track emptyField))
             Just cp ->
-              let k = sampleKDE defaultClusterlessOpts cp (kd^.dtNotClust)
-              in (pointAtSize xC yC cp 50e-6,
-                  drawNormalizedField (labelField track k))
-      let n = (\pt -> length $ allInRange (sqrt $ cutoffDist2 defaultClusterlessOpts) pt
-                     (kd^.dtNotClust)) <$> (ds^.samplePoint)
+              let k        = sampleKDE defaultClusterlessOpts cp (kd^.dtNotClust)
+                  closestP = fromMaybe cp $ fst <$> closest cp (kd^.dtNotClust)
+                  
+              in (drawClusterlessPoint xC yC tNow (closestP,(MostRecentTime tNow)),
+                  drawNormalizedField $ labelField track (closestP^.pField))
+--               (pointAtSize xC yC cp 50e-6,
+--                drawNormalizedField (labelField track k))
+                 
+      let n = (\pt -> length $ allInRange
+                      (sqrt $ cutoffDist2 defaultClusterlessOpts) pt
+                     (kd^.dtNotClust))
+              <$> (ds^.samplePoint)
       putStrLn $ show n ++ " in range of " ++ show (length $ toList (kd^.dtNotClust))
       return $ (sampFieldPic,
-                pictures [(scale 0.2 0.2 $
-                                       Text ("Clustless " ++ show tName))
-                                     , translate treeTranslate treeTranslate
-                                       . scale treeScale treeScale
-                                       $ treePic
-                                     , translate treeTranslate treeTranslate
-                                       . scale treeScale treeScale
-                                       $ samplePtPic])
+                pictures [treePic
+                         , translate treeTranslate treeTranslate
+                           . scale treeScale treeScale
+                           $ samplePtPic])
     ------------------------------------------------------------------------------
     (DrawError e) -> do
       print $ "Draw was told to print DrawError" ++ e
       return $ (pictures [] , scale 50 50 $ Text e)
     ------------------------------------------------------------------------------
   --threadDelay 30000
-  return $ pictures (overlay :
+  return $ pictures (overlay : optsPicture :
                      (map $ scale 200 200 )
-                     [posPicture, trackPicture, field, optsPicture ])
+                     [posPicture, trackPicture, field])
 
 
 ------------------------------------------------------------------------------

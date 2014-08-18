@@ -45,7 +45,7 @@ track :: Track
 track = circularTrack (0,0) 0.57 0.5 0.25 0.2
 kernel :: PosKernel
 --kernel = PosDelta
-kernel  = PosGaussian 0.05
+kernel  = PosGaussian 0.2
 
 ------------------------------------------------------------------------------
 trackBins0 :: V.Vector TrackPos
