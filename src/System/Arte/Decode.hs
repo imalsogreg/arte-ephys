@@ -109,8 +109,10 @@ draw _ ds = do
     (DrawClusterless tName kdT (ClessDraw xC yC)) -> do
       tNow <- (ds^.toExpTime) <$> getCurrentTime
       kd   <- atomically $ readTVar kdT
-      let treePic = drawTree xC yC tNow (kd^.dtNotClust)
-          (samplePtPic :: Picture,sampField) = case (ds^.samplePoint) of
+      let treePic    = drawTree xC yC tNow (kd^.dtNotClust)
+          overlayPic = translate treeTranslate treeTranslate
+                       . scale treeScale treeScale $ treePic
+          (samplePtPic,sampFieldPic) = case (ds^.samplePoint) of
             Nothing ->
               (Pictures [],
                Pictures [drawNormalizedField (labelField track emptyField)
@@ -122,7 +124,7 @@ draw _ ds = do
       let n = (\pt -> length $ allInRange (sqrt $ cutoffDist2 defaultClusterlessOpts) pt
                      (kd^.dtNotClust)) <$> (ds^.samplePoint)
       putStrLn $ show n ++ " in range of " ++ show (length $ toList (kd^.dtNotClust))
-      return $ (sampField,
+      return $ (sampFieldPic,
                 pictures [(scale 0.2 0.2 $
                                        Text ("Clustless " ++ show tName))
                                      , translate treeTranslate treeTranslate
@@ -136,7 +138,7 @@ draw _ ds = do
       print $ "Draw was told to print DrawError" ++ e
       return $ (pictures [] , scale 50 50 $ Text e)
     ------------------------------------------------------------------------------
-  threadDelay 30000
+  --threadDelay 30000
   return $ pictures (overlay :
                      (map $ scale 200 200 )
                      [posPicture, trackPicture, field, optsPicture ])
