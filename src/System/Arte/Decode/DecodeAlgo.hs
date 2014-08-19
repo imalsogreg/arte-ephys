@@ -152,8 +152,6 @@ runClusterlessReconstruction rOpts rTauSec dsT h = go
             !trodeEstimates <- forM
                               (Map.elems $ ds^.trodes._Clusterless) $
                               (stepTrode rOpts)
---            trodeEstimates <- return [emptyField]
---            print . head .tail $ trodeEstimates
             let !fieldProduct = collectFields trodeEstimates
             atomically . writeTVar (ds^.decodedPos) .  normalize $ fieldProduct
           putStrLn ""
@@ -177,17 +175,15 @@ stepTrode opts trode' = do
 
     return $ (map fst3 spikesTimes,kde)
 
-  putStr $ show (length $ filter amp spikes) ++ "/" ++
+  putStr $ show (length $ filter okAmp spikes) ++ "/" ++
     show (length spikes) ++ " spikes. " 
---    ++ show (map (\s -> length $ allInRange (sqrt $ cutoffDist2 defaultClusterlessOpts) s kde)
---          (filter amp spikes))
   return . collectFields $ 
-    map (\s -> sampleKDE opts s kde) (filter amp spikes)
+    map (\s -> sampleKDE opts s kde) (filter okAmp spikes)
 
   where fst3 (a,_,_) = a
         snd3 (_,b,_) = b
         trd3 (_,_,c) = c
-        amp  p       = U.maximum (_pAmplitude p) >= amplitudeThreshold opts
+        okAmp  p     = U.maximum (_pAmplitude p) >= amplitudeThreshold opts
 
 
 sampleKDE :: ClusterlessOpts -> ClusterlessPoint -> NotClust -> Field
@@ -226,7 +222,7 @@ data ClusterlessOpts = ClusterlessOpts {
   } deriving (Eq, Show)
 
 defaultClusterlessOpts :: ClusterlessOpts
-defaultClusterlessOpts =  ClusterlessOpts (200e-6) ((50e-6)^2) (20e-6) (20e-6)
+defaultClusterlessOpts =  ClusterlessOpts (200e-6) ((50e-6)^2) (20e-6) (10e-6)
 
 
 
