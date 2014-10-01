@@ -55,7 +55,7 @@ import           System.Arte.NetMessage
 import           System.Arte.Decode.Algorithm
 import           System.Arte.Decode.Config
 import           System.Arte.Decode.Graphics
-import           System.Arte.Decode.Histogram
+import qualified System.Arte.Decode.Histogram as H
 import           System.Arte.Decode.Types
 
 
@@ -87,6 +87,9 @@ draw _ ds = do
   !p    <- readTVarIO $ ds^.pos
   !occ  <- readTVarIO $ ds^.occupancy
   !dPos <- readTVarIO $ ds^.decodedPos
+
+  eHist <- readTVarIO $ ds^.encodeProf
+  dHist <- readTVarIO $ ds^.decodeProf
 
   let !trackPicture = drawTrack defTrack
       !posPicture = drawPos p
@@ -164,7 +167,9 @@ draw _ ds = do
       return $ (pictures [] , scale 50 50 $ Text e)
     ------------------------------------------------------------------------------
   --threadDelay 30000
-  return $ pictures (overlay : optsPicture :
+  let encodeHistPic = translate 200 200 $ drawHistogram (100,50) eHist
+      decodeHistPic = translate 200 50   $ drawHistogram (100,50) dHist
+  return $ pictures (overlay : optsPicture : encodeHistPic : decodeHistPic :
                      (map $ scale 200 200 )
                      [posPicture, trackPicture, field])
 
@@ -462,7 +467,8 @@ updatePos dsT p = let trackPos' = posToField defTrack p kernel in
 ------------------------------------------------------------------------------
 fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
                       Position -> Field -> TrodeSpike -> Maybe Handle -> IO ()
-fanoutSpikeToCells ds trodeName trode pos trackPos spike p = do
+fanoutSpikeToCells ds trodeName trode pos trackPos spike p =
+ H.timeAction (ds^.encodeProf) $ do
   flip F.mapM_ (trode^.dUnits) $ \dpcT -> do
     DecodablePlaceCell pc tauN <- readTVarIO dpcT
     when (spikeInCluster (pc^.cluster) spike) $ do
@@ -473,9 +479,11 @@ fanoutSpikeToCells ds trodeName trode pos trackPos spike p = do
       tNow <- getCurrentTime
       atomically $ writeTVar dpcT $ DecodablePlaceCell pc' tauN'
       tNow2 <- getCurrentTime
---      when (doLog && (floor (utctDayTime tNow) `mod` 100 == 0)) $ BS.appendFile "spikes.txt" (toBS spike tNow)
+--      when (doLog && (floor (utctDayTime tNow) `mod` 100 == 0)) $
+--        BS.appendFile "spikes.txt" (toBS spike tNow)
       when (isJust p) $ maybe (return ()) (flip BS.hPutStrLn (toBS spike tNow tNow2)) p
---      when (doLog && (floor (utctDayTime tNow) `mod` 20 == 0)) $ modifyMVar (ds^.logData) (flip BS.append (toBS spike tNow))
+--      when (doLog && (floor (utctDayTime tNow) `mod` 20 == 0)) $
+--        modifyMVar (ds^.logData) (flip BS.append (toBS spike tNow))
 {-# INLINE fanoutSpikeToCells #-}
 
 toBS :: TrodeSpike -> UTCTime -> UTCTime -> BS.ByteString
@@ -512,9 +520,9 @@ fanoutSpikesToTrodes dsT sQueue logSpikesH = forever $ do
 clusterlessAddSpike :: DecoderState -> TrodeName -> Position -> Field
                     -> TrodeSpike -> Maybe Handle -> IO ()
 clusterlessAddSpike ds tName p tPos spike log =
-  case Map.lookup tName (ds^.trodes._Clusterless :: Map.Map TrodeName (TVar ClusterlessTrode)) of
+  case Map.lookup tName (ds^.trodes._Clusterless) of
     Nothing -> putStrLn "Orphan spike"
-    Just t' -> do
+    Just t' -> H.timeAction (ds^.encodeProf) $ do
       atomically $ do
         tPos <- readTVar (ds^.trackPos)
         let forKDE = (p^.speed) >= runningThresholdSpeed

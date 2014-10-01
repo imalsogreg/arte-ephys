@@ -5,6 +5,8 @@
 module System.Arte.Decode.Histogram where
 
 import           Control.Lens
+import           Control.Concurrent.STM
+import           Data.Time
 import qualified Data.Vector  as V
 
 data Histogram a = Histogram {
@@ -13,6 +15,17 @@ data Histogram a = Histogram {
   }
                    
 $(makeLenses ''Histogram)
+
+
+------------------------------------------------------------------------------
+timeAction :: TVar (Histogram Double) -> IO a -> IO a
+timeAction h action = do
+  t0   <- getCurrentTime
+  a <- action
+  tNow <- getCurrentTime
+  atomically $ modifyTVar h (flip insert (realToFrac $ diffUTCTime tNow t0))
+  return a
+
 
 ------------------------------------------------------------------------------
 edgesToCenters :: Fractional a => V.Vector a -> V.Vector a
@@ -47,7 +60,7 @@ sampleBin h x =
       floatIndex = (x - (h^.bins) V.! 0) / dBin
   in if   floatIndex < 0
      then Nothing
-     else Just $ max
+     else Just $ min
           (V.length (h^.counts) - 1) (floor floatIndex)
 
 

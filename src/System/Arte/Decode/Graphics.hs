@@ -1,6 +1,7 @@
 module System.Arte.Decode.Graphics where
 
 ------------------------------------------------------------------------------
+import           Control.Applicative
 import           Control.Concurrent.STM
 import           Control.Lens
 import qualified Data.CircularList                as CL
@@ -93,16 +94,31 @@ pointColor tNow (MostRecentTime t) = Color.makeColor r g b 1
 
 ------------------------------------------------------------------------------
 drawHistogram :: (Float,Float) -> Histogram Double -> Picture
-drawHistogram (sizeX,sizeY) h =
-  translate (-sizeX/2) 0 $ scale xScale yScale $ unscaledBars
+drawHistogram (sizeX,sizeY) h = Pictures [
+  translate (-sizeX/2) 0 $ scale xScale yScale $ unscaledBars,
+  translate 0 (-20) . scale 0.1 0.1            $ Text report
+  ]
+  --rectangleSolid 10 10
   --Pictures . V.toList $ V.zipWith drawBar inds (h^.counts)
   where
-    inds  = V.generate (nBins - 1) id :: V.Vector Int
-    nBins = V.length $ h^.counts
+    cnt     = V.sum $ h^.counts :: Int
+    mean    = (/fI cnt) . V.sum $ V.zipWith (*) (realToFrac <$> h^.counts) (realToFrac <$> h^.bins)
+    report  = unwords ["Mean: ", show mean, " Cnt:", show cnt]
+    
+    nBins   = V.length $ h^.counts
+    inds    = V.generate nBins id :: V.Vector Int
     drawBar :: Int -> Int -> Picture
-    drawBar i c = translate (fI i+0.5) (fI c/2) $ rectangleSolid 1 (fI c)
-    unscaledBars = Pictures . V.toList $ V.zipWith drawBar inds (h^.counts)
+--    drawBar i c = translate (fI i+0.5) (fI c/2) $ rectangleSolid 1 (fI c)
+    drawBar i c = translate (fI i+0.5) ((log $fI c)/2) $ rectangleSolid 1 (log $ fI c)
+    unscaledBars =
+      Pictures $
+--      rectangleWire 10 20 :
+--      scale 0.010 0.10  (Text (show . V.toList $ h^.counts)) :
+      V.toList (V.zipWith drawBar inds (h^.counts))
+      
     xScale = sizeX / fI nBins
-    yScale = sizeY / (fI . V.maximum $ h^.counts)
+    yScale = sizeY / (log $ fI . V.maximum $ h^.counts)
+
+
 fI :: Int -> Float
 fI = fromIntegral
