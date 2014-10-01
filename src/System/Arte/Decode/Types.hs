@@ -22,6 +22,8 @@ import           Data.Ephys.Position
 import           Data.Map.KDMap
 import           System.Arte.Decode.Histogram
 
+-- TODO: This module would be a lot clearer with some organization
+
 ------------------------------------------------------------------------------
 data DecoderState = DecoderState
                     { _pos           :: TVar Position
@@ -72,6 +74,11 @@ data ClusterlessTrode = ClusterlessTrode
 
 data Trodes = Clusterless (Map.Map TrodeName (TVar ClusterlessTrode))
             | Clustered   (Map.Map TrodeName PlaceCellTrode)
+
+
+
+------------------------------------------------------------------------------
+type TrodeCollection a = Map.Map TrodeName (Map.Map PlaceCellName a)
 
 
 ------------------------------------------------------------------------------

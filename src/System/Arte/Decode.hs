@@ -88,7 +88,7 @@ draw _ ds = do
   !occ  <- readTVarIO $ ds^.occupancy
   !dPos <- readTVarIO $ ds^.decodedPos
 
-  let !trackPicture = drawTrack track
+  let !trackPicture = drawTrack defTrack
       !posPicture = drawPos p
       !drawOpt = focusCursor ds
       !optsPicture = translate (150) (-300) . scale 10 10 $
@@ -97,27 +97,28 @@ draw _ ds = do
   (!field,!overlay) <- case drawOpt of
     ------------------------------------------------------------------------------
     !DrawOccupancy -> do
-      return . (,pictures []) $  drawNormalizedField (V.zip trackBins0 occ)
+      return . (,pictures []) $
+        drawNormalizedField (V.zip (trackBins0 defTrack) occ)
     ------------------------------------------------------------------------------
     !DrawDecoding  -> return . (,pictures []) . drawNormalizedField $
-                       V.zip trackBins0
+                       V.zip (trackBins0 defTrack)
                        (V.map (\v -> if v > 0.05 then v - 0.05 else 0) dPos)
     ------------------------------------------------------------------------------
     !(DrawPlaceCell n dUnit') -> do
       dUnit <- readTVarIO dUnit'
       return . (,pictures []) . drawNormalizedField $
-        (V.zip trackBins0 $ placeField (dUnit^.dpCell) occ)
+        (V.zip (trackBins0 defTrack) $ placeField (dUnit^.dpCell) occ)
     ------------------------------------------------------------------------------
-    (DrawClusterless tName kdT (ClessDraw xC yC)) -> do
+    (DrawClusterless tName kdT (ClessDraw xChan yChan)) -> do
       tNow <- (ds^.toExpTime) <$> getCurrentTime
       kd   <- atomically $ readTVar kdT
-      let treePic    = translate treeTranslate treeTranslate .
+      let treePic    = uncurry translate treeTranslate .
                        scale treeScale treeScale $
-                       drawTree xC yC tNow (kd^.dtNotClust)
+                       drawTree xChan yChan tNow (kd^.dtNotClust)
           (samplePtPic,sampFieldPic) = case (ds^.samplePoint) of
             Nothing ->
               (scale 0.2 0.2 $ Text "NoPoint",
-               drawNormalizedField (labelField track emptyField))
+               drawNormalizedField (labelField defTrack (emptyField defTrack)))
             Just cp ->
               let k           = sampleKDE defaultClusterlessOpts cp (kd^.dtNotClust)
                   closestP    = fromMaybe cp $ fst <$> closest cp (kd^.dtNotClust)
@@ -125,14 +126,13 @@ draw _ ds = do
                                 (sqrt $ cutoffDist2 defaultClusterlessOpts)
                                 cp (kd^.dtNotClust)
                   selectColor = Color.makeColor 0 1 0 0.5
-              in (Pictures $ [drawClusterlessPoint xC yC tNow (closestP,(MostRecentTime tNow)),
+              in (Pictures $ [drawClusterlessPoint xChan yChan tNow (closestP,(MostRecentTime tNow)),
                               color (Color.makeColor 1 0 0 0.1) $
-                              pointAtSize xC yC cp (sqrt $ cutoffDist2 defaultClusterlessOpts)
+                              pointAtSize xChan yChan cp (sqrt $ cutoffDist2 defaultClusterlessOpts)
                              ] ++ (map (\pt -> color selectColor $
-                                               pointAtSize xC yC pt 1e-6) psInRange),
-                  drawNormalizedField $ labelField track (closestP^.pField))
---               (pointAtSize xC yC cp 50e-6,
---                drawNormalizedField (labelField track k))
+                                               pointAtSize xChan yChan pt 1e-6) psInRange),
+                  drawNormalizedField $ labelField defTrack (closestP^.pField))
+
                  
       let inRng :: ClusterlessPoint -> [ClusterlessPoint]
           inRng pt = map fst $ allInRange
@@ -149,13 +149,13 @@ draw _ ds = do
                      . map (\r -> bound 0.01 0.9 $ r ^. pField)
                      . take 100 . inRng)
                     <$> (ds^.samplePoint)
-          sampPic = maybe (Text "Nothing") (drawNormalizedField . labelField track) sampFld
-          sampLab = maybe (Text "Nothing") (labelNormalizedField . labelField track . V.map log) sampFld
+          sampPic = maybe (Text "Nothing") (drawNormalizedField . labelField defTrack) sampFld
+          sampLab = maybe (Text "Nothing") (labelNormalizedField . labelField defTrack . V.map log) sampFld
       putStrLn $ show n ++ " in range of " ++ show (length $ toList (kd^.dtNotClust))
 --      putStrLn $ "kde sample Max: " ++ sampStr
       return $ ( pictures [sampPic,sampLab], -- sampFieldPic,
                 pictures [treePic
-                         , translate treeTranslate treeTranslate
+                         , uncurry translate treeTranslate
                            . scale treeScale treeScale
                            $ samplePtPic])
     ------------------------------------------------------------------------------
@@ -236,7 +236,7 @@ main = do
                   p <- await
                   lift . atomically $ do
                     occ <- readTVar (ds^.occupancy)
-                    let posField = posToField track p kernel
+                    let posField = posToField defTrack p kernel
                     writeTVar (ds'^.pos) p
                     writeTVar (ds'^.trackPos)  posField
                     when (p^.speed > runningThresholdSpeed)
@@ -275,7 +275,7 @@ main = do
                 case clusters' of
                   Left e -> error $ unwords ["Error in clusters from file",cbFilePath,":",e]
                   Right clusters -> do
-                    setTrodeClusters track dsT tName clusters
+                    setTrodeClusters defTrack dsT tName clusters
                     ds' <- readTVarIO dsT
                     case Map.lookup tName (ds'^.trodes._Clustered) of
                       Nothing -> error $ unwords ["Shouldn't happen, couldn't find",tName]
@@ -315,7 +315,7 @@ runGloss :: DecoderArgs -> TVar DecoderState -> TQueue ArteMessage -> IO ()
 runGloss opts dsT fromMaster = do
   ds <- initialState opts
   playIO (InWindow "ArteDecoder" (700,700) (10,10))
-    white 100 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
+    white 100 ds (draw dsT) (glossInputs dsT) (stepIO defTrack fromMaster dsT)
 
 pos0 :: Position
 pos0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
@@ -348,7 +348,7 @@ glossInputs dsT e ds =
          (ClessDraw (XChan cX) (YChan cY))) ->
           let (treeX, treeY) = screenToTree (mouseX, mouseY)
               p'  = fromMaybe ((ClusterlessPoint
-                                (U.fromList [0,0,0,0]) 1000 emptyField))
+                                (U.fromList [0,0,0,0]) 1000 (emptyField defTrack)))
                                (ds^.samplePoint)
               p   = Just ((p' & pAmplitude . ix cX .~ r2 treeX) &
                            pAmplitude . ix cY .~ r2 treeY )
@@ -451,7 +451,7 @@ addClusterlessTrode dsT tName = do
 
 ------------------------------------------------------------------------------
 updatePos :: TVar DecoderState -> Position -> IO ()
-updatePos dsT p = let trackPos' = posToField track p kernel in
+updatePos dsT p = let trackPos' = posToField defTrack p kernel in
   atomically $ do
     ds <- readTVar dsT
     modifyTVar' (ds^.occupancy) (updateField (+) trackPos')

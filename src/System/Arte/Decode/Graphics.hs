@@ -37,23 +37,25 @@ drawDrawOptionsState ds =
 
 
 
+
+
 treeScale :: Float
 treeScale = 2e6
 
-treeTranslate :: Float
-treeTranslate = (-300)
+treeTranslate :: (Float,Float)
+treeTranslate = (-300,-300)
 
 
 ------------------------------------------------------------------------------
 screenToTree :: (Float, Float) -> (Float, Float)
 screenToTree (x,y) =
-  ((x-treeTranslate)/treeScale, (y-treeTranslate)/treeScale)
+  ((x- fst treeTranslate)/treeScale, (y- snd treeTranslate)/treeScale)
 
 
 ------------------------------------------------------------------------------
 treeToScreen :: (Float,Float) -> (Float, Float)
 treeToScreen (x,y) =
-  (x * treeScale + treeTranslate, y * treeScale + treeTranslate)
+  (x * treeScale + fst treeTranslate, y * treeScale + snd treeTranslate)
 
 
 ------------------------------------------------------------------------------

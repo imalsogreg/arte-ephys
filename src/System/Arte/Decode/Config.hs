@@ -24,25 +24,25 @@ import           System.Arte.Decode.Histogram
 
 ------------------------------------------------------------------------------
 -- TODO: Make decode general on tracks and kernels.
-track :: Track
-track = circularTrack (0,0) 0.57 0.5 0.25 0.3
+defTrack :: Track
+defTrack = circularTrack (0,0) 0.57 0.5 0.25 0.3
 kernel :: PosKernel
 --kernel = PosDelta
 kernel  = PosGaussian 0.2
 
 ------------------------------------------------------------------------------
-trackBins0 :: V.Vector TrackPos
-trackBins0 = allTrackPos track
+trackBins0 :: Track -> V.Vector TrackPos
+trackBins0 t = allTrackPos t
 
 
 ------------------------------------------------------------------------------
-emptyField :: Field
-emptyField = let l = V.length trackBins0
-             in  V.replicate l (1 / fromIntegral l)
+emptyField :: Track -> Field
+emptyField track = let l = V.length $ trackBins0 track
+                   in  V.replicate l (1 / fromIntegral l)
 
-zerosField :: Field
-zerosField = let l = V.length trackBins0
-             in V.replicate l 0
+zerosField :: Track -> Field
+zerosField track = let l = V.length $ trackBins0 track
+                   in  V.replicate l 0
 
 ------------------------------------------------------------------------------
 $(makeLenses ''DecoderState)
@@ -51,7 +51,7 @@ $(makeLenses ''DecoderState)
 ------------------------------------------------------------------------------
 initialState :: DecoderArgs -> IO DecoderState
 initialState DecoderArgs{..} = do
-  let zeroField = V.replicate (V.length $ allTrackPos track) 0
+  let zeroField = V.replicate (V.length $ allTrackPos defTrack) 0
       p0        = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
                   ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
       sZ        = take 15 (repeat 0)

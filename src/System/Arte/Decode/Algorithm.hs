@@ -33,15 +33,10 @@ pcFieldRate occ field = V.zipWith (/) field occ
 
 
 ------------------------------------------------------------------------------
-type TrodeCollection a = Map.Map TrodeName (Map.Map PlaceCellName a)
-
-
-------------------------------------------------------------------------------
 runClusterReconstruction :: Double ->
                       TVar DecoderState -> Maybe Handle -> 
                       IO ()
 runClusterReconstruction rTauSec dsT h = do
---  print "RUN CLUSTER RECONSTRUCTION"
   ds <- readTVarIO $ dsT
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
@@ -190,7 +185,7 @@ stepTrode opts trode' = do
 ------------------------------------------------------------------------------
 collectFields :: [Field] -> Field
 collectFields = normalize . V.map (exp)
-                . L.foldl' (V.zipWith (+)) zerosField
+                . L.foldl' (V.zipWith (+)) (zerosField defTrack)
                 . map (V.map log)
 
 
