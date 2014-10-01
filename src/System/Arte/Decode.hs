@@ -5,6 +5,7 @@
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TupleSections             #-}
 {-# LANGUAGE RecordWildCards           #-}
+{-# LANGUAGE BangPatterns              #-}
 
 module System.Arte.Decode where
 
@@ -51,10 +52,11 @@ import           System.Arte.FileUtils
 import           System.Arte.Net
 import           System.Arte.NetMessage
 ------------------------------------------------------------------------------
-import           System.Arte.Decode.DecodeAlgo
-import           System.Arte.Decode.DecoderDefs
-import           System.Arte.Decode.DecoderState
-import           System.Arte.Decode.DrawingHelpers
+import           System.Arte.Decode.Algorithm
+import           System.Arte.Decode.Config
+import           System.Arte.Decode.Graphics
+import           System.Arte.Decode.Histogram
+import           System.Arte.Decode.Types
 
 
 ------------------------------------------
@@ -82,27 +84,26 @@ atCursor ds = trodeDrawOpt . ix (ds^.trodeInd) . ix (ds^.clustInd)
 draw :: TVar DecoderState -> DecoderState -> IO Picture
 draw _ ds = do
 
-  p    <- readTVarIO $ ds^.pos
-  occ  <- readTVarIO $ ds^.occupancy
-  dPos <- readTVarIO $ ds^.decodedPos
+  !p    <- readTVarIO $ ds^.pos
+  !occ  <- readTVarIO $ ds^.occupancy
+  !dPos <- readTVarIO $ ds^.decodedPos
 
-  let trackPicture = drawTrack track
-      posPicture = drawPos p
-      drawOpt :: TrodeDrawOption
-      drawOpt = focusCursor ds
-      optsPicture = translate (150) (-300) . scale 10 10 $
+  let !trackPicture = drawTrack track
+      !posPicture = drawPos p
+      !drawOpt = focusCursor ds
+      !optsPicture = translate (150) (-300) . scale 10 10 $
                     drawDrawOptionsState ds
 
-  (field,overlay) <- case drawOpt of
+  (!field,!overlay) <- case drawOpt of
     ------------------------------------------------------------------------------
-    (DrawOccupancy) -> do
+    !DrawOccupancy -> do
       return . (,pictures []) $  drawNormalizedField (V.zip trackBins0 occ)
     ------------------------------------------------------------------------------
-    (DrawDecoding)  -> return . (,pictures []) . drawNormalizedField $
+    !DrawDecoding  -> return . (,pictures []) . drawNormalizedField $
                        V.zip trackBins0
                        (V.map (\v -> if v > 0.05 then v - 0.05 else 0) dPos)
     ------------------------------------------------------------------------------
-    (DrawPlaceCell n dUnit') -> do
+    !(DrawPlaceCell n dUnit') -> do
       dUnit <- readTVarIO dUnit'
       return . (,pictures []) . drawNormalizedField $
         (V.zip trackBins0 $ placeField (dUnit^.dpCell) occ)
@@ -318,7 +319,7 @@ runGloss :: DecoderArgs -> TVar DecoderState -> TQueue ArteMessage -> IO ()
 runGloss opts dsT fromMaster = do
   ds <- initialState opts
   playIO (InWindow "ArteDecoder" (700,700) (10,10))
-    white 30 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
+    white 100 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
 
 pos0 :: Position
 pos0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
@@ -642,3 +643,5 @@ initialState DecoderArgs{..} = do
     <*> pure False
     <*> pure (\t -> startExperimentTime + realToFrac (diffUTCTime t t0))
     <*> pure Nothing
+    <*> newTVarIO (mkHistogram (0,0.5) 100)
+    <*> newTVarIO (mkHistogram (0,0.5) 100)

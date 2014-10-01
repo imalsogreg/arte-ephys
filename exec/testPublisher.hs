@@ -3,10 +3,6 @@
 
 module Main where
 
-import System.Arte.DataPublisher
-import System.Arte.Net
-import System.Arte.CommandPort
-
 import Control.Applicative
 import System.Environment
 import Control.Concurrent
@@ -28,6 +24,10 @@ import Network
 import Options.Applicative
 import System.Posix
 import System.IO
+
+import System.Arte.DataPublisher
+import System.Arte.Net
+import System.Arte.CommandPort
 
 data Opts = Opts
             { server :: Bool

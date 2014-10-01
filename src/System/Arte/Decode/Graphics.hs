@@ -1,4 +1,4 @@
-module System.Arte.Decode.DrawingHelpers where
+module System.Arte.Decode.Graphics where
 
 ------------------------------------------------------------------------------
 import           Control.Concurrent.STM
@@ -11,8 +11,8 @@ import           Graphics.Gloss.Interface.IO.Game
 import           Data.Map.KDMap
 import           Data.Ephys.EphysDefs
 import           Data.Ephys.GlossPictures
-import           System.Arte.Decode.DecoderDefs
-import           System.Arte.Decode.DecoderState
+import           System.Arte.Decode.Types
+import           System.Arte.Decode.Config
 
 
 ------------------------------------------------------------------------------

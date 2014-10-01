@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
-module System.Arte.Decode.DecoderState where
+module System.Arte.Decode.Config where
 
 ------------------------------------------------------------------------------
 import           Control.Applicative
@@ -19,24 +19,10 @@ import           Data.Ephys.Position            (Angle (..), Location (..),
 import           Data.Ephys.TrackPosition       (Field, PosKernel (..),
                                                  Track (..), TrackPos (..),
                                                  allTrackPos, circularTrack)
-import           System.Arte.Decode.DecoderDefs 
+import           System.Arte.Decode.Types
+import           System.Arte.Decode.Histogram
 
 
-------------------------------------------------------------------------------
-data DecoderState = DecoderState
-                    { _pos           :: TVar Position
-                    , _trackPos      :: TVar (Field)
-                    , _occupancy     :: TVar (Field)
-                    , _maybeunused   :: TVar (Field)
-                    , _trodes        :: Trodes
-                    , _decodedPos    :: TVar (Field)
-                    , _trodeDrawOpt  :: TrodeDrawOptions
-                    , _trodeInd      :: Int
-                    , _clustInd      :: Int
-                    , _drawKDESample :: Bool
-                    , _toExpTime     :: UTCTime -> Double
-                    , _samplePoint   :: Maybe ClusterlessPoint
-                    }
 
                     
 ------------------------------------------------------------------------------

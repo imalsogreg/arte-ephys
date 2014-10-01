@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns    #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module System.Arte.Decode.DecodeAlgo where
+module System.Arte.Decode.Algorithm where
 
 ------------------------------------------------------------------------------
 import           Control.Applicative
@@ -17,13 +17,13 @@ import qualified Data.Vector.Unboxed      as U
 import qualified Data.Vector              as V
 import           System.IO
 ------------------------------------------------------------------------------
-import           System.Arte.Decode.DecoderDefs
-import           System.Arte.Decode.DecoderState
 import           Data.Ephys.EphysDefs
 import           Data.Map.KDMap
 import qualified Data.Map.KDMap                   as KDMap
 import           Data.Ephys.PlaceCell
 import           Data.Ephys.TrackPosition
+import           System.Arte.Decode.Types
+import           System.Arte.Decode.Config
 
 
 ------------------------------------------------------------------------------
@@ -179,24 +179,19 @@ stepTrode opts trode' = do
     show (length spikes) ++ " spikes. " 
   return . collectFields $ 
     map (\s -> sampleKDE opts s kde) (filter okAmp spikes)
-
   where fst3 (a,_,_) = a
         snd3 (_,b,_) = b
         trd3 (_,_,c) = c
         okAmp  p     = U.maximum (_pAmplitude p) >= amplitudeThreshold opts
 
 
-sampleKDE :: ClusterlessOpts -> ClusterlessPoint -> NotClust -> Field
-sampleKDE ClusterlessOpts{..} point points =
-  let closestP = closest point points
-  in maybe emptyField (_pField . fst) closestP
-
+------------------------------------------------------------------------------
 collectFields :: [Field] -> Field
 collectFields = normalize . V.map (exp)
                 . L.foldl' (V.zipWith (+)) zerosField
                 . map (V.map log)
 
-{-
+
 ------------------------------------------------------------------------------
 sampleKDE :: ClusterlessOpts -> ClusterlessPoint -> NotClust -> Field
 sampleKDE ClusterlessOpts{..} point points =
@@ -205,13 +200,20 @@ sampleKDE ClusterlessOpts{..} point points =
       distExponent p = (1 / ) $
                        exp((-1) * (pointDistSq p point :: Double)/(2*kernelVariance))
       expField :: ClusterlessPoint -> Field
---      expField  p    = V.map (** distExponent p) (_pField p)
-      expField  p    = _pField p
+      expField  p    = V.map (** distExponent p) (_pField p)
+--      expField  p    = _pField p
 --      scaledField :: Field -> Field
 --      scaledField p  = V.map (/ (V.sum p)) p
-  in bound 0.1 1000 $
-     L.foldl' (V.zipWith (*)) emptyField $ map (normalize . bound 0.1 1000 . expField) nearbyPoints
--}
+--  in bound 0.1 1000 $
+--     L.foldl' (V.zipWith (*)) emptyField $ map (normalize . bound 0.1 1000 . expField) nearbyPoints
+  in normalize . collectFields . map expField $ nearbyPoints
+
+
+------------------------------------------------------------------------------
+closenessFromSample :: ClusterlessOpts -> ClusterlessPoint -> ClusterlessPoint
+                       -> Double
+closenessFromSample ClusterlessOpts{..} pointA pointB =
+  exp((-1) * ((pointDistSq pointA pointB)/(2 *kernelVariance)))
 
 ------------------------------------------------------------------------------
 data ClusterlessOpts = ClusterlessOpts {

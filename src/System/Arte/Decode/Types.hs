@@ -3,24 +3,43 @@
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module System.Arte.Decode.DecoderDefs where
+module System.Arte.Decode.Types where
 
 ------------------------------------------------------------------------------
 import           Control.Concurrent.STM.TVar
 import           Control.Lens
 import qualified Data.Map.Strict as Map
 import           Data.Monoid
+import           Data.Time
 import qualified Data.Vector         as V
 import qualified Data.Vector.Unboxed as U
 import           System.Console.CmdArgs
 ------------------------------------------------------------------------------
 import           Data.Ephys.EphysDefs
 import           Data.Ephys.TrackPosition
-import           Data.Ephys.Spike
 import           Data.Ephys.PlaceCell
+import           Data.Ephys.Position
 import           Data.Map.KDMap
+import           System.Arte.Decode.Histogram
 
+------------------------------------------------------------------------------
+data DecoderState = DecoderState
+                    { _pos           :: TVar Position
+                    , _trackPos      :: TVar (Field)
+                    , _occupancy     :: TVar (Field)
+                    , _maybeunused   :: TVar (Field)
+                    , _trodes        :: Trodes
+                    , _decodedPos    :: TVar (Field)
+                    , _trodeDrawOpt  :: TrodeDrawOptions
+                    , _trodeInd      :: Int
+                    , _clustInd      :: Int
+                    , _drawKDESample :: Bool
+                    , _toExpTime     :: UTCTime -> Double
+                    , _samplePoint   :: Maybe ClusterlessPoint
 
+                    , _encodeProf    :: TVar (Histogram Double)
+                    , _decodeProf    :: TVar (Histogram Double)
+                    }
 
 ------------------------------------------------------------------------------
 -- Placeholder.  Will be more like: KdTree (Vector Voltage) (Field Double)
@@ -76,10 +95,10 @@ instance Monoid ClusterlessPoint where
                   (_pWeight a + _pWeight b)
                   (V.zipWith weightedSum (_pField a) (_pField b))
     where
-      weightedSum x y  = let wA = _pWeight a
+      weightedSum s t  = let wA = _pWeight a
                              wB = _pWeight b
                              wR =1/ (wA + wB)
-                         in  (x*wA + y*wB) * wR
+                         in  (s*wA + t*wB) * wR
         
 instance KDKey ClusterlessPoint where
   pointD p i  = _pAmplitude p U.! (fromIntegral i)
@@ -127,13 +146,7 @@ instance Show TrodeDrawOption where
   show DrawDecoding            = "DrawDecoding"
   show (DrawError s)           = "DrawError " ++ s
 
---type TrodeDrawOptions = CL.CList (CL.CList TrodeDrawOption)
---type TrodeDrawOptions = Map.Map String (Map.Map String TrodeDrawOption)
 type TrodeDrawOptions = [[TrodeDrawOption]]
-
-
-
-
 
 $(makeLenses ''PlaceCellTrode)
 $(makeLenses ''DecodablePlaceCell)
@@ -154,10 +167,9 @@ data DecoderArgs = DecoderArgs {mwlBaseDirectory    :: FilePath
 
 decoderArgs :: DecoderArgs
 decoderArgs = DecoderArgs
-  { mwlBaseDirectory = "" &= help "Data directory when not using network data"
-  , startExperimentTime = 0 &= help "Start time when spooling from disk"
-  , doLogging = False &= help "Commit data to log files"
-  , clusterless = False &= help "Perform clusterless decoding"
+  { mwlBaseDirectory    = ""    &= help "Data directory when not from network"
+  , startExperimentTime = 0     &= help "Start time when spooling from disk"
+  , doLogging           = False &= help "Commit data to log files"
+  , clusterless         = False &= help "Perform clusterless decoding"
   }
-
 
