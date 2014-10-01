@@ -20,6 +20,14 @@ edgesToCenters edges = V.zipWith (\a b -> (a+b)/2) edges (V.tail edges)
 
 
 ------------------------------------------------------------------------------
+insert :: RealFrac a => Histogram a -> a -> Histogram a
+insert h x = case sampleBin h x of
+  Nothing -> h
+  Just i  -> let v = (h^.counts) V.! i         -- TODO, isn't there a cleaner
+             in h & counts %~ (V.// [(i,v+1)]) -- way with lens?
+
+
+------------------------------------------------------------------------------
 mkHistogram :: RealFrac a => (a,a) -> Int -> Histogram a
 mkHistogram (firstStart, lastStop) nBins =
   let dBin = (lastStop - firstStart) / fromIntegral nBins

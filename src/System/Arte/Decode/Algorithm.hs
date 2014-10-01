@@ -22,6 +22,7 @@ import           Data.Map.KDMap
 import qualified Data.Map.KDMap                   as KDMap
 import           Data.Ephys.PlaceCell
 import           Data.Ephys.TrackPosition
+import qualified System.Arte.Decode.Histogram    as H
 import           System.Arte.Decode.Types
 import           System.Arte.Decode.Config
 
@@ -45,6 +46,7 @@ runClusterReconstruction rTauSec dsT h = do
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
       go lastFields = do
+        t0 <- getCurrentTime
         delay <- async $ threadDelay (floor $ rTauSec * 1000000)
         (fields,counts) <- unzip <$> clusteredUnTVar clusteredTrodes
         occ <- readTVarIO occT
@@ -53,7 +55,8 @@ runClusterReconstruction rTauSec dsT h = do
         resetClusteredSpikeCounts clusteredTrodes
         tNow <- getCurrentTime
         maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
---        putStrLn $ showPosterior estimate tNow
+        atomically $ modifyTVar (ds^.decodeProf)
+          (flip H.insert (realToFrac $ diffUTCTime t0 tNow))
         wait delay
         go fields
       fields0 = [] -- TODO: fix. (locks up if clusteredReconstrution doesn't
@@ -108,6 +111,8 @@ clusteredUnTVar pcMap = fmap concat $ atomically . mapM trodeFields . Map.elems 
       dpc <- readTVar dpcT
       return (dpc^.dpCell.countField, dpc^.dpCellTauN)
 
+
+------------------------------------------------------------------------------
 resetClusteredSpikeCounts :: Map.Map TrodeName PlaceCellTrode
                     -> IO ()
 resetClusteredSpikeCounts clusteredTrodes = 
@@ -126,26 +131,20 @@ keyFilter p m = Map.filterWithKey (\k _ -> p k) m
 ------------------------------------------------------------------------------
 posteriorOut :: Field -> [Double]
 posteriorOut f = V.toList f
-  {-
-  map snd
-  . filter ( ((==Outbound)._trackDir) . fst)
-  . filter ( ((==InBounds)._trackEcc) . fst)
-  . L.sortBy (comparing (_binName . _trackBin . fst))
-  . Map.toList
-  $ f
--}
 
+
+------------------------------------------------------------------------------
 showPosterior :: Field -> UTCTime -> String
 showPosterior f (UTCTime _ sec) =
   (take 10 $ show sec) ++ ", " ++ L.intercalate ", " (map show $ posteriorOut f)
 
 
-
 ------------------------------------------------------------------------------
 runClusterlessReconstruction :: ClusterlessOpts -> Double -> TVar DecoderState
                              -> Maybe Handle -> IO ()
-runClusterlessReconstruction rOpts rTauSec dsT h = go
-  where go = do
+runClusterlessReconstruction rOpts rTauSec dsT h = readTVarIO dsT >>= go
+  where go ds = do
+          t0 <- getCurrentTime
           timer  <- async $ threadDelay (floor $ rTauSec * 1e6)
           do
             ds <- readTVarIO dsT
@@ -155,8 +154,11 @@ runClusterlessReconstruction rOpts rTauSec dsT h = go
             let !fieldProduct = collectFields trodeEstimates
             atomically . writeTVar (ds^.decodedPos) .  normalize $ fieldProduct
           putStrLn ""
+          tNow <- getCurrentTime
+          atomically $ modifyTVar (ds^.decodeProf)
+            (flip H.insert (realToFrac $ diffUTCTime t0 tNow))
           wait timer
-          go
+          go ds
   
 
 ------------------------------------------------------------------------------

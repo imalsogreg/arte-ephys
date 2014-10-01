@@ -293,10 +293,6 @@ main = do
                         t <- newTVarIO pcTrode
                         return (a, undefined :: TrodeDrawOption)
 
---                           (forever $ do
---                               spike <- await
---                               lift . atomically $ writeTQueue incomingSpikesChan spike)
-
           reconstructionA <-
             async $ if clusterless opts
                     then runClusterlessReconstruction
@@ -617,31 +613,3 @@ orderClusters queue cFile ttFile = do
   -- TODO: safeRead instead
 
 
-
-
-------------------------------------------------------------------------------
-initialState :: DecoderArgs -> IO DecoderState
-initialState DecoderArgs{..} = do
-  let zeroField = V.replicate (V.length $ allTrackPos track) 0
-      p0        = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
-                  ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
-      sZ        = take 15 (repeat 0)
-      clusts    = if clusterless
-                  then clistTrodes $ Clusterless Map.empty
-                  else clistTrodes $ Clusterless Map.empty
-  t0       <- getCurrentTime
-  DecoderState <$>
-    newTVarIO p0
-    <*> newTVarIO zeroField
-    <*> newTVarIO zeroField
-    <*> newTVarIO zeroField
-    <*> return (Clustered Map.empty)
-    <*> newTVarIO zeroField
-    <*> pure clusts
-    <*> pure 0
-    <*> pure 0
-    <*> pure False
-    <*> pure (\t -> startExperimentTime + realToFrac (diffUTCTime t t0))
-    <*> pure Nothing
-    <*> newTVarIO (mkHistogram (0,0.5) 100)
-    <*> newTVarIO (mkHistogram (0,0.5) 100)
