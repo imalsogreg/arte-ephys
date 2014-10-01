@@ -550,7 +550,8 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
     Clusterless _ -> error "Tried to set cluster in a clusterless context"
     Clustered tMap -> do
       dsNewClusts <- case Map.lookup trodeName tMap of
-        -- if trode doesn't exist, make a new one.  there's no history, so make an empty history
+        -- if trode doesn't exist, make a new one.  there's no history,
+        -- so make an empty history
         -- and build a new place cell from that empty history
         Nothing      -> do
           dpc' <- newTVar $
