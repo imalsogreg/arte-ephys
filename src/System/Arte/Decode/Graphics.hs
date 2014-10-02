@@ -5,6 +5,7 @@ import           Control.Applicative
 import           Control.Concurrent.STM
 import           Control.Lens
 import qualified Data.CircularList                as CL
+import qualified Data.List                        as L
 import qualified Data.Map.Strict                  as Map
 import qualified Data.Vector                      as V
 import qualified Graphics.Gloss.Data.Color        as Color
@@ -96,24 +97,25 @@ pointColor tNow (MostRecentTime t) = Color.makeColor r g b 1
 drawHistogram :: (Float,Float) -> Histogram Double -> Picture
 drawHistogram (sizeX,sizeY) h = Pictures [
   translate (-sizeX/2) 0 $ scale xScale yScale $ unscaledBars,
-  translate 0 (-20) . scale 0.1 0.1            $ Text report
+  translate (-sizeX/2) (-20) . scale 0.1 0.1            $ Text report
   ]
-  --rectangleSolid 10 10
-  --Pictures . V.toList $ V.zipWith drawBar inds (h^.counts)
   where
     cnt     = V.sum $ h^.counts :: Int
     mean    = (/fI cnt) . V.sum $ V.zipWith (*) (realToFrac <$> h^.counts) (realToFrac <$> h^.bins)
-    report  = unwords ["Mean: ", show mean, " Cnt:", show cnt]
-    
+    report  = unwords ["Mean: ", showWithUnit mean
+                      ," Max:", showWithUnit tMax
+                      ," Cnt:", showWithUnit (fI cnt)]
     nBins   = V.length $ h^.counts
     inds    = V.generate nBins id :: V.Vector Int
     drawBar :: Int -> Int -> Picture
---    drawBar i c = translate (fI i+0.5) (fI c/2) $ rectangleSolid 1 (fI c)
-    drawBar i c = translate (fI i+0.5) ((log $fI c)/2) $ rectangleSolid 1 (log $ fI c)
+    tMax = let nonEmptyBins = V.filter ((>0) . fst) $ V.zip (h^.counts) (h^.bins)
+           in  case V.length nonEmptyBins of
+             0 -> 0
+             _ -> snd $ V.last nonEmptyBins
+    drawBar i c = translate (fI i+0.5) ((log $fI c)/2) $
+                  rectangleSolid 1 (log $ fI c)
     unscaledBars =
       Pictures $
---      rectangleWire 10 20 :
---      scale 0.010 0.10  (Text (show . V.toList $ h^.counts)) :
       V.toList (V.zipWith drawBar inds (h^.counts))
       
     xScale = sizeX / fI nBins
@@ -122,3 +124,13 @@ drawHistogram (sizeX,sizeY) h = Pictures [
 
 fI :: Int -> Float
 fI = fromIntegral
+
+showWithUnit :: (RealFrac a, Show a) => a -> String
+showWithUnit x
+  | x > 1000 = (pad3 . show $ floor (x/1000)) ++ "kSec"
+  | x > 1    = (pad3 . show $ floor x)        ++ "sec"
+  | x > 1e-3 = (pad3 . show $ floor (x*1000)) ++ "ms"
+  | x > 1e-6 = (pad3 . show $ floor (x*1e6))  ++ "us"
+  | x > 1e-9 = (pad3 . show $ floor (x*1e9))  ++ "ns"
+  | otherwise = show x
+  where pad3 s = L.replicate (length s - 3) ' ' ++ s

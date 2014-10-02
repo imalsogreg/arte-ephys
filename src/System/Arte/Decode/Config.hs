@@ -72,8 +72,8 @@ initialState DecoderArgs{..} = do
     <*> pure False
     <*> pure (\t -> startExperimentTime + realToFrac (diffUTCTime t t0))
     <*> pure Nothing
-    <*> newTVarIO (mkHistogram (0,0.001) 20)
-    <*> newTVarIO (mkHistogram (0,0.01) 20)
+    <*> newTVarIO (mkHistogram (0,0.005) 20)
+    <*> newTVarIO (mkHistogram (0,0.05) 20)
 
 
 ------------------------------------------------------------------------------

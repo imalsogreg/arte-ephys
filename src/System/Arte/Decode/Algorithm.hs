@@ -138,7 +138,7 @@ runClusterlessReconstruction :: ClusterlessOpts -> Double -> TVar DecoderState
 runClusterlessReconstruction rOpts rTauSec dsT h = readTVarIO dsT >>= go
   where go ds = do
           timer  <- async $ threadDelay (floor $ rTauSec * 1e6)
-          H.timeAction (ds^.decodeProf) $ do
+          do
             !trodeEstimates <- forM
                               (Map.elems $ ds^.trodes._Clusterless) $
                               (stepTrode rOpts)
@@ -149,16 +149,17 @@ runClusterlessReconstruction rOpts rTauSec dsT h = readTVarIO dsT >>= go
   
 
 ------------------------------------------------------------------------------
+-- TODO: Fix order. This add spikes then decodes.
+--       Should decode, then add spikes
 stepTrode :: ClusterlessOpts -> TVar ClusterlessTrode -> IO Field
 stepTrode opts trode' = do
-  (spikes,kde) <- atomically $ do
-
+  
+  (spikes,kde) <- atomically $ do -- TODO timeEvent encodeProf here
     trode <- readTVar trode'
     let spikesTimes = (trode^.dtTauN)
     let kde = (trode^.dtNotClust)
         f m k = KDMap.add m (kdClumpThreshold opts) (fst3 k) (snd3 k)
         spikesForField  = filter trd3 spikesTimes
-
     writeTVar trode' $
       ClusterlessTrode (L.foldl' f  kde spikesForField) []
 
@@ -166,8 +167,10 @@ stepTrode opts trode' = do
 
   putStr $ show (length $ filter okAmp spikes) ++ "/" ++
     show (length spikes) ++ " spikes. " 
-  return . collectFields $ 
+
+  return . collectFields $   -- TODO timeEvent decodeProf here
     map (\s -> sampleKDE opts s kde) (filter okAmp spikes)
+
   where fst3 (a,_,_) = a
         snd3 (_,b,_) = b
         trd3 (_,_,c) = c
