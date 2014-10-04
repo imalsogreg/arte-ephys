@@ -1,7 +1,7 @@
 arte-ephys
 ==========
 
-[![Build Status](https://secure.travis-ci.org/ImAlsoGreg/arte-ephys.png)](http://travis-ci.org/ImAlsoGreg/arte-ephys)
+[![Build Status](https://travis-ci.org/imalsogreg/arte-ephys.svg?branch=master)](https://travis-ci.org/imalsogreg/arte-ephys)
 
 Soft realtime electrophysiology setup
 
