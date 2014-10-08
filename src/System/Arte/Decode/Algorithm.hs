@@ -138,7 +138,7 @@ runClusterlessReconstruction :: ClusterlessOpts -> Double -> TVar DecoderState
 runClusterlessReconstruction rOpts rTauSec dsT h = readTVarIO dsT >>= go
   where go ds = do
           timer  <- async $ threadDelay (floor $ rTauSec * 1e6)
-          do
+          H.timeAction (ds^.decodeProf) $ do
             !trodeEstimates <- forM
                               (Map.elems $ ds^.trodes._Clusterless) $
                               (stepTrode rOpts)
