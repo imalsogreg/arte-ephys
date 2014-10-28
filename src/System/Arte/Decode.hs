@@ -80,6 +80,7 @@ focusCursor ds = fromMaybe (DrawError "Couldn't index at cursor") $
 
 atCursor ds = trodeDrawOpt . ix (ds^.trodeInd) . ix (ds^.clustInd)
 
+
 ------------------------------------------------------------------------------
 draw :: TVar DecoderState -> DecoderState -> IO Picture
 draw _ ds = do
