@@ -34,6 +34,7 @@ import           Pipes.RealTime
 import           System.Console.CmdArgs
 import           System.Directory
 import           System.IO
+import           System.Mem (performGC)
 ------------------------------------------------------------------------------
 import           Data.Ephys.Cluster
 import           Data.Ephys.EphysDefs
@@ -269,7 +270,8 @@ main = do
                       ds2  <- lift . atomically $ readTVar dsT
                       pos2 <- lift . atomically $ readTVar (ds^.trackPos)
                       p    <- lift . atomically $ readTVar (ds^.pos)
-                      lift $ clusterlessAddSpike ds2 tName p pos2 spike logSpikes
+                      when (clessKeepSpike spike) $
+                        lift (clusterlessAddSpike ds2 tName p pos2 spike logSpikes)
                       return ()
                   )
                 return (a, undefined) -- DrawClusterless trodeTVar)
@@ -317,6 +319,15 @@ main = do
           _ <- wait reconstructionA
           return ()
 
+------------------------------------------------------------------------------
+clessKeepSpike :: TrodeSpike -> Bool
+clessKeepSpike s = amp && wid
+  where
+    opt = defaultClusterlessOpts
+    amp = V.maximum (spikeAmplitudes s) >= amplitudeThreshold opt
+    wid = spikeWidth s                  >= spikeWidthThreshold opt
+
+    
 runGloss :: DecoderArgs -> TVar DecoderState -> TQueue ArteMessage -> IO ()
 runGloss opts dsT fromMaster = do
   ds <- initialState opts
@@ -426,6 +437,7 @@ handleRequests queue dsT track = do
               return ()
 -}
 
+------------------------------------------------------------------------------
 setTrodeClusters :: Track -> TVar DecoderState -> TrodeName
                     -> Map.Map PlaceCellName ClusterMethod -> IO ()
 setTrodeClusters track dsT trodeName clusts  =
