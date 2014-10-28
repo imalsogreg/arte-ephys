@@ -112,7 +112,7 @@ drawHistogram (sizeX,sizeY) h = Pictures [
            in  case V.length nonEmptyBins of
              0 -> 0
              _ -> snd $ V.last nonEmptyBins
-    drawBar i c = translate (fI i+0.5) ((log $fI c)/2) $
+    drawBar i c = translate (fI i+0.5) ((log $ fI c)/2) $
                   rectangleSolid 1 (log $ fI c)
     unscaledBars =
       Pictures $

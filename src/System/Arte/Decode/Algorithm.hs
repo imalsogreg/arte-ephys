@@ -16,6 +16,7 @@ import           Data.Time.Clock
 import qualified Data.Vector.Unboxed      as U
 import qualified Data.Vector              as V
 import           System.IO
+import           System.Mem (performGC)
 ------------------------------------------------------------------------------
 import           Data.Ephys.EphysDefs
 import           Data.Map.KDMap
@@ -113,8 +114,6 @@ resetClusteredSpikeCounts clusteredTrodes =
   where resetOneTrode t = mapM_ resetOneCell (Map.elems . _dUnits $ t)
         resetOneCell pc = modifyTVar pc $ dpCellTauN .~ 0
 
-liftTC :: (a -> b) -> TrodeCollection a -> TrodeCollection b
-liftTC f tca = Map.map (Map.map f) tca
 
 
 ------------------------------------------------------------------------------
@@ -144,6 +143,7 @@ runClusterlessReconstruction rOpts rTauSec dsT h = readTVarIO dsT >>= go
                               (stepTrode rOpts)
             let !fieldProduct = collectFields trodeEstimates
             atomically . writeTVar (ds^.decodedPos) .  normalize $ fieldProduct
+          performGC
           wait timer
           go ds
   
@@ -166,7 +166,9 @@ stepTrode opts trode' = do
     return $ (map fst3 spikesTimes,kde)
 
   putStr $ show (length $ filter okAmp spikes) ++ "/" ++
-    show (length spikes) ++ " spikes. " 
+    show (length spikes) ++ " spikes. "
+
+  hFlush stdout
 
   return . collectFields $   -- TODO timeEvent decodeProf here
     map (\s -> sampleKDE opts s kde) (filter okAmp spikes)
@@ -209,14 +211,16 @@ closenessFromSample ClusterlessOpts{..} pointA pointB =
 
 ------------------------------------------------------------------------------
 data ClusterlessOpts = ClusterlessOpts {
-    kernelVariance     :: !Double
-  , cutoffDist2        :: !Double
-  , amplitudeThreshold :: !Voltage
-  , kdClumpThreshold   :: !Double
+    kernelVariance      :: !Double
+  , cutoffDist2         :: !Double
+  , amplitudeThreshold  :: !Voltage
+  , spikeWidthThreshold :: !Int
+  , kdClumpThreshold    :: !Double
   } deriving (Eq, Show)
 
 defaultClusterlessOpts :: ClusterlessOpts
-defaultClusterlessOpts =  ClusterlessOpts (200e-6) ((50e-6)^2) (20e-6) (10e-6)
+defaultClusterlessOpts =
+  ClusterlessOpts (200e-6) ((60e-6)^(2::Int)) (40e-6) 12 (90e-6)
 
 
 
@@ -229,3 +233,8 @@ unInf ceil f = V.map (min ceil) f
 
 bound :: Double -> Double -> Field -> Field
 bound l h = unInf h . unZero l
+
+
+-- unused
+liftTC :: (a -> b) -> TrodeCollection a -> TrodeCollection b
+liftTC f tca = Map.map (Map.map f) tca
