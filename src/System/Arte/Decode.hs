@@ -294,10 +294,12 @@ main = do
                           relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
                           (forever $ do
                               spike <- await
-                              ds2 <- lift . atomically $ readTVar dsT
-                              pos2 <- lift . atomically $ readTVar (ds^.trackPos)
-                              p    <- lift . atomically $ readTVar (ds^.pos)
-                              lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike logSpikes)
+                              let minWid = spikeWidthThreshold defaultClusterlessOpts
+                              when (spikeWidth spike >= minWid) $ do
+                                ds2 <- lift . atomically $ readTVar dsT
+                                pos2 <- lift . atomically $ readTVar (ds^.trackPos)
+                                p    <- lift . atomically $ readTVar (ds^.pos)
+                                lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike logSpikes)
                         t <- newTVarIO pcTrode
                         return (a, undefined :: TrodeDrawOption)
 
