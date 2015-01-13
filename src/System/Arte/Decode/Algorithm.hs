@@ -229,8 +229,12 @@ data ClusterlessOpts = ClusterlessOpts {
 
 defaultClusterlessOpts :: ClusterlessOpts
 defaultClusterlessOpts =
-  ClusterlessOpts (200e-6) ((60e-6)^(2::Int)) (40e-6) 13 (90e-6)
-
+  ClusterlessOpts { kernelVariance      = 200e-6
+                  , cutoffDist2         = (60e-6)^(2::Int)
+                  , amplitudeThreshold  = 40e-6
+                  , spikeWidthThreshold = 10
+                  , kdClumpThreshold    = 8e-6
+                  }
 
 
 ------------------------------------------------------------------------------
