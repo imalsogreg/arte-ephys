@@ -33,6 +33,7 @@ import           Pipes
 import           Pipes.RealTime
 import           System.Console.CmdArgs
 import           System.Directory
+import           System.Exit                        (exitSuccess)
 import           System.IO
 import           System.Mem (performGC)
 ------------------------------------------------------------------------------
@@ -351,8 +352,9 @@ glossInputs :: TVar DecoderState -> Event -> DecoderState -> IO DecoderState
 glossInputs dsT e ds =
   let drawOpt = focusCursor ds in
   case e of
-    EventMotion _ -> return ds
-    EventKey (SpecialKey k) Up _ _ ->
+    EventMotion _                       -> return ds
+    EventKey (SpecialKey KeyEsc) Up _ _ -> exitSuccess
+    EventKey (SpecialKey k)      Up _ _ ->
       let f = case k of
             KeyRight -> (trodeInd %~ succ) . (clustInd .~ 0)
             KeyLeft  -> (trodeInd %~ pred) . (clustInd .~ 0)
