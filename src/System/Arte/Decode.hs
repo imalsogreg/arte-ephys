@@ -91,8 +91,8 @@ draw _ ds = do
   !occ  <- readTVarIO $ ds^.occupancy
   !dPos <- readTVarIO $ ds^.decodedPos
 
-  eHist <- readTVarIO $ ds^.encodeProf
-  dHist <- readTVarIO $ ds^.decodeProf
+  eHist <- translate (-200) 100    <$> makeHistogramScreenPic (ds^.encodeProf) 100 50
+  dHist <- translate (-200) (-100) <$> makeHistogramScreenPic (ds^.decodeProf) 100 50
 
   let !trackPicture = trackToScreen $ drawTrack defTrack
       !posPicture   = trackToScreen $ drawPos p
@@ -108,7 +108,7 @@ draw _ ds = do
     cl@(DrawClusterless _ _ _)  -> mkClusterlessScreenPic cl ds
     DrawError e -> return . scale 50 50 $ text e
 
-  return $ Pictures [trackPicture, posPicture, optsPicture, selectionPic]
+  return $ Pictures [trackPicture, posPicture, optsPicture, selectionPic, eHist, dHist]
 
 {-
   (!field,!overlay) <- case drawOpt of

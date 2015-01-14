@@ -6,6 +6,7 @@ module System.Arte.Decode.Config where
 
 ------------------------------------------------------------------------------
 import           Control.Applicative
+import           Control.Concurrent.STM
 import           Control.Concurrent.STM.TVar
 import           Control.Lens
 import qualified Data.Map.Strict                as Map
@@ -72,8 +73,8 @@ initialState DecoderArgs{..} = do
     <*> pure False
     <*> pure (\t -> startExperimentTime + realToFrac (diffUTCTime t t0))
     <*> pure Nothing
-    <*> newTVarIO (mkHistogram (0,0.005) 20)
-    <*> newTVarIO (mkHistogram (0,0.05) 20)
+    <*> atomically (mkHistogram (0,0.005) 20)
+    <*> atomically (mkHistogram (0,0.05) 20)
 
 
 ------------------------------------------------------------------------------

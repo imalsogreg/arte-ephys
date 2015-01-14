@@ -3,8 +3,11 @@ module System.Arte.Decode.Graphics where
 ------------------------------------------------------------------------------
 import           Control.Applicative
 import           Control.Concurrent.STM
+import qualified Control.Concurrent.STM.TArray    as T
 import           Control.Lens
+import qualified Data.Array.MArray                as M
 import qualified Data.CircularList                as CL
+import qualified Data.Foldable                    as F
 import qualified Data.List                        as L
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromMaybe, catMaybes)
@@ -12,6 +15,7 @@ import           Data.Time
 import qualified Data.Vector                      as V
 import qualified Graphics.Gloss.Data.Color        as Color
 import           Graphics.Gloss.Interface.IO.Game
+import           Safe                             (headMay)
 ------------------------------------------------------------------------------
 import           Data.Map.KDMap
 import           Data.Ephys.EphysDefs
@@ -135,36 +139,36 @@ pointColor tNow (MostRecentTime t) = Color.makeColor r g b 1
 
 
 ------------------------------------------------------------------------------
-histogramPic :: (Float,Float) -> Histogram Double -> Picture
-histogramPic (sizeX,sizeY) h = Pictures [
-  translate (-sizeX/2) 0 $ scale xScale yScale $ unscaledBars,
-  translate (-sizeX/2) (-20) . scale 0.1 0.1            $ Text report
-  ]
-  where
-    cnt     = V.sum $ h^.counts :: Int
-    mean    = (/fI cnt) . V.sum $ V.zipWith (*) (realToFrac <$> h^.counts)
-              (realToFrac <$> h^.bins)
-    report  = unwords ["Mean: ", showWithUnit mean
-                      ," Max:", showWithUnit tMax
-                      ," Cnt:", showWithUnit (fI cnt)]
-    nBins   = V.length $ h^.counts
-    inds    = V.generate nBins id :: V.Vector Int
-    drawBar :: Int -> Int -> Picture
-    tMax = let nonEmptyBins = V.filter ((>0) . fst) $
-                              V.zip (h^.counts) (h^.bins)
-           in  case V.length nonEmptyBins of
-             0 -> 0
-             _ -> snd $ V.last nonEmptyBins
-    drawBar i c = translate (fI i+0.5) ((log $ fI c)/2) $
-                  rectangleSolid 1 (log $ fI c)
-    unscaledBars =
-      Pictures $
-      V.toList (V.zipWith drawBar inds (h^.counts))
-      
-    xScale = sizeX / fI nBins
-    yScale = sizeY / (log $ fI . V.maximum $ h^.counts)
+makeHistogramScreenPic :: Histogram Double -> Float -> Float -> IO Picture
+makeHistogramScreenPic h sizeX sizeY = do
+  cnts <- atomically $ M.getElems (h^.counts)
+  return $ Pictures [ scaledBars cnts, reportPic cnts ]
+    where
+      nBins       = length
+      totalCnt    = sum  :: [Int] -> Int
+      mean cnts   = (/fI (max 1 $ totalCnt cnts)) . sum $
+                    zipWith (*)
+                    (fromIntegral <$> cnts)
+                    (realToFrac <$> (V.toList $ h^.binEdges))
+      mode cnts   = let m      = maximum cnts
+                        mPairs = filter ((==m) . fst)
+                                 (zip cnts . map r2 . V.toList $ h^.binEdges)
+                    in maybe 0 snd (headMay mPairs)
+      report cnts = unwords ["Mean: ", showWithUnit (mean cnts)
+                            ," Max:" , showWithUnit (mode cnts :: Float)
+                            ," Cnt:" , showWithUnit (fI $ nBins cnts)
+                            ]
+      reportPic cnts = scale 0.1 0.1 . text $ report cnts
+      cntToHeight cnts y = log (fI y) * sizeY / log (fI $ maximum cnts)
+      barWidth    cnts   = sizeX / (fromIntegral (nBins cnts))
+      barLeft     cnts i = barWidth cnts * fromIntegral i + barWidth cnts / 2
+      oneBarPic   cnts i c = let barH = cntToHeight cnts c
+                             in translate (barLeft cnts i) (barH/2) $
+                                rectangleSolid (barWidth cnts) barH
+      scaledBars cnts = Pictures $
+                        zipWith (oneBarPic cnts) [0..nBins cnts - 1] cnts
 
-
+------------------------------------------------------------------------------
 fI :: Int -> Float
 fI = fromIntegral
 

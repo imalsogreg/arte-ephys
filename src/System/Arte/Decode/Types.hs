@@ -39,8 +39,8 @@ data DecoderState = DecoderState
                     , _toExpTime     :: UTCTime -> Double
                     , _samplePoint   :: Maybe ClusterlessPoint
 
-                    , _encodeProf    :: TVar (Histogram Double)
-                    , _decodeProf    :: TVar (Histogram Double)
+                    , _encodeProf    :: Histogram Double
+                    , _decodeProf    :: Histogram Double
                     }
 
 ------------------------------------------------------------------------------
