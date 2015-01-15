@@ -4,18 +4,10 @@ module System.Arte.Tracker.Types where
 
 import           Control.Applicative
 import           Control.Concurrent.STM
-import           Control.Monad
 import           Data.Aeson
-import           Data.Aeson.Encode
-import           Data.Aeson.Parser
-import           Data.Aeson.Types
-import           Data.Aeson.TH
-import qualified Data.ByteString.Lazy as BS
-import           Data.Data
 import qualified Data.Foldable        as F
 import qualified Data.Map             as M
 import qualified Data.Traversable     as T
-import           Data.Typeable
 import qualified System.IO.Streams    as Streams
 import           Codec.Picture
 import           GHC.Generics
