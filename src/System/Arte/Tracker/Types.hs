@@ -1,4 +1,9 @@
-{-# LANGUAGE DeriveDataTypeable, DeriveGeneric, GeneralizedNewtypeDeriving, DeriveFunctor, ScopedTypeVariables #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 
 module System.Arte.Tracker.Types where
 
@@ -109,7 +114,7 @@ instance Show Camera where
   show (Camera _ _ _) = "Camera <frameSource> <TVar image> <TVar CamPos>"
 
 data TrackerState = TrackerState {
-  tsCamGroups :: M.Map CamGroupName (CamGroup Camera)
+  tsCamGroups :: CamGroups Camera
   } deriving (Show)
 
 ------------------------------------------------------------------------------
