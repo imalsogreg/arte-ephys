@@ -19,8 +19,8 @@ install:
 
 script:
  - cabal-1.18 sandbox init
- - git clone https://github.com/ImAlsoGreg/haskell-tetrode-ephys.git
- - cabal-1.18 sandbox add-source haskell-tetrode-ephys
+ - git clone https://github.com/ImAlsoGreg/tetrode-ephys.git
+ - cabal-1.18 sandbox add-source tetrode-ephys
  - cabal-1.18 install --only-dependencies --enable-tests --enable-benchmarks
  - cabal-1.18 configure
  - cabal-1.18 build
