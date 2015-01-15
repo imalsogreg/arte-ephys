@@ -175,10 +175,10 @@ stepTrode opts trode' = do
 
     return $ (map fst3 spikesTimes,kde)
 
-  putStr $ show (length $ filter okAmp spikes) ++ "/" ++
-    show (length spikes) ++ " spikes. "
+--  putStr $ show (length $ filter okAmp spikes) ++ "/" ++
+--    show (length spikes) ++ " spikes. "
 
-  hFlush stdout
+--  hFlush stdout
 
   return . collectFields $   -- TODO timeEvent decodeProf here
     map (\s -> sampleKDE opts s kde) (filter okAmp spikes)
@@ -230,8 +230,12 @@ data ClusterlessOpts = ClusterlessOpts {
 
 defaultClusterlessOpts :: ClusterlessOpts
 defaultClusterlessOpts =
-  ClusterlessOpts (200e-6) ((60e-6)^(2::Int)) (40e-6) 13 (90e-6)
-
+  ClusterlessOpts { kernelVariance      = 200e-6
+                  , cutoffDist2         = (60e-6)^(2::Int)
+                  , amplitudeThreshold  = 40e-6
+                  , spikeWidthThreshold = 13
+                  , kdClumpThreshold    = 8e-6
+                  }
 
 
 ------------------------------------------------------------------------------

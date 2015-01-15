@@ -3,25 +3,32 @@ module System.Arte.Decode.Graphics where
 ------------------------------------------------------------------------------
 import           Control.Applicative
 import           Control.Concurrent.STM
+import qualified Control.Concurrent.STM.TArray    as T
 import           Control.Lens
+import qualified Data.Array.MArray                as M
 import qualified Data.CircularList                as CL
+import qualified Data.Foldable                    as F
 import qualified Data.List                        as L
 import qualified Data.Map.Strict                  as Map
+import           Data.Maybe                       (fromMaybe, catMaybes)
+import           Data.Time
 import qualified Data.Vector                      as V
 import qualified Graphics.Gloss.Data.Color        as Color
 import           Graphics.Gloss.Interface.IO.Game
+import           Safe                             (headMay)
 ------------------------------------------------------------------------------
 import           Data.Map.KDMap
 import           Data.Ephys.EphysDefs
+import           Data.Ephys.TrackPosition
 import           Data.Ephys.GlossPictures
 import           System.Arte.Decode.Types
 import           System.Arte.Decode.Config
 import           System.Arte.Decode.Histogram
-
+import           System.Arte.Decode.Algorithm
 
 ------------------------------------------------------------------------------
-drawDrawOptionsState :: DecoderState -> Picture
-drawDrawOptionsState ds =
+drawOptionsStatePic :: DecoderState -> Picture
+drawOptionsStatePic ds =
   let filledCol = ds^.trodeInd
       filledRow = ds^.clustInd
       drawCol :: Int -> [TrodeDrawOption] -> Picture
@@ -38,49 +45,87 @@ drawDrawOptionsState ds =
   in  pictures $ zipWith drawCol [0..nOpts-1] optsList
 
 
-
-
-
-treeScale :: Float
-treeScale = 2e6
-
-treeTranslate :: (Float,Float)
-treeTranslate = (-300,-300)
+------------------------------------------------------------------------------
+mkClusterlessScreenPic :: TrodeDrawOption -> DecoderState -> IO Picture
+mkClusterlessScreenPic (DrawClusterless tName kdT (ClessDraw x y)) ds =
+  do
+    tNow <- (ds^.toExpTime) <$> getCurrentTime
+    kd   <- atomically $ readTVar kdT
+    let treePic = treePicture x y tNow (kd^.dtNotClust)
+        treeSelectedPic = (flip fmap) (ds^.samplePoint) $ \cp ->
+          let closestP    = fromMaybe cp $ fst <$> closest cp (kd^.dtNotClust)
+              psInRange   =  map fst $ allInRange
+                             (sqrt $ cutoffDist2 defaultClusterlessOpts)
+                             cp (kd^.dtNotClust)
+              selectColor = Color.makeColor 0 1 0 0.5
+              inRangeFld  = collectFields .
+                            map (\r -> bound 0.01 0.9 $ r^.pField) .
+                            take 100 $
+                            psInRange
+          in Pictures $
+             [fieldPic inRangeFld
+             ,clusterlessPointPic x y tNow (closestP,(MostRecentTime tNow))
+             ,color (Color.makeColor 1 0 0 0.1) $
+              pointAtSize x y cp (sqrt $ cutoffDist2 defaultClusterlessOpts)
+             ]
+             ++ map (\pt -> color selectColor $ pointAtSize x y pt 1e-6)
+                psInRange
+                          
+    return .Pictures $ catMaybes [ spikesToScreen <$> Just treePic
+                                 , spikesToScreen <$> treeSelectedPic
+                                 ]
+mkClusterlessScreenPic _ _ =
+  return $ text "Error - mkClusterlessPic called on non-clusterless opt"
 
 
 ------------------------------------------------------------------------------
-screenToTree :: (Float, Float) -> (Float, Float)
-screenToTree (x,y) =
-  ((x- fst treeTranslate)/treeScale, (y- snd treeTranslate)/treeScale)
-
-
-------------------------------------------------------------------------------
-treeToScreen :: (Float,Float) -> (Float, Float)
-treeToScreen (x,y) =
-  (x * treeScale + fst treeTranslate, y * treeScale + snd treeTranslate)
-
-
-------------------------------------------------------------------------------
-drawClusterlessPoint
+clusterlessPointPic
   :: XChan -> YChan -> Double -> (ClusterlessPoint, MostRecentTime) -> Picture
-drawClusterlessPoint (XChan x) (YChan y) tNow (cP,t) =
+clusterlessPointPic (XChan x) (YChan y) tNow (cP,t) =
   translate (r2 $ pointD cP (Depth x)) (r2 $ pointD cP (Depth y)) $
   Pictures [ color (pointColor tNow t) $
-             circleSolid (1e-6 + log (realToFrac $ pointW cP) / treeScale)
-           , circle (1e-6 + log (r2 $ pointW cP) / treeScale)
+             circleSolid (1e-6 + log (realToFrac $ pointW cP) / spikeScale)
+           , circle (1e-6 + log (r2 $ pointW cP) / spikeScale)
            ]
 
+
+------------------------------------------------------------------------------
+trackToScreen :: Picture -> Picture
+trackToScreen = scale trackScale trackScale
+
+spikesToScreen :: Picture -> Picture
+spikesToScreen = translate (-150) (-300) . scale spikeScale spikeScale
+
+screenToSpikes :: Float -> Float -> (Float,Float)
+screenToSpikes x y = ( (x+150)/spikeScale, (y+300)/spikeScale )
+
+optsToScreen :: Picture -> Picture
+optsToScreen = translate 150 (-300) . scale 10 10
+
+------------------------------------------------------------------------------
+fieldPic :: Field -> Picture
+fieldPic = drawNormalizedField . V.zip (trackBins0 defTrack)
+
+spikeScale, trackScale :: Float
+spikeScale = 2000000
+trackScale = 60
+
+
+
+------------------------------------------------------------------------------
 pointAtSize
   :: XChan -> YChan -> ClusterlessPoint -> Double -> Picture
 pointAtSize (XChan x) (YChan y) cP s =
   translate (r2 $ pointD cP (Depth x)) (r2 $ pointD cP (Depth y)) $
   circleSolid (r2 s)
 
+
 ------------------------------------------------------------------------------
-drawTree
-  :: XChan -> YChan -> Double -> KDMap ClusterlessPoint MostRecentTime -> Picture
-drawTree xC yC tNow =
-  Pictures . map (drawClusterlessPoint xC yC tNow) . toList
+treePicture
+  :: XChan -> YChan -> Double -> KDMap ClusterlessPoint MostRecentTime
+     -> Picture
+treePicture xC yC tNow =
+  Pictures . map (clusterlessPointPic xC yC tNow) . toList
 
 
 ------------------------------------------------------------------------------
@@ -94,34 +139,36 @@ pointColor tNow (MostRecentTime t) = Color.makeColor r g b 1
 
 
 ------------------------------------------------------------------------------
-drawHistogram :: (Float,Float) -> Histogram Double -> Picture
-drawHistogram (sizeX,sizeY) h = Pictures [
-  translate (-sizeX/2) 0 $ scale xScale yScale $ unscaledBars,
-  translate (-sizeX/2) (-20) . scale 0.1 0.1            $ Text report
-  ]
-  where
-    cnt     = V.sum $ h^.counts :: Int
-    mean    = (/fI cnt) . V.sum $ V.zipWith (*) (realToFrac <$> h^.counts) (realToFrac <$> h^.bins)
-    report  = unwords ["Mean: ", showWithUnit mean
-                      ," Max:", showWithUnit tMax
-                      ," Cnt:", showWithUnit (fI cnt)]
-    nBins   = V.length $ h^.counts
-    inds    = V.generate nBins id :: V.Vector Int
-    drawBar :: Int -> Int -> Picture
-    tMax = let nonEmptyBins = V.filter ((>0) . fst) $ V.zip (h^.counts) (h^.bins)
-           in  case V.length nonEmptyBins of
-             0 -> 0
-             _ -> snd $ V.last nonEmptyBins
-    drawBar i c = translate (fI i+0.5) ((log $ fI c)/2) $
-                  rectangleSolid 1 (log $ fI c)
-    unscaledBars =
-      Pictures $
-      V.toList (V.zipWith drawBar inds (h^.counts))
-      
-    xScale = sizeX / fI nBins
-    yScale = sizeY / (log $ fI . V.maximum $ h^.counts)
+makeHistogramScreenPic :: Histogram Double -> Float -> Float -> IO Picture
+makeHistogramScreenPic h sizeX sizeY = do
+  cnts <- atomically $ M.getElems (h^.counts)
+  return $ Pictures [ scaledBars cnts, reportPic cnts ]
+    where
+      nBins       = length
+      totalCnt    = sum  :: [Int] -> Int
+      mean cnts   = (/fI (max 1 $ totalCnt cnts)) . sum $
+                    zipWith (*)
+                    (fromIntegral <$> cnts)
+                    (realToFrac <$> (V.toList $ h^.binEdges))
+      mode cnts   = let m      = maximum cnts
+                        mPairs = filter ((==m) . fst)
+                                 (zip cnts . map r2 . V.toList $ h^.binEdges)
+                    in maybe 0 snd (headMay mPairs)
+      report cnts = unwords ["Mean: ", showWithUnit (mean cnts)
+                            ," Max:" , showWithUnit (mode cnts :: Float)
+                            ," Cnt:" , showWithUnit (fI $ nBins cnts)
+                            ]
+      reportPic cnts = scale 0.1 0.1 . text $ report cnts
+      cntToHeight cnts y = log (fI y) * sizeY / log (fI $ maximum cnts)
+      barWidth    cnts   = sizeX / (fromIntegral (nBins cnts))
+      barLeft     cnts i = barWidth cnts * fromIntegral i + barWidth cnts / 2
+      oneBarPic   cnts i c = let barH = cntToHeight cnts c
+                             in translate (barLeft cnts i) (barH/2) $
+                                rectangleSolid (barWidth cnts) barH
+      scaledBars cnts = Pictures $
+                        zipWith (oneBarPic cnts) [0..nBins cnts - 1] cnts
 
-
+------------------------------------------------------------------------------
 fI :: Int -> Float
 fI = fromIntegral
 

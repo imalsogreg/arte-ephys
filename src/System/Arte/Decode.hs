@@ -33,7 +33,7 @@ import           Pipes
 import           Pipes.RealTime
 import           System.Console.CmdArgs
 import           System.Directory
-import           System.Exit
+import           System.Exit                        (exitSuccess)
 import           System.IO
 import           System.Mem (performGC)
 ------------------------------------------------------------------------------
@@ -86,53 +86,51 @@ atCursor ds = trodeDrawOpt . ix (ds^.trodeInd) . ix (ds^.clustInd)
 ------------------------------------------------------------------------------
 draw :: TVar DecoderState -> DecoderState -> IO Picture
 draw _ ds = do
-
+  
   !p    <- readTVarIO $ ds^.pos
   !occ  <- readTVarIO $ ds^.occupancy
   !dPos <- readTVarIO $ ds^.decodedPos
 
-  eHist <- readTVarIO $ ds^.encodeProf
-  dHist <- readTVarIO $ ds^.decodeProf
+  eHist <- translate (-200) 100    <$> makeHistogramScreenPic (ds^.encodeProf) 100 50
+  dHist <- translate (-200) (-100) <$> makeHistogramScreenPic (ds^.decodeProf) 100 50
 
-  let !trackPicture = drawTrack defTrack
-      !posPicture = drawPos p
-      !drawOpt = focusCursor ds
-      !optsPicture = translate (150) (-300) . scale 10 10 $
-                    drawDrawOptionsState ds
+  let !trackPicture = trackToScreen $ drawTrack defTrack
+      !posPicture   = trackToScreen $ drawPos p
+      !drawOpt      = focusCursor ds
+      !optsPicture  = optsToScreen $ drawOptionsStatePic ds
 
+  selectionPic <- case drawOpt of
+    DrawOccupancy          -> return . trackToScreen $ fieldPic occ
+    DrawDecoding           -> return . trackToScreen $ fieldPic dPos
+    DrawPlaceCell _ dUnit' ->  do
+      u <- readTVarIO dUnit'
+      return . trackToScreen . fieldPic $ placeField (u^.dpCell) occ
+    cl@(DrawClusterless _ _ _)  -> mkClusterlessScreenPic cl ds
+    DrawError e -> return . scale 50 50 $ text e
+
+  return $ Pictures [trackPicture, posPicture, optsPicture, selectionPic, eHist, dHist]
+
+{-
   (!field,!overlay) <- case drawOpt of
-    ------------------------------------------------------------------------------
-    !DrawOccupancy -> do
-      return . (,pictures []) $
-        drawNormalizedField (V.zip (trackBins0 defTrack) occ)
-    ------------------------------------------------------------------------------
-    !DrawDecoding  -> return . (,pictures []) . drawNormalizedField $
-                       V.zip (trackBins0 defTrack)
-                       (V.map (\v -> if v > 0.05 then v - 0.05 else 0) dPos)
-    ------------------------------------------------------------------------------
-    !(DrawPlaceCell n dUnit') -> do
-      dUnit <- readTVarIO dUnit'
-      return . (,pictures []) . drawNormalizedField $
-        (V.zip (trackBins0 defTrack) $ placeField (dUnit^.dpCell) occ)
+
+
     ------------------------------------------------------------------------------
     (DrawClusterless tName kdT (ClessDraw xChan yChan)) -> do
       tNow <- (ds^.toExpTime) <$> getCurrentTime
       kd   <- atomically $ readTVar kdT
-      let treePic    = uncurry translate treeTranslate .
-                       scale treeScale treeScale $
-                       drawTree xChan yChan tNow (kd^.dtNotClust)
+      let treePic    = spikesToScreen $
+                       treePicture xChan yChan tNow (kd^.dtNotClust)
           (samplePtPic,sampFieldPic) = case (ds^.samplePoint) of
             Nothing ->
               (scale 0.2 0.2 $ Text "NoPoint",
                drawNormalizedField (labelField defTrack (emptyField defTrack)))
             Just cp ->
-              let k           = sampleKDE defaultClusterlessOpts cp (kd^.dtNotClust)
-                  closestP    = fromMaybe cp $ fst <$> closest cp (kd^.dtNotClust)
+              let closestP    = fromMaybe cp $ fst <$> closest cp (kd^.dtNotClust)
                   psInRange   = map fst $ allInRange
                                 (sqrt $ cutoffDist2 defaultClusterlessOpts)
                                 cp (kd^.dtNotClust)
                   selectColor = Color.makeColor 0 1 0 0.5
-              in (Pictures $ [drawClusterlessPoint xChan yChan tNow (closestP,(MostRecentTime tNow)),
+              in (Pictures $ [clusterlessPointPic xChan yChan tNow (closestP,(MostRecentTime tNow)),
                               color (Color.makeColor 1 0 0 0.1) $
                               pointAtSize xChan yChan cp (sqrt $ cutoffDist2 defaultClusterlessOpts)
                              ] ++ (map (\pt -> color selectColor $
@@ -145,20 +143,12 @@ draw _ ds = do
                      (sqrt $ cutoffDist2 defaultClusterlessOpts) pt
                      (kd^.dtNotClust)
 
-          n       = (length . inRng) <$> ds^.samplePoint
-          f'      = (show . collectFields
-                    . map (\r -> sampleKDE defaultClusterlessOpts r (kd^.dtNotClust))
-                    . take 1 . inRng)
-                    <$> ds^.samplePoint
-          sampStr = fromMaybe "" f'
           sampFld = (normalize . collectFields
                      . map (\r -> bound 0.01 0.9 $ r ^. pField)
                      . take 100 . inRng)
                     <$> (ds^.samplePoint)
           sampPic = maybe (Text "Nothing") (drawNormalizedField . labelField defTrack) sampFld
           sampLab = maybe (Text "Nothing") (labelNormalizedField . labelField defTrack . V.map log) sampFld
-      putStrLn $ show n ++ " in range of " ++ show (length $ toList (kd^.dtNotClust))
---      putStrLn $ "kde sample Max: " ++ sampStr
       return $ ( pictures [sampPic,sampLab], -- sampFieldPic,
                 pictures [treePic
                          , uncurry translate treeTranslate
@@ -170,12 +160,12 @@ draw _ ds = do
       return $ (pictures [] , scale 50 50 $ Text e)
     ------------------------------------------------------------------------------
   --threadDelay 30000
-  let encodeHistPic = translate 200 200 $ drawHistogram (100,50) eHist
-      decodeHistPic = translate 200 50   $ drawHistogram (100,50) dHist
-  return $ pictures (overlay : optsPicture : encodeHistPic : decodeHistPic :
+  --let encodeHistPic = translate 200 200 $ histogramPic (100,50) eHist
+  --    decodeHistPic = translate 200 50  $ histogramPic (100,50) dHist
+  return $ pictures (overlay : optsPicture :
                      (map $ scale 200 200 )
                      [posPicture, trackPicture, field])
-
+-}
 
 ------------------------------------------------------------------------------
 main :: IO ()
@@ -352,10 +342,9 @@ glossInputs :: TVar DecoderState -> Event -> DecoderState -> IO DecoderState
 glossInputs dsT e ds =
   let drawOpt = focusCursor ds in
   case e of
-    EventMotion _ -> return ds
-    EventKey (SpecialKey KeyEsc) Up _ _ ->
-      exitWith ExitSuccess
-    EventKey (SpecialKey k) Up _ _ ->
+    EventMotion _                       -> return ds
+    EventKey (SpecialKey KeyEsc) Up _ _ -> exitSuccess
+    EventKey (SpecialKey k)      Up _ _ ->
       let f = case k of
             KeyRight -> (trodeInd %~ succ) . (clustInd .~ 0)
             KeyLeft  -> (trodeInd %~ pred) . (clustInd .~ 0)
@@ -368,7 +357,7 @@ glossInputs dsT e ds =
       case drawOpt of
         (DrawClusterless tName tTrode
          (ClessDraw (XChan cX) (YChan cY))) ->
-          let (treeX, treeY) = screenToTree (mouseX, mouseY)
+          let (treeX, treeY) = screenToSpikes mouseX mouseY
               p'  = fromMaybe ((ClusterlessPoint
                                 (U.fromList [0,0,0,0]) 1000 (emptyField defTrack)))
                                (ds^.samplePoint)
