@@ -3,13 +3,20 @@
 module System.Arte.Tracker.Types where
 
 import           Control.Applicative
+import           Control.Concurrent.STM
 import           Control.Monad
+import           Data.Aeson
+import           Data.Aeson.Encode
+import           Data.Aeson.Parser
+import           Data.Aeson.Types
+import           Data.Aeson.TH
+import qualified Data.ByteString.Lazy as BS
 import           Data.Data
-import qualified Data.Foldable       as F
-import qualified Data.Map            as M
-import qualified Data.Traversable    as T
+import qualified Data.Foldable        as F
+import qualified Data.Map             as M
+import qualified Data.Traversable     as T
 import           Data.Typeable
-import qualified System.IO.Streams   as Streams
+import qualified System.IO.Streams    as Streams
 import           Codec.Picture
 import           GHC.Generics
 
@@ -18,7 +25,9 @@ type CamGroupName = String
 
 data CamGroup a = SingleOverhead a
                 | MultiCam (M.Map String a)
-                  
+                deriving (Show, Generic)
+
+instance ToJSON a => ToJSON (CamGroup a)
 
 instance Functor CamGroup where
   fmap f (SingleOverhead a) = SingleOverhead (f a)
@@ -28,15 +37,22 @@ instance Functor CamGroup where
 instance Applicative CamGroup where
   pure a                                = SingleOverhead a
   SingleOverhead f <*> SingleOverhead a = SingleOverhead (f a)
-  MultiCam       f <*> MultiCam       a = MultiCam (M.intersectionWith ($) f a)
   SingleOverhead f <*> MultiCam       a = MultiCam (f <$> a)
   MultiCam       f <*> SingleOverhead a = MultiCam (($ a) <$> f)
+  MultiCam       f <*> MultiCam       a =
+    MultiCam (M.intersectionWith ($) f a)
 
 instance F.Foldable CamGroup where
   foldMap f (SingleOverhead a) = f a
   foldMap f (MultiCam m)       = F.foldMap f m
 
 newtype CamGroups a = CamGroups (M.Map CamGroupName (CamGroup a))
+                      deriving (Generic)
+
+instance ToJSON a => ToJSON (CamGroups a)
+
+newtype CamOptions = CamOptions (CamGroups Int) deriving (Generic)
+
 
 instance Functor CamGroups where
   fmap f (CamGroups a) = CamGroups ((fmap.fmap ) f a)
@@ -45,52 +61,61 @@ instance Applicative CamGroups where
   pure a = CamGroups (M.fromList [("default",SingleOverhead a)])
   (CamGroups f) <*> (CamGroups a) = CamGroups (M.intersectionWith (<*>) f a)
 
-b :: (Bool -> [Int]) -> CamGroups Bool -> [Int]
-b = F.foldMap
-
-r :: [Int]
-r = F.foldMap _ (undefined :: CamGroup Bool)
-
--- foldMap :: Monoid m => (a -> m) -> CamGroups a -> m
 instance F.Foldable CamGroups where
-  foldMap f (CamGroups a) = _ (M.elems a)
+  foldMap f (CamGroups a) = F.foldMap (F.foldMap f) a
+
+instance T.Traversable CamGroups where
+  traverse f (CamGroups a) = CamGroups <$> (T.traverse . T.traverse) f a
 
 ------------------------------------------------------------------------------
 instance T.Traversable CamGroup where
   traverse f (SingleOverhead a) = SingleOverhead <$> (f a)
   traverse f (MultiCam a)       = MultiCam       <$> T.traverse f a
 
-liftFrameOk :: CamGroup (Maybe DynamicImage) -> Maybe (CamGroup DynamicImage)
-liftFrameOk = T.traverse id 
 
-getFrames :: CamGroup Camera -> IO (CamGroup (Maybe DynamicImage))
-getFrames = T.traverse (Streams.read . frameSource)
+getFrames :: CamGroups Camera -> IO (Maybe (CamGroups DynamicImage))
+getFrames gs = T.traverse id <$>
+                 (T.traverse (Streams.read . frameSource)) gs
 
-getFrames' :: CamGroup Camera -> IO (Maybe (CamGroup DynamicImage))
-getFrames' g = liftFrameOk <$> getFrames g
-
-{-
-getFrames''    :: CamGroups Camera -> IO (CamGroups (Maybe DynamicImage))
-getFrames'' gs =  T.mapM getFrames gs
-
-getFrames''' :: CamGroups Camera -> IO (Maybe (CamGroups DynamicImage))
-getFrames''' gs = (T.traverse . T.traverse) id <$> getFrames'' gs
--}
 
 ------------------------------------------------------------------------------
 makeFrameProducer ::
-  CamGroup Camera -> IO (Streams.InputStream (CamGroup DynamicImage))
-makeFrameProducer (SingleOverhead c) = do
-  undefined
---  Streams.map (SingleOverheadFrame) (frameSource c)
-makeFrameProducer (MultiCam m) = do
---  images <- T.forM m Streams.read
-  undefined
+  CamGroups Camera -> IO (Streams.InputStream (CamGroups DynamicImage)) 
+makeFrameProducer gs = Streams.makeInputStream $ getFrames gs
+
 
 data Camera = Camera {
-  frameSource :: Streams.InputStream DynamicImage
-  }
+    frameSource   :: Streams.InputStream DynamicImage
+  , backgroundImg :: TVar (Maybe DynamicImage)
+  , camPos        :: TVar (Maybe CamPos)
+  } 
+
+data CameraOptions = CameraOptions {
+    camFrameSource       :: FrameSource
+  , camDefaultBackground :: Maybe FilePath
+  , camDefaultPos        :: CamPos
+  } deriving (Show, Generic)
+
+instance ToJSON CameraOptions
+
+
+data FrameSource = FFMpegFile FilePath
+                 | FlyCapSSN  Integer
+                 deriving (Show, Generic)
+
+instance ToJSON FrameSource
+
+
+
+data CamPos = CamPos {cX   :: Double, cY     :: Double, cZ    :: Double
+                     ,cYaw :: Double, cPitch :: Double, cRoll :: Double
+                     } deriving (Show, Generic)
+
+instance ToJSON CamPos
+
+instance Show Camera where
+  show (Camera _ _ _) = "Camera <frameSource> <TVar image> <TVar CamPos>"
 
 data TrackerState = TrackerState {
   tsCamGroups :: M.Map CamGroupName (CamGroup Camera)
-  }
+  } deriving (Show)
