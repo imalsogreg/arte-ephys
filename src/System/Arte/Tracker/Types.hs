@@ -83,9 +83,9 @@ data Camera = Camera {
   } 
 
 data CameraOptions = CameraOptions {
-    camFrameSource       :: FrameSource
-  , camDefaultBackground :: Maybe FilePath
-  , camDefaultPos        :: CamPos
+    optFrameSource   :: FrameSource
+  , optBackgroundImg :: Maybe FilePath
+  , optCamPos        :: CamPos
   } deriving (Show, Generic)
 
 instance ToJSON CameraOptions
@@ -111,3 +111,20 @@ instance Show Camera where
 data TrackerState = TrackerState {
   tsCamGroups :: M.Map CamGroupName (CamGroup Camera)
   } deriving (Show)
+
+------------------------------------------------------------------------------
+exampleInput :: CamGroups CameraOptions
+exampleInput = CamGroups $ M.fromList
+               [("track",    SingleOverhead trackCamOptions)
+               ,("sleepbox", SingleOverhead sleepCamOptions)]
+  where
+    trackCamOptions =
+      CameraOptions { optFrameSource = FFMpegFile "track.avi"
+                    , optBackgroundImg = Nothing
+                    , optCamPos = CamPos 0 0 10 0 (-pi/2) 0
+                    }
+    sleepCamOptions =
+      CameraOptions { optFrameSource = FFMpegFile "sleep.avi"
+                    , optBackgroundImg = Nothing
+                    , optCamPos = CamPos 10 0 10 0 (-pi/2) 0
+                    }
