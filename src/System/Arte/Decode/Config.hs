@@ -25,10 +25,11 @@ import           System.Arte.Decode.Histogram
 ------------------------------------------------------------------------------
 -- TODO: Make decode general on tracks and kernels.
 defTrack :: Track
-defTrack = circularTrack (0,0) 0.57 0.5 0.25 0.1
+defTrack = circularTrack (0,0) 0.57 0.5 0.25 0.2
 kernel :: PosKernel
 --kernel = PosDelta
 kernel  = PosGaussian 0.15
+
 
 ------------------------------------------------------------------------------
 trackBins0 :: Track -> V.Vector TrackPos

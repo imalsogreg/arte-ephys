@@ -6,7 +6,6 @@ module System.Arte.Decode.Algorithm where
 ------------------------------------------------------------------------------
 import           Control.Applicative
 import           Control.Concurrent
-import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Lens
 import           Control.Monad
@@ -39,24 +38,28 @@ runClusterReconstruction :: Double ->
                       IO ()
 runClusterReconstruction rTauSec dsT h = do
   ds <- readTVarIO $ dsT
+  t0 <- getCurrentTime
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
-      go lastFields = do
-        H.timeAction (ds^.decodeProf) $ do
-          delay <- async $ threadDelay (floor $ rTauSec * 1000000)
+      go lastFields binStartTime = do
+        let binEndTime = addUTCTime (realToFrac rTauSec) binStartTime
+        -- H.timeAction (ds^.decodeProf) $ do  -- <-- Slow space leak here (why?)
+        do
           (fields,counts) <- unzip <$> clusteredUnTVar clusteredTrodes
           occ <- readTVarIO occT
           let !estimate = clusteredReconstruction rTauSec lastFields counts occ
           atomically $ writeTVar (ds^.decodedPos) estimate
           resetClusteredSpikeCounts clusteredTrodes
           tNow <- getCurrentTime
+          maybe (return ()) (flip hPutStr (show tNow ++ ", ")) h
           maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
-          wait delay
-          go fields
+          let timeRemaining = diffUTCTime binEndTime tNow
+          threadDelay $ floor (timeRemaining * 1e6)
+          go fields binEndTime
       fields0 = [] -- TODO: fix. (locks up if clusteredReconstrution doesn't
                    --             check for exactly this case)
     in
-   go fields0
+   go fields0 t0
 
 
 ------------------------------------------------------------------------------
@@ -128,15 +131,20 @@ posteriorOut f = V.toList f
 ------------------------------------------------------------------------------
 showPosterior :: Field -> UTCTime -> String
 showPosterior f (UTCTime _ sec) =
-  (take 10 $ show sec) ++ ", " ++ L.intercalate ", " (map show $ posteriorOut f)
+  let bound' (l,h) x = min h (max x l)
+  in (take 10 $ show sec) ++ ", " ++
+     L.intercalate ", " (map (show . bound' (0,100) ) $ posteriorOut f)
 
 
 ------------------------------------------------------------------------------
 runClusterlessReconstruction :: ClusterlessOpts -> Double -> TVar DecoderState
                              -> Maybe Handle -> IO ()
-runClusterlessReconstruction rOpts rTauSec dsT h = readTVarIO dsT >>= go
-  where go ds = do
-          timer  <- async $ threadDelay (floor $ rTauSec * 1e6)
+runClusterlessReconstruction rOpts rTauSec dsT _ = do
+  ds <- readTVarIO dsT
+  t0 <- getCurrentTime
+  go ds t0
+  where go ds binStartTime = do
+          let binEndTime = addUTCTime (realToFrac rTauSec) binStartTime
           H.timeAction (ds^.decodeProf) $ do
             !trodeEstimates <- forM
                               (Map.elems $ ds^.trodes._Clusterless) $
@@ -144,8 +152,10 @@ runClusterlessReconstruction rOpts rTauSec dsT h = readTVarIO dsT >>= go
             let !fieldProduct = collectFields trodeEstimates
             atomically . writeTVar (ds^.decodedPos) .  normalize $ fieldProduct
           performGC
-          wait timer
-          go ds
+          tNow <- getCurrentTime
+          let tRemaining = diffUTCTime tNow binEndTime
+          threadDelay $ floor (tRemaining * 1e6)
+          go ds binEndTime
   
 
 ------------------------------------------------------------------------------
@@ -220,7 +230,7 @@ data ClusterlessOpts = ClusterlessOpts {
 
 defaultClusterlessOpts :: ClusterlessOpts
 defaultClusterlessOpts =
-  ClusterlessOpts (200e-6) ((60e-6)^(2::Int)) (40e-6) 12 (90e-6)
+  ClusterlessOpts (200e-6) ((60e-6)^(2::Int)) (40e-6) 13 (90e-6)
 
 
 

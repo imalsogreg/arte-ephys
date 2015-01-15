@@ -33,6 +33,7 @@ import           Pipes
 import           Pipes.RealTime
 import           System.Console.CmdArgs
 import           System.Directory
+import           System.Exit
 import           System.IO
 import           System.Mem (performGC)
 ------------------------------------------------------------------------------
@@ -80,6 +81,7 @@ focusCursor ds = fromMaybe (DrawError "Couldn't index at cursor") $
                  (ds^.trodeDrawOpt) ^? ix (ds^.trodeInd) . ix (ds^.clustInd)
 
 atCursor ds = trodeDrawOpt . ix (ds^.trodeInd) . ix (ds^.clustInd)
+
 
 ------------------------------------------------------------------------------
 draw :: TVar DecoderState -> DecoderState -> IO Picture
@@ -293,10 +295,12 @@ main = do
                           relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
                           (forever $ do
                               spike <- await
-                              ds2 <- lift . atomically $ readTVar dsT
-                              pos2 <- lift . atomically $ readTVar (ds^.trackPos)
-                              p    <- lift . atomically $ readTVar (ds^.pos)
-                              lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike logSpikes)
+                              let minWid = spikeWidthThreshold defaultClusterlessOpts
+                              when (spikeWidth spike >= minWid) $ do
+                                ds2 <- lift . atomically $ readTVar dsT
+                                pos2 <- lift . atomically $ readTVar (ds^.trackPos)
+                                p    <- lift . atomically $ readTVar (ds^.pos)
+                                lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike logSpikes)
                         t <- newTVarIO pcTrode
                         return (a, undefined :: TrodeDrawOption)
 
@@ -349,6 +353,8 @@ glossInputs dsT e ds =
   let drawOpt = focusCursor ds in
   case e of
     EventMotion _ -> return ds
+    EventKey (SpecialKey KeyEsc) Up _ _ ->
+      exitWith ExitSuccess
     EventKey (SpecialKey k) Up _ _ ->
       let f = case k of
             KeyRight -> (trodeInd %~ succ) . (clustInd .~ 0)
@@ -480,7 +486,8 @@ updatePos dsT p = let trackPos' = posToField defTrack p kernel in
 fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
                       Position -> Field -> TrodeSpike -> Maybe Handle -> IO ()
 fanoutSpikeToCells ds trodeName trode pos trackPos spike p =
- H.timeAction (ds^.encodeProf) $ do
+ -- H.timeAction (ds^.encodeProf) $ do
+ do
   flip F.mapM_ (trode^.dUnits) $ \dpcT -> do
     DecodablePlaceCell pc tauN <- readTVarIO dpcT
     when (spikeInCluster (pc^.cluster) spike) $ do
