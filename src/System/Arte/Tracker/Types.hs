@@ -44,7 +44,7 @@ instance F.Foldable CamGroup where
   foldMap f (MultiCam m)       = F.foldMap f m
 
 newtype CamGroups a = CamGroups (M.Map CamGroupName (CamGroup a))
-                      deriving (Generic)
+                      deriving (Show, Generic)
 
 instance ToJSON a => ToJSON (CamGroups a)
 
@@ -80,13 +80,16 @@ makeFrameProducer ::
   CamGroups Camera -> IO (Streams.InputStream (CamGroups DynamicImage)) 
 makeFrameProducer gs = Streams.makeInputStream $ getFrames gs
 
-
 data Camera = Camera {
     frameSource   :: Streams.InputStream DynamicImage
   , backgroundImg :: TVar (Maybe DynamicImage)
   , camPos        :: TVar (Maybe CamPos)
   } 
 
+instance Show Camera where
+  show (Camera _ _ _) = "Camera <frameSource> <TVar image> <TVar CamPos>"
+
+------------------------------------------------------------------------------
 data CameraOptions = CameraOptions {
     optFrameSource   :: FrameSource
   , optBackgroundImg :: Maybe FilePath
@@ -110,8 +113,6 @@ data CamPos = CamPos {cX   :: Double, cY     :: Double, cZ    :: Double
 
 instance ToJSON CamPos
 
-instance Show Camera where
-  show (Camera _ _ _) = "Camera <frameSource> <TVar image> <TVar CamPos>"
 
 data TrackerState = TrackerState {
   tsCamGroups :: CamGroups Camera

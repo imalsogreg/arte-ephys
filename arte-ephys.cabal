@@ -27,6 +27,7 @@ library
                      , System.Arte.Decode.Histogram
                      , System.Arte.Tracker
                      , System.Arte.Tracker.Types
+                     , System.Arte.Tracker.Initialize
   other-modules:     Paths_arte_ephys
   build-depends:     aeson
                      , array
@@ -45,6 +46,7 @@ library
                      , either
                      , filepath >=1.3 && <1.4
                      , gloss
+                     , haskell-src-exts >= 1.15 && < 1.16
                      , io-streams
                      , JuicyPixels
                      , lens >= 4.0
@@ -61,7 +63,8 @@ library
                      , tetrode-ephys
                      , transformers >=0.3 && <0.4
                      , vector
-                     , yaml 
+                     , yaml
+                     , zlib
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:       -O2 -threaded -fllvm -fprof-auto -rtsopts "-with-rtsopts=-N8" -funbox-strict-fields
