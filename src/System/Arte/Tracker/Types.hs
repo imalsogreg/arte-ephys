@@ -81,9 +81,10 @@ makeFrameProducer ::
 makeFrameProducer gs = Streams.makeInputStream $ getFrames gs
 
 data Camera = Camera {
-    frameSource   :: Streams.InputStream DynamicImage
-  , backgroundImg :: TVar (Maybe DynamicImage)
-  , camPos        :: TVar (Maybe CamPos)
+    frameSource        :: Streams.InputStream DynamicImage
+  , frameSourceCleanup :: IO ()
+  , backgroundImg      :: TVar (Maybe DynamicImage)
+  , camPos             :: TVar (Maybe CamPos)
   } 
 
 instance Show Camera where
