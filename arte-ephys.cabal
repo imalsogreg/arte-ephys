@@ -52,6 +52,7 @@ library
                      , JuicyPixels
                      , lens >= 4.0
                      , lens-aeson >= 1.0 && < 1.1
+                     , mtl
                      , network >=2.5 && <2.6
                      , optparse-applicative
                      , pipes >= 4.0
@@ -62,7 +63,7 @@ library
                      , text >=1.1 && <1.2
                      , time >=1.4 && <1.5
                      , tetrode-ephys
-                     , transformers >=0.3 && <0.4
+                     , transformers >= 0.4.2.0 && < 0.5
                      , vector
                      , yaml
                      , zlib

@@ -70,31 +70,32 @@ instance T.Traversable CamGroup where
   traverse f (MultiCam a)       = MultiCam       <$> T.traverse f a
 
 
-getFrames :: CamGroups Camera -> IO (Maybe (CamGroups DynamicImage))
+getFrames :: CamGroups Camera -> IO (Maybe (CamGroups (TrackerImage)))
 getFrames gs = T.traverse id <$>
                  (T.traverse (Streams.read . frameSource)) gs
 
+type TrackerImage = Image PixelRGB8
 
 ------------------------------------------------------------------------------
-makeFrameProducer ::
-  CamGroups Camera -> IO (Streams.InputStream (CamGroups DynamicImage)) 
+makeFrameProducer :: 
+  CamGroups Camera -> IO (Streams.InputStream (CamGroups (TrackerImage))) 
 makeFrameProducer gs = Streams.makeInputStream $ getFrames gs
 
 data Camera = Camera {
-    frameSource        :: Streams.InputStream DynamicImage
+    frameSource        :: Streams.InputStream (TrackerImage)
   , frameSourceCleanup :: IO ()
-  , backgroundImg      :: TVar (Maybe DynamicImage)
+  , backgroundImg      :: TVar (Maybe (TrackerImage))
   , camPos             :: TVar (Maybe CamPos)
   } 
 
 instance Show Camera where
-  show (Camera _ _ _) = "Camera <frameSource> <TVar image> <TVar CamPos>"
+  show (Camera _ _ _ _) = "Camera <frameSource> <TVar image> <TVar CamPos>"
 
 ------------------------------------------------------------------------------
 data CameraOptions = CameraOptions {
     optFrameSource   :: FrameSource
   , optBackgroundImg :: Maybe FilePath
-  , optCamPos        :: CamPos
+  , optCamPos        :: Maybe CamPos
   } deriving (Show, Generic)
 
 instance ToJSON CameraOptions
@@ -128,10 +129,10 @@ exampleInput = CamGroups $ M.fromList
     trackCamOptions =
       CameraOptions { optFrameSource = FFMpegFile "track.avi"
                     , optBackgroundImg = Nothing
-                    , optCamPos = CamPos 0 0 10 0 (-pi/2) 0
+                    , optCamPos = Just (CamPos 0 0 10 0 (-pi/2) 0)
                     }
     sleepCamOptions =
       CameraOptions { optFrameSource = FFMpegFile "sleep.avi"
                     , optBackgroundImg = Nothing
-                    , optCamPos = CamPos 10 0 10 0 (-pi/2) 0
+                    , optCamPos = Just (CamPos 10 0 10 0 (-pi/2) 0)
                     }
