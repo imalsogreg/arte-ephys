@@ -74,7 +74,8 @@ getFrames :: CamGroups Camera -> IO (Maybe (CamGroups (TrackerImage)))
 getFrames gs = T.traverse id <$>
                  (T.traverse (Streams.read . frameSource)) gs
 
-type TrackerImage = Image PixelRGB8
+type TrackerPixel = PixelRGB8
+type TrackerImage = Image TrackerPixel
 
 ------------------------------------------------------------------------------
 makeFrameProducer :: 
@@ -119,20 +120,3 @@ instance ToJSON CamPos
 data TrackerState = TrackerState {
   tsCamGroups :: CamGroups Camera
   } deriving (Show)
-
-------------------------------------------------------------------------------
-exampleInput :: CamGroups CameraOptions
-exampleInput = CamGroups $ M.fromList
-               [("track",    SingleOverhead trackCamOptions)
-               ,("sleepbox", SingleOverhead sleepCamOptions)]
-  where
-    trackCamOptions =
-      CameraOptions { optFrameSource = FFMpegFile "track.avi"
-                    , optBackgroundImg = Nothing
-                    , optCamPos = Just (CamPos 0 0 10 0 (-pi/2) 0)
-                    }
-    sleepCamOptions =
-      CameraOptions { optFrameSource = FFMpegFile "sleep.avi"
-                    , optBackgroundImg = Nothing
-                    , optCamPos = Just (CamPos 10 0 10 0 (-pi/2) 0)
-                    }

@@ -3,6 +3,7 @@
 
 module System.Arte.Tracker.Initialize where
 
+--- * imports
 ------------------------------------------------------------------------------
 import           Control.Concurrent.STM
 import           Control.Error
@@ -10,6 +11,7 @@ import           Control.Error.Util
 import           Control.Monad.Trans 
 import           Codec.Picture
 import qualified Codec.FFmpeg           as FF
+import qualified Data.Map               as M
 import qualified Data.Traversable       as T
 import           Options.Applicative
 import qualified System.IO.Streams      as Streams
@@ -34,8 +36,6 @@ makeCamera CameraOptions{..} = runEitherT $ do
 
   return $ Camera getStream cleanup bkgnd p
 
-
-
 initImage :: Maybe FilePath
              -> IO (Either String (TVar (Maybe TrackerImage)))
 initImage Nothing   = Right <$> newTVarIO Nothing
@@ -43,8 +43,30 @@ initImage (Just fn) = do
   res <- readImage fn
   case res of
     Left e  -> return (Left e)
-    Right i -> Right <$> newTVarIO (Just i)
+    Right (ImageRGB8 i) -> Right <$> newTVarIO (Just i)
+    Right _             -> return $ Left "Stream delivered wrong time of image."
 
 
---initialize :: IO TrackerState
---initialize = TrackerState <$> T.forM exampleInput makeCamera
+-- T.sequence :: (Traversable t, Monad m) => t (m a) -> m (t a)
+
+initialize :: CamGroups CameraOptions -> IO (Either String (CamGroups Camera))
+initialize camOpts = T.sequence <$> T.mapM makeCamera camOpts
+
+
+------------------------------------------------------------------------------
+exampleInput :: CamGroups CameraOptions
+exampleInput = CamGroups $ M.fromList
+               [("track",    SingleOverhead trackCamOptions)
+               ,("sleepbox", SingleOverhead sleepCamOptions)]
+  where
+    trackCamOptions =
+      CameraOptions { optFrameSource = FFMpegFile "track.avi"
+                    , optBackgroundImg = Nothing
+                    , optCamPos = Just (CamPos 0 0 10 0 (-pi/2) 0)
+                    }
+    sleepCamOptions =
+      CameraOptions { optFrameSource = FFMpegFile "sleep.avi"
+                    , optBackgroundImg = Nothing
+                    , optCamPos = Just (CamPos 10 0 10 0 (-pi/2) 0)
+                    }
+
