@@ -11,6 +11,8 @@ import           Control.Error.Util
 import           Control.Monad.Trans 
 import           Codec.Picture
 import qualified Codec.FFmpeg           as FF
+import           Data.Aeson
+import qualified Data.ByteString.Lazy   as BS
 import qualified Data.Map               as M
 import qualified Data.Traversable       as T
 import           Options.Applicative
@@ -47,10 +49,11 @@ initImage (Just fn) = do
     Right _             -> return $ Left "Stream delivered wrong time of image."
 
 
--- T.sequence :: (Traversable t, Monad m) => t (m a) -> m (t a)
+initializeFromFile :: FilePath -> EitherT String IO (CamGroups Camera)
+initializeFromFile fp = EitherT (eitherDecode <$> BS.readFile fp) >>= initializeCams
 
-initialize :: CamGroups CameraOptions -> IO (Either String (CamGroups Camera))
-initialize camOpts = T.sequence <$> T.mapM makeCamera camOpts
+initializeCams :: CamGroups CameraOptions -> EitherT String IO (CamGroups Camera)
+initializeCams camOpts = EitherT $ T.sequence <$> T.mapM makeCamera camOpts
 
 
 ------------------------------------------------------------------------------

@@ -25,6 +25,7 @@ data CamGroup a = SingleOverhead a
                 deriving (Show, Generic)
 
 instance ToJSON a => ToJSON (CamGroup a)
+instance FromJSON a => FromJSON (CamGroup a)
 
 instance Functor CamGroup where
   fmap f (SingleOverhead a) = SingleOverhead (f a)
@@ -46,7 +47,8 @@ instance F.Foldable CamGroup where
 newtype CamGroups a = CamGroups (M.Map CamGroupName (CamGroup a))
                       deriving (Show, Generic)
 
-instance ToJSON a => ToJSON (CamGroups a)
+instance FromJSON a => FromJSON (CamGroups a)
+instance ToJSON a   => ToJSON   (CamGroups a)
 
 newtype CamOptions = CamOptions (CamGroups Int) deriving (Generic)
 
@@ -99,24 +101,25 @@ data CameraOptions = CameraOptions {
   , optCamPos        :: Maybe CamPos
   } deriving (Show, Generic)
 
-instance ToJSON CameraOptions
-
+instance ToJSON   CameraOptions
+instance FromJSON CameraOptions
 
 data FrameSource = FFMpegFile FilePath
                  | FlyCapSSN  Integer
                  deriving (Show, Generic)
 
-instance ToJSON FrameSource
-
+instance ToJSON   FrameSource
+instance FromJSON FrameSource
 
 
 data CamPos = CamPos {cX   :: Double, cY     :: Double, cZ    :: Double
                      ,cYaw :: Double, cPitch :: Double, cRoll :: Double
                      } deriving (Show, Generic)
 
-instance ToJSON CamPos
-
+instance ToJSON   CamPos
+instance FromJSON CamPos
 
 data TrackerState = TrackerState {
   tsCamGroups :: CamGroups Camera
   } deriving (Show)
+
