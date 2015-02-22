@@ -89,7 +89,7 @@ draw _ ds = do
   
   !p    <- readTVarIO $ ds^.pos
   !occ  <- readTVarIO $ ds^.occupancy
-  !dPos <- readTVarIO $ ds^.decodedPos
+  !dPos <- readTVarIO $ ds^.decodedPos :: IO Field
 
   eHist <- translate (-200) 100    <$> makeHistogramScreenPic (ds^.encodeProf) 100 50
   dHist <- translate (-200) (-100) <$> makeHistogramScreenPic (ds^.decodeProf) 100 50
@@ -101,14 +101,15 @@ draw _ ds = do
 
   selectionPic <- case drawOpt of
     DrawOccupancy          -> return . trackToScreen $ fieldPic occ
-    DrawDecoding           -> return . trackToScreen $ fieldPic dPos
+    DrawDecoding           -> return . trackToScreen . fieldPic .
+                              decodeColormap $ dPos
     DrawPlaceCell _ dUnit' ->  do
       u <- readTVarIO dUnit'
       return . trackToScreen . fieldPic $ placeField (u^.dpCell) occ
     cl@(DrawClusterless _ _ _)  -> mkClusterlessScreenPic cl ds
     DrawError e -> return . scale 50 50 $ text e
 
-  return $ Pictures [trackPicture, posPicture, optsPicture, selectionPic, eHist, dHist]
+  return $ Pictures [trackPicture, posPicture, optsPicture, selectionPic] --, eHist, dHist]
 
 {-
   (!field,!overlay) <- case drawOpt of

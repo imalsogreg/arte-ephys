@@ -41,6 +41,8 @@ library
                      , containers >=0.5 && <0.6
                      , data-clist
                      , deepseq >=1.3 && <1.4
+                     , diagrams-lib >= 1.2 && < 1.3
+                     , diagrams-rasterific >= 0.1 && < 0.2
                      , directory >=1.2 && <1.3
                      , errors
                      , either
@@ -49,6 +51,7 @@ library
                      , gloss
                      , gtk
                      , gtkglext
+                     , GLURaw <= 1.4.0.1
                      , haskell-src-exts >= 1.15 && < 1.16
                      , io-streams
                      , JuicyPixels
@@ -56,10 +59,12 @@ library
                      , lens-aeson >= 1.0 && < 1.1
                      , mtl
                      , network >=2.5 && <2.6
+                     , OpenGLRaw <= 1.5
                      , optparse-applicative
                      , pipes >= 4.0
                      , pipes-rt
                      , random >=1.0 && <1.1
+                     , Rasterific >= 0.4 && < 0.5
                      , safe
                      , stm >=2.4 && <2.5
                      , text >=1.1 && <1.2
