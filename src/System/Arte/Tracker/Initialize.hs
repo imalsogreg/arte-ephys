@@ -38,6 +38,8 @@ makeCamera CameraOptions{..} = runEitherT $ do
 
   return $ Camera getStream cleanup bkgnd p
 
+
+------------------------------------------------------------------------------
 initImage :: Maybe FilePath
              -> IO (Either String (TVar (Maybe TrackerImage)))
 initImage Nothing   = Right <$> newTVarIO Nothing
@@ -46,11 +48,14 @@ initImage (Just fn) = do
   case res of
     Left e  -> return (Left e)
     Right (ImageRGB8 i) -> Right <$> newTVarIO (Just i)
-    Right _             -> return $ Left "Stream delivered wrong time of image."
+    Right _             -> return $ 
+                           Left "Stream delivered wrong type of image."
 
 
+------------------------------------------------------------------------------
 initializeFromFile :: FilePath -> EitherT String IO (CamGroups Camera)
-initializeFromFile fp = EitherT (eitherDecode <$> BS.readFile fp) >>= initializeCams
+initializeFromFile fp = EitherT (eitherDecode <$> BS.readFile fp) >>= 
+                        initializeCams
 
 initializeCams :: CamGroups CameraOptions -> EitherT String IO (CamGroups Camera)
 initializeCams camOpts = EitherT $ T.sequence <$> T.mapM makeCamera camOpts

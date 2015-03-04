@@ -72,9 +72,6 @@ instance T.Traversable CamGroup where
   traverse f (MultiCam a)       = MultiCam       <$> T.traverse f a
 
 
-getFrames :: CamGroups Camera -> IO (Maybe (CamGroups (TrackerImage)))
-getFrames gs = T.traverse id <$>
-                 (T.traverse (Streams.read . frameSource)) gs
 
 type TrackerPixel = PixelRGB8
 type TrackerImage = Image TrackerPixel
@@ -83,6 +80,11 @@ type TrackerImage = Image TrackerPixel
 makeFrameProducer :: 
   CamGroups Camera -> IO (Streams.InputStream (CamGroups (TrackerImage))) 
 makeFrameProducer gs = Streams.makeInputStream $ getFrames gs
+
+getFrames :: CamGroups Camera -> IO (Maybe (CamGroups (TrackerImage)))
+getFrames gs = T.traverse id <$>
+                 (T.traverse (Streams.read . frameSource)) gs
+
 
 data Camera = Camera {
     frameSource        :: Streams.InputStream (TrackerImage)
