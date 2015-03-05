@@ -19,6 +19,6 @@ executable kalman-tracker
   main-is:             Main.hs
   other-modules:       Kalman
   -- other-extensions:    
-  build-depends:       base >=4.7 && <4.8, vector, gloss
+  build-depends:       base >=4.7 && <4.8, vector, linear, gloss
   -- hs-source-dirs:      
   default-language:    Haskell2010
