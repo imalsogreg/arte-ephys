@@ -9,6 +9,7 @@ dist/
 *.cmx
 *.cmxs
 *.cmxa
+*.swp
 
 *.hi
 *.o
