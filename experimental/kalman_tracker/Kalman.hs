@@ -62,6 +62,15 @@ initZ = L.V4 (L.V1 0)
              (L.V1 0)
 initP = 10 *!! eye4 :: Cov44
 
+-- Invert a 2x2 matrix. If that doesn't work, tweak 
+-- it in a non linearly-dependent way and try again
+safeInv22 :: M22 -> M22
+safeInv22 m = case inv22 m of
+  Nothing -> fromJust (inv22 (m !+! eps))
+  Just m' -> m'
+ where
+  eps = V2 (V2 0.0001 0) (V2 0 0)
+
 -- A single dt evolution of the Kalman filter
 -- For the intial step, initState (above) should be
 -- used as the State input to this function
@@ -89,21 +98,14 @@ stepKalman dt (z,p) x = (z',p')
     s = h !*! p_ !*! (t h) !+! r :: Cov22
       where t = D.distribute
 
-    -- Is s invertable?
-    (z',p') = case inv22 s of
-      Nothing -> (z,p)  -- When s isn't invertable, return old z & p (good idea?)
-      Just sInv -> 
-        let
+    -- Compute optimal Kalman gain
+    k = p_ !*! (t h) !*! saveInv22 s :: M42 Double
+        where t = D.distribute
 
-          -- Compute optimal Kalman gain
-          k = p_ !*! (t h) !*! sInv :: M42 Double
-            where t = D.distribute
+    -- A-posteriori state estimate
+    -- This is the estimated position of the animal
+    z' = z_ !*! k !*! i 
 
-          -- A-posteriori state estimate
-          -- This is the estimated position of the animal
-          z' = z_ !*! k !*! i 
+    -- a-posteriori state error cov. matrix estimate
+    p' = (eye4 !-! k !*! h) !*! p_
 
-          -- a-posteriori state error cov. matrix estimate
-          p' = (eye4 !-! k !*! h) !*! p_
-
-        in (z',p')
