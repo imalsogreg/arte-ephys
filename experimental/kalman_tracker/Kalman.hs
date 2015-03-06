@@ -1,7 +1,9 @@
 module Kalman where
+
 import qualified Data.Distributive as D
 import Linear ((!*!), (!!*), (*!!), (!+!), (!-!), M44, M22, M24, M42, eye4, eye2, inv22)
 import qualified Linear as L
+import Data.Maybe (fromJust)
 
 -- Input transformation matrix
 type InputTransformer = L.V4 (L.V2 Double)
@@ -64,12 +66,12 @@ initP = 10 *!! eye4 :: Cov44
 
 -- Invert a 2x2 matrix. If that doesn't work, tweak 
 -- it in a non linearly-dependent way and try again
-safeInv22 :: M22 -> M22
+safeInv22 :: M22 Double -> M22 Double
 safeInv22 m = case inv22 m of
   Nothing -> fromJust (inv22 (m !+! eps))
   Just m' -> m'
  where
-  eps = V2 (V2 0.0001 0) (V2 0 0)
+  eps = L.V2 (L.V2 0.0001 0) (L.V2 0 0)
 
 -- A single dt evolution of the Kalman filter
 -- For the intial step, initState (above) should be
@@ -92,14 +94,14 @@ stepKalman dt (z,p) x = (z',p')
       where t = D.distribute
     
     -- The inovation
-    i = x !-! h !*! z_ :: L.V4 (L.V1 Double)
+    i = x !-! h !*! z_ :: L.V2 (L.V1 Double)
     
     -- Innovation convariance
     s = h !*! p_ !*! (t h) !+! r :: Cov22
       where t = D.distribute
 
     -- Compute optimal Kalman gain
-    k = p_ !*! (t h) !*! saveInv22 s :: M42 Double
+    k = p_ !*! (t h) !*! safeInv22 s :: M42 Double
         where t = D.distribute
 
     -- A-posteriori state estimate
