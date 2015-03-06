@@ -106,7 +106,7 @@ stepKalman dt (z,p) x = (z',p')
 
     -- A-posteriori state estimate
     -- This is the estimated position of the animal
-    z' = z_ !*! k !*! i 
+    z' = z_ !+! k !*! i 
 
     -- a-posteriori state error cov. matrix estimate
     p' = (eye4 !-! k !*! h) !*! p_
