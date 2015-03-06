@@ -73,7 +73,7 @@ stepKalman dt (z,p) x = (z',p')
     -- noise covariance matrix, both of which depend
     -- on dt
     f = makeSTM dt :: STM
-    q = makeCovProcNoise dt s_a :: CovProcNoise 
+    (CovProcNoise q) = makeCovProcNoise dt s_a :: CovProcNoise 
     
     -- A-priori  state estimate
     z_ = f !*! z:: L.V4 (L.V1 Double)
