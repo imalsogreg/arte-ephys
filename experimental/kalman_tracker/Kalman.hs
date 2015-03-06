@@ -89,14 +89,21 @@ stepKalman dt (z,p) x = (z',p')
     s = h !*! p_ !*! (t h) !+! r :: Cov22
       where t = D.distribute
 
-    -- Compute optimal Kalman gain
-    k = p_ !*! (t h) !*! (inv22 s) :: M42 Double
-      where t = D.distribute
+    -- Is s invertable?
+    (z',p') = case inv22 s of
+      Nothing -> (z,p)  -- When s isn't invertable, return old z & p (good idea?)
+      Just sInv -> 
+        let
 
-    -- A-posteriori state estimate
-    -- This is the estimated position of the animal
-    z' = z_ !*! k !*! i 
+          -- Compute optimal Kalman gain
+          k = p_ !*! (t h) !*! sInv :: M42 Double
+            where t = D.distribute
 
-    -- a-posteriori state error cov. matrix estimate
-    p' = (eye4 !-! k !*! h) !*! p_
+          -- A-posteriori state estimate
+          -- This is the estimated position of the animal
+          z' = z_ !*! k !*! i 
 
+          -- a-posteriori state error cov. matrix estimate
+          p' = (eye4 !-! k !*! h) !*! p_
+
+        in (z',p')
