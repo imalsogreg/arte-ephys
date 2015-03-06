@@ -65,7 +65,7 @@ initP = 10 *!! eye4 :: Cov44
 -- A single dt evolution of the Kalman filter
 -- For the intial step, initState (above) should be
 -- used as the State input to this function
-stepKalman :: Double -> State -> L.V4 (L.V1 Double) -> State 
+stepKalman :: Double -> State -> L.V2 (L.V1 Double) -> State 
 stepKalman dt (z,p) x = (z',p')
   where 
   
