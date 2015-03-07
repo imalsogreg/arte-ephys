@@ -11,7 +11,8 @@ type Field a = R.Array R.U R.DIM2 a
 data Model = Model { field :: Field Float }
 
 main :: IO ()
-main = G.playIO dispMode G.white 30 world0 draw action step
+main = undefined
+--main = G.playIO dispMode G.white 30 world0 draw action step
 
 dispMode :: G.Display
 dispMode = G.InWindow "Window" (640,480) (10,10)
