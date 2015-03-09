@@ -100,7 +100,12 @@ screenToSpikes :: Float -> Float -> (Float,Float)
 screenToSpikes x y = ( (x+150)/spikeScale, (y+300)/spikeScale )
 
 optsToScreen :: Picture -> Picture
-optsToScreen = translate 150 (-300) . scale 10 10
+optsToScreen = translate 0 0 . scale 10 10
+  --translate 150 (-300) . scale 10 10
+
+decodeColormap :: Field -> Field
+decodeColormap = V.map (max 0 . (/(1-v)) . (subtract v))
+  where v = 0.25
 
 ------------------------------------------------------------------------------
 fieldPic :: Field -> Picture
@@ -108,7 +113,7 @@ fieldPic = drawNormalizedField . V.zip (trackBins0 defTrack)
 
 spikeScale, trackScale :: Float
 spikeScale = 2000000
-trackScale = 60
+trackScale = 400
 
 
 

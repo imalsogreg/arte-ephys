@@ -25,6 +25,7 @@ data CamGroup a = SingleOverhead a
                 deriving (Show, Generic)
 
 instance ToJSON a => ToJSON (CamGroup a)
+instance FromJSON a => FromJSON (CamGroup a)
 
 instance Functor CamGroup where
   fmap f (SingleOverhead a) = SingleOverhead (f a)
@@ -46,7 +47,8 @@ instance F.Foldable CamGroup where
 newtype CamGroups a = CamGroups (M.Map CamGroupName (CamGroup a))
                       deriving (Show, Generic)
 
-instance ToJSON a => ToJSON (CamGroups a)
+instance FromJSON a => FromJSON (CamGroups a)
+instance ToJSON a   => ToJSON   (CamGroups a)
 
 newtype CamOptions = CamOptions (CamGroups Int) deriving (Generic)
 
@@ -70,67 +72,56 @@ instance T.Traversable CamGroup where
   traverse f (MultiCam a)       = MultiCam       <$> T.traverse f a
 
 
-getFrames :: CamGroups Camera -> IO (Maybe (CamGroups DynamicImage))
+
+type TrackerPixel = PixelRGB8
+type TrackerImage = Image TrackerPixel
+
+------------------------------------------------------------------------------
+makeFrameProducer :: 
+  CamGroups Camera -> IO (Streams.InputStream (CamGroups (TrackerImage))) 
+makeFrameProducer gs = Streams.makeInputStream $ getFrames gs
+
+getFrames :: CamGroups Camera -> IO (Maybe (CamGroups (TrackerImage)))
 getFrames gs = T.traverse id <$>
                  (T.traverse (Streams.read . frameSource)) gs
 
 
-------------------------------------------------------------------------------
-makeFrameProducer ::
-  CamGroups Camera -> IO (Streams.InputStream (CamGroups DynamicImage)) 
-makeFrameProducer gs = Streams.makeInputStream $ getFrames gs
-
 data Camera = Camera {
-    frameSource   :: Streams.InputStream DynamicImage
-  , backgroundImg :: TVar (Maybe DynamicImage)
-  , camPos        :: TVar (Maybe CamPos)
+    frameSource        :: Streams.InputStream (TrackerImage)
+  , frameSourceCleanup :: IO ()
+  , backgroundImg      :: TVar (Maybe (TrackerImage))
+  , camPos             :: TVar (Maybe CamPos)
   } 
 
 instance Show Camera where
-  show (Camera _ _ _) = "Camera <frameSource> <TVar image> <TVar CamPos>"
+  show (Camera _ _ _ _) = "Camera <frameSource> <TVar image> <TVar CamPos>"
 
 ------------------------------------------------------------------------------
 data CameraOptions = CameraOptions {
     optFrameSource   :: FrameSource
   , optBackgroundImg :: Maybe FilePath
-  , optCamPos        :: CamPos
+  , optCamPos        :: Maybe CamPos
   } deriving (Show, Generic)
 
-instance ToJSON CameraOptions
-
+instance ToJSON   CameraOptions
+instance FromJSON CameraOptions
 
 data FrameSource = FFMpegFile FilePath
                  | FlyCapSSN  Integer
                  deriving (Show, Generic)
 
-instance ToJSON FrameSource
-
+instance ToJSON   FrameSource
+instance FromJSON FrameSource
 
 
 data CamPos = CamPos {cX   :: Double, cY     :: Double, cZ    :: Double
                      ,cYaw :: Double, cPitch :: Double, cRoll :: Double
                      } deriving (Show, Generic)
 
-instance ToJSON CamPos
-
+instance ToJSON   CamPos
+instance FromJSON CamPos
 
 data TrackerState = TrackerState {
   tsCamGroups :: CamGroups Camera
   } deriving (Show)
 
-------------------------------------------------------------------------------
-exampleInput :: CamGroups CameraOptions
-exampleInput = CamGroups $ M.fromList
-               [("track",    SingleOverhead trackCamOptions)
-               ,("sleepbox", SingleOverhead sleepCamOptions)]
-  where
-    trackCamOptions =
-      CameraOptions { optFrameSource = FFMpegFile "track.avi"
-                    , optBackgroundImg = Nothing
-                    , optCamPos = CamPos 0 0 10 0 (-pi/2) 0
-                    }
-    sleepCamOptions =
-      CameraOptions { optFrameSource = FFMpegFile "sleep.avi"
-                    , optBackgroundImg = Nothing
-                    , optCamPos = CamPos 10 0 10 0 (-pi/2) 0
-                    }
