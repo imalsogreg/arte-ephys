@@ -29,8 +29,8 @@ serveFromSingleCamera ServerOptions{..} posChan = do
             (handle, host, port) <- accept sk
             putStrLn (unwords ["Accepted connection from", show host, ":", show port])
             posChan' <- dupChan posChan
-            forkFinally (talk handle posChan) (\_ -> hClose handle)
-            go sk posChan'
+            forkFinally (talk handle posChan') (\_ -> hClose handle)
+            go sk posChan
 
 
 ------------------------------------------------------------------------------
