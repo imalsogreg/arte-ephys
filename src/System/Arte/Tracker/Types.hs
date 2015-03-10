@@ -29,7 +29,7 @@ data TrackerState = TrackerState {
 
 data RatPos = RatPos { rpTime :: ExperimentTime
                      , rpPos  :: L.V4 Double }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Read)
 
 type CamName = String
 type CamGroupName = String
@@ -78,20 +78,15 @@ data FrameSource = FFMpegFile FilePath
 
 data CamPos = CamPos {cX   :: Double, cY     :: Double, cZ    :: Double
                      ,cYaw :: Double, cPitch :: Double, cRoll :: Double
-                     } deriving (Show, Generic)
+                           } deriving (Show, Generic)
 
 
 data ServerOptions = ServerOptions {
     serverOptsPort :: Int
-  , serverNetstring :: NetstringMethod
   } deriving (Eq, Show)
 
-data NetstringMethod
-  = AngleBrackets
-  | Bare
-  deriving (Eq, Show)
 
-newtype Netstring = Netstring { unNetstring :: BSC.ByteString }
+newtype Netstring = Netstring { getByteString :: BSC.ByteString }
                   deriving (Eq, Show)
 
 
@@ -107,7 +102,7 @@ instance Functor CamGroup where
 
 ------------------------------------------------------------------------------
 instance Applicative CamGroup where
-  pure a                                = SingleOverhead a
+  pure                                  = SingleOverhead
   SingleOverhead f <*> SingleOverhead a = SingleOverhead (f a)
   SingleOverhead f <*> MultiCam       a = MultiCam (f <$> a)
   MultiCam       f <*> SingleOverhead a = MultiCam (($ a) <$> f)
