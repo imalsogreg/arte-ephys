@@ -11,6 +11,7 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM.TBMQueue
 import Data.Attoparsec.ByteString.Char8 as A
 import Data.Aeson
+import Data.Bool (bool)
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import qualified Data.ByteString.Char8 as BSC
 import Network
@@ -24,13 +25,13 @@ import System.Arte.Tracker.Types
 serveFromSingleCamera :: ServerOptions -> Chan RatPos -> IO ()
 serveFromSingleCamera ServerOptions{..} posChan = do
   sock <- listenOn (PortNumber (fromIntegral serverOptsPort))
-  go sock posChan
-    where go sk ch = do
+  go sock posChan True
+    where go sk ch isFirstClient = do
             (handle, host, port) <- accept sk
             putStrLn (unwords ["Accepted connection from", show host, ":", show port])
-            posChan' <- dupChan posChan
+            posChan' <- bool (return posChan) (dupChan posChan) isFirstClient
             forkFinally (talk handle posChan') (\_ -> hClose handle)
-            go sk posChan
+            go sk posChan False
 
 
 ------------------------------------------------------------------------------
@@ -43,7 +44,7 @@ talk handle posChan = go
           BSC.hPut handle (getByteString (toNetstring p))
           hFlush handle
           go
-  
+
 
 
 ------------------------------------------------------------------------------
@@ -65,6 +66,6 @@ fromNetstring (Netstring str) =
                               <* char ','
   in BSL.fromStrict <$> bsPayload >>= eitherDecode
 
-  
 
-    
+
+
