@@ -1,3 +1,32 @@
+Installation
+============
+
+C dependencies:
+  - OpenGL
+  - llvm
+  - nvidia drivers
+  - glut
+  - glu
+  - cairo
+  - pango
+  - ffmpeg
+  - OpenCV
+  - [flycapture2](http://www.ptgrey.com/flycapture-sdk)
+  
+Special Haskell dependencies:
+  - [ffmpeg-light](http://github.com/acowley/ffmpeg-light)
+  - [tetrode-ephys](http://github.com/imalsogreg/tetrode-ephys)
+
+Installation is tricky on Ubuntu because of the ffmpeg fork, but hopefully this will be better in Ubuntu 15.04.
+
+Instructions for Ubuntu 14.04:
+
+  1. `sudo apt-get install libcairo2-dev llvm-dev` TODO fix up
+  2. `git clone git@github.com:imalsogreg/arte-ephys`
+  3. `cabal sandbox init`
+  4. [#ffmpeg-light] TODO
+  5. `cabal install`
+  
 arte-ephys
 ==========
 
