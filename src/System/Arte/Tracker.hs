@@ -5,8 +5,8 @@ module System.Arte.Tracker where
 import Control.Applicative
 import Control.Concurrent
 import Control.Concurrent.Async
-import Control.Monad
 import Control.Error
+import Control.Monad
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import Data.Time
@@ -20,9 +20,10 @@ runTracker :: IO ()
 runTracker = do
 
   forkServer "localhost" 8080
-  --cs     <- runEitherT $ initializeFromFile "/home/greghale/.arte-ephys/tracker.conf"
-  --print cs
+  cs     <- runEitherT $ initializeFromFile "/home/greghale/.arte-ephys/tracker.conf"
+  print cs
 
+{-
   -- /////Temporary stuff////// --
   tStart <- getCurrentTime
   posChan <- newChan
@@ -33,5 +34,5 @@ runTracker = do
     BSL.putStrLn $ BSL.concat ["Writing: ", encode thisPos]
     writeChan posChan thisPos
     threadDelay 33000
-    
+-}    
   

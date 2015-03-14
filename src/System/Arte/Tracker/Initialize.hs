@@ -8,7 +8,7 @@ module System.Arte.Tracker.Initialize where
 import           Control.Concurrent.STM
 import           Control.Error
 import           Control.Error.Util
-import           Control.Monad.Trans 
+import           Control.Monad.Trans
 import           Codec.Picture
 import qualified Codec.FFmpeg           as FF
 import           Data.Aeson
@@ -25,8 +25,7 @@ import System.Arte.Tracker.Types
 makeCamera :: CameraOptions -> IO (Either String Camera)
 makeCamera CameraOptions{..} = runEitherT $ do
 
-  (getStream, cleanup) <- do
-      case optFrameSource of
+  (getStream, cleanup) <- case optFrameSource of
         FFMpegFile fn -> do
           (g, c) <- (lift $ FF.imageReader fn) :: EitherT String IO (IO (Maybe TrackerImage), IO ())
           s <- lift $ Streams.makeInputStream g
@@ -48,13 +47,13 @@ initImage (Just fn) = do
   case res of
     Left e  -> return (Left e)
     Right (ImageRGB8 i) -> Right <$> newTVarIO (Just i)
-    Right _             -> return $ 
+    Right _             -> return $
                            Left "Stream delivered wrong type of image."
 
 
 ------------------------------------------------------------------------------
 initializeFromFile :: FilePath -> EitherT String IO (CamGroups Camera)
-initializeFromFile fp = EitherT (eitherDecode <$> BS.readFile fp) >>= 
+initializeFromFile fp = EitherT (eitherDecode <$> BS.readFile fp) >>=
                         initializeCams
 
 initializeCams :: CamGroups CameraOptions -> EitherT String IO (CamGroups Camera)
