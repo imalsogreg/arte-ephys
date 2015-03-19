@@ -27,6 +27,7 @@ makeCamera CameraOptions{..} = runEitherT $ do
 
   (getStream, cleanup) <- case optFrameSource of
         FFMpegFile fn -> do
+          liftIO FF.initFFmpeg
           (g, c) <- (lift $ FF.imageReader fn) :: EitherT String IO (IO (Maybe TrackerImage), IO ())
           s <- lift $ Streams.makeInputStream g
           return ((s :: Streams.InputStream TrackerImage) , (c :: IO ()))

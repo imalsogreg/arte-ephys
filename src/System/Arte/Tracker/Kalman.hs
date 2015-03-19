@@ -1,4 +1,4 @@
-module Kalman where
+module System.Arte.Tracker.Kalman where
 
 import qualified Data.Distributive as D
 import Linear ((!*!), (!!*), (*!!), (!+!), (!-!), M44, M22, M24, M42, eye4, eye2, inv22)
@@ -76,7 +76,7 @@ safeInv22 m = case inv22 m of
 -- A single dt evolution of the Kalman filter
 -- For the intial step, initState (above) should be
 -- used as the State input to this function
-stepKalman :: Double -> State -> L.V2 (L.V1 Double) -> State 
+stepKalman :: Double -> State -> L.V2 (L.V1 Double) -> State
 stepKalman dt (z,p) x = (z',p')
   where 
   

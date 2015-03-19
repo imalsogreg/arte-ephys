@@ -23,7 +23,7 @@ import qualified Linear               as L
 import           Data.Ephys
 
 ------------------------------------------------------------------------------
-data TrackerState = TrackerState {
+data TrackerState = TrackerState {   -- TODO Do I use this for anything?
   tsCamGroups :: CamGroups Camera
   } deriving (Show)
 
@@ -42,12 +42,11 @@ data CamGroup a = SingleOverhead a
 newtype CamGroups a = CamGroups (M.Map CamGroupName (CamGroup a))
                       deriving (Show, Generic)
 
-newtype CamOptions = CamOptions (CamGroups Int) deriving (Generic)
 
 
 ------------------------------------------------------------------------------
-makeFrameProducer :: 
-  CamGroups Camera -> IO (Streams.InputStream (CamGroups (TrackerImage))) 
+makeFrameProducer ::
+  CamGroups Camera -> IO (Streams.InputStream (CamGroups (TrackerImage)))
 makeFrameProducer gs = Streams.makeInputStream $ getFrames gs
 
 getFrames :: CamGroups Camera -> IO (Maybe (CamGroups (TrackerImage)))
@@ -60,7 +59,7 @@ data Camera = Camera {
   , frameSourceCleanup :: IO ()
   , backgroundImg      :: TVar (Maybe (TrackerImage))
   , camPos             :: TVar (Maybe CamPos)
-  } 
+  }
 
 ------------------------------------------------------------------------------
 data CameraOptions = CameraOptions {

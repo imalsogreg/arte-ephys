@@ -28,61 +28,68 @@ library
                      , System.Arte.Tracker
                      , System.Arte.Tracker.Types
                      , System.Arte.Tracker.Initialize
+                     , System.Arte.Tracker.Kalman
                      , System.Arte.Tracker.Server
   other-modules:     Paths_arte_ephys
-  build-depends:     aeson
-                     , attoparsec
-                     , array
-                     , async 
-                     , base >=4.6 && <4.8
-                     , base64-bytestring
-                     , bytestring >=0.10 && <0.11
-                     , cereal
-                     , cmdargs >=0.10 && <0.11
-                     , configurator
-                     , containers >=0.5 && <0.6
-                     , data-clist
-                     , deepseq >=1.3 && <1.4
-                     , diagrams-lib >= 1.2 && < 1.3
-                     , diagrams-rasterific >= 0.1 && < 0.2
-                     , directory >=1.2 && <1.3
-                     , ekg
-                     , errors
-                     , either
-                     , filepath >=1.3 && <1.4
-                     , ffmpeg-light >= 0.8.1 && < 0.9
-                     , gloss
-                     , GLURaw <= 1.4.0.1
-                     , haskell-src-exts >= 1.15 && < 1.16
-                     , io-streams
-                     , JuicyPixels
-                     , lens >= 4.0
-                     , lens-aeson >= 1.0 && < 1.1
-                     , linear
-                     , mtl
-                     , network >=2.5 && <2.6
-                     , OpenGLRaw <= 1.5
-                     , optparse-applicative
-                     , pipes >= 4.0
-                     , pipes-rt
-                     , random >=1.0 && <1.1
-                     , Rasterific >= 0.4 && < 0.5
-                     , safe
-                     , stm >=2.4 && <2.5
-                     , stm-chans
-                     , text >=1.1 && <1.3
-                     , time >=1.4 && <1.5
-                     , tetrode-ephys
-                     , transformers >= 0.4.2.0 && < 0.5
-                     , vector
-                     , yaml
-                     , zlib
+  build-depends:     GLURaw <= 1.4.0.1
+                   , JuicyPixels
+                   , OpenGLRaw <= 1.5
+                   , Rasterific >= 0.4 && < 0.5
+                   , aeson
+                   , array
+                   , async
+                   , attoparsec
+                   , base >=4.6 && <4.8
+                   , base64-bytestring
+                   , bytestring >=0.10 && <0.11
+                   , cereal
+                   , cmdargs >=0.10 && <0.11
+                   , configurator
+                   , containers >=0.5 && <0.6
+                   , data-clist
+                   , deepseq >=1.3 && <1.4
+                   , diagrams-lib >= 1.2 && < 1.3
+                   , diagrams-rasterific >= 0.1 && < 0.2
+                   , directory >=1.2 && <1.3
+                   , distributive
+                   , either
+                   , ekg
+                   , errors
+                   , ffmpeg-light >= 0.8.1 && < 0.9
+                   , filepath >=1.3 && <1.4
+                   , gloss
+                   , haskell-src-exts >= 1.15 && < 1.16
+                   , io-streams
+                   , lens >= 4.0
+                   , lens-aeson >= 1.0 && < 1.1
+                   , linear
+                   , linear
+                   , mtl
+                   , network >=2.5 && <2.6
+                   , optparse-applicative
+                   , pipes >= 4.0
+                   , pipes-rt
+                   , random >=1.0 && <1.1
+                   , safe
+                   , stm >=2.4 && <2.5
+                   , stm-chans
+                   , tetrode-ephys
+                   , text >=1.1 && <1.3
+                   , time >=1.4 && <1.5
+                   , transformers >= 0.4.2.0 && < 0.5
+                   , vector
+                   , yaml
+                   , zlib
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:       -O2 -threaded -fllvm -fprof-auto -rtsopts "-with-rtsopts=-N8" -funbox-strict-fields
 
 executable tracker
-   build-depends:    base >= 4.6 && < 5, arte-ephys, ekg
+   build-depends:    arte-ephys
+                   , base >= 4.6 && < 5
+                   , distributive
+                   , ekg
+                   , linear
    main-is:          tracker.hs
    hs-source-dirs:   exec
    default-language: Haskell2010
