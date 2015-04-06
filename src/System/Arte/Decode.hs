@@ -36,6 +36,9 @@ import           System.Directory
 import           System.Exit                        (exitSuccess)
 import           System.IO
 import           System.Mem (performGC)
+import           Network.Socket
+import qualified Network.Socket.ByteString as BS
+import           Data.Serialize
 ------------------------------------------------------------------------------
 import           Data.Ephys.Cluster
 import           Data.Ephys.EphysDefs
@@ -86,7 +89,7 @@ atCursor ds = trodeDrawOpt . ix (ds^.trodeInd) . ix (ds^.clustInd)
 ------------------------------------------------------------------------------
 draw :: TVar DecoderState -> DecoderState -> IO Picture
 draw _ ds = do
-  
+
   !p    <- readTVarIO $ ds^.pos
   !occ  <- readTVarIO $ ds^.occupancy
   !dPos <- readTVarIO $ ds^.decodedPos :: IO Field
@@ -242,58 +245,72 @@ main = do
                       (writeTVar (ds'^.occupancy) (updateField (+) occ posField))
               )
 
-          putStrLn "Start Spike file asyncs"
-          asyncsAndTrodes <- forM spikeFiles $ \sf -> do
-            let tName = read . Text.unpack $ mwlTrodeNameFromPath sf
-            print $ "working on file" ++ sf
-            fi' <- getFileInfo sf
-            case fi' of
-              Left e -> error $ unwords ["Error getting info on file",sf,":",e]
+          putStrLn "Start Spike socket asyncs"
+          sock <- socket AF_INET Datagram defaultProtocol
+          bind sock $ SockAddrInet 5228 iNADDR_ANY
+          _ <- addClusterlessTrode dsT 0
+          a <- async $ runEffect $ udpSocketProducer sock >->
+            (forever $ do
+                spike <- await
+                ds2  <- lift . atomically $ readTVar dsT
+                pos2 <- lift . atomically $ readTVar (ds^.trackPos)
+                p    <- lift . atomically $ readTVar (ds^.pos)
+                when (clessKeepSpike spike) $
+                  lift (clusterlessAddSpike ds2 0 p pos2 spike logSpikes)
+                return ()
+            )
+          let asyncsAndTrodes = [ (a, undefined) ]
+          -- asyncsAndTrodes <- forM spikeFiles $ \sf -> do
+          --   let tName = read . Text.unpack $ mwlTrodeNameFromPath sf
+          --   print $ "working on file" ++ sf
+          --   fi' <- getFileInfo sf
+          --   case fi' of
+          --     Left e -> error $ unwords ["Error getting info on file",sf,":",e]
 
-              -- Clusterless case ------------------------------------------
-              Right fi | clusterless opts -> do
-                trodeTVar <- addClusterlessTrode dsT tName
-                f <- BSL.readFile sf
-                a <- async $ runEffect $
-                  dropResult (produceTrodeSpikes tName fi f) >->
-                  relativeTimeCat (\s -> spikeTime s - startExperimentTime opts) >->
-                  (forever $ do
-                      spike <- await
-                      ds2  <- lift . atomically $ readTVar dsT
-                      pos2 <- lift . atomically $ readTVar (ds^.trackPos)
-                      p    <- lift . atomically $ readTVar (ds^.pos)
-                      when (clessKeepSpike spike) $
-                        lift (clusterlessAddSpike ds2 tName p pos2 spike logSpikes)
-                      return ()
-                  )
-                return (a, undefined) -- DrawClusterless trodeTVar)
+          --     -- Clusterless case ------------------------------------------
+          --     Right fi | clusterless opts -> do
+          --       trodeTVar <- addClusterlessTrode dsT tName
+          --       f <- BSL.readFile sf
+          --       a <- async $ runEffect $
+          --         dropResult (produceTrodeSpikes tName fi f) >->
+          --         relativeTimeCat (\s -> spikeTime s - startExperimentTime opts) >->
+          --         (forever $ do
+          --             spike <- await
+          --             ds2  <- lift . atomically $ readTVar dsT
+          --             pos2 <- lift . atomically $ readTVar (ds^.trackPos)
+          --             p    <- lift . atomically $ readTVar (ds^.pos)
+          --             when (clessKeepSpike spike) $
+          --               lift (clusterlessAddSpike ds2 tName p pos2 spike logSpikes)
+          --             return ()
+          --         )
+          --       return (a, undefined) -- DrawClusterless trodeTVar)
 
-              -- Clustered case ---------------------------------------------
-              Right fi | otherwise -> do
-                let cbFilePath = Text.unpack $ cbNameFromTTPath "cbfile-run" sf
-                clusters' <- getClusters cbFilePath sf
-                case clusters' of
-                  Left e -> error $ unwords ["Error in clusters from file",cbFilePath,":",e]
-                  Right clusters -> do
-                    setTrodeClusters defTrack dsT tName clusters
-                    ds' <- readTVarIO dsT
-                    case Map.lookup tName (ds'^.trodes._Clustered) of
-                      Nothing -> error $ unwords ["Shouldn't happen, couldn't find",tName]
-                      Just pcTrode -> do
-                        f <- BSL.readFile sf
-                        a <- async $ runEffect $
-                          dropResult (produceTrodeSpikes tName fi f) >->
-                          relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
-                          (forever $ do
-                              spike <- await
-                              let minWid = spikeWidthThreshold defaultClusterlessOpts
-                              when (spikeWidth spike >= minWid) $ do
-                                ds2 <- lift . atomically $ readTVar dsT
-                                pos2 <- lift . atomically $ readTVar (ds^.trackPos)
-                                p    <- lift . atomically $ readTVar (ds^.pos)
-                                lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike logSpikes)
-                        t <- newTVarIO pcTrode
-                        return (a, undefined :: TrodeDrawOption)
+          --     -- Clustered case ---------------------------------------------
+          --     Right fi | otherwise -> do
+          --       let cbFilePath = Text.unpack $ cbNameFromTTPath "cbfile-run" sf
+          --       clusters' <- getClusters cbFilePath sf
+          --       case clusters' of
+          --         Left e -> error $ unwords ["Error in clusters from file",cbFilePath,":",e]
+          --         Right clusters -> do
+          --           setTrodeClusters defTrack dsT tName clusters
+          --           ds' <- readTVarIO dsT
+          --           case Map.lookup tName (ds'^.trodes._Clustered) of
+          --             Nothing -> error $ unwords ["Shouldn't happen, couldn't find",tName]
+          --             Just pcTrode -> do
+          --               f <- BSL.readFile sf
+          --               a <- async $ runEffect $
+          --                 dropResult (produceTrodeSpikes tName fi f) >->
+          --                 relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
+          --                 (forever $ do
+          --                     spike <- await
+          --                     let minWid = spikeWidthThreshold defaultClusterlessOpts
+          --                     when (spikeWidth spike >= minWid) $ do
+          --                       ds2 <- lift . atomically $ readTVar dsT
+          --                       pos2 <- lift . atomically $ readTVar (ds^.trackPos)
+          --                       p    <- lift . atomically $ readTVar (ds^.pos)
+          --                       lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike logSpikes)
+          --               t <- newTVarIO pcTrode
+          --               return (a, undefined :: TrodeDrawOption)
 
           reconstructionA <-
             async $ if clusterless opts
@@ -314,6 +331,14 @@ main = do
           return ()
 
 ------------------------------------------------------------------------------
+
+udpSocketProducer :: Socket -> Producer TrodeSpike IO ()
+udpSocketProducer s = forever $ do
+  (buf, _) <- liftIO $ BS.recvFrom s 8192
+  case decode buf of
+   Left e -> liftIO $ hPutStrLn stderr ("Error parsing TrodeSpike packet: " ++ e)
+   Right spike -> Pipes.yield spike
+
 clessKeepSpike :: TrodeSpike -> Bool
 clessKeepSpike s = amp && wid
   where
@@ -385,52 +410,7 @@ stepIO track queue dsT t ds = do
   ds' <- readTVarIO dsT
   return ds'
 
-{-
--- handleRequests must be called by stepIO so gloss can treat it
--- as a state.  Otherwise local changes to decoder state won't
--- be seen by the rest of the program.
-handleRequests :: TQueue ArteMessage -> TVar DecoderState -> Track -> IO ()
-handleRequests queue dsT track = do
-    msg' <- atomically $ tryReadTQueue queue
-    case msg' of
-      Nothing -> do
-        return ()
-      Just (ArteMessage t nFrom nTo mBody) -> do
-          putStrLn $ "Got message" ++ (take 20 . show $ mBody)
-          case mBody of
-            Request (TrodeSetCluster tName cName cMethod) -> do
-              print "handle about to take"
-              atomically $ do
-                ds <- readTVar dsT
-                setTrodeCluster track ds tName cName cMethod
-                return ()
-            Request (TrodeSetAllClusters tName clusts) -> do
-              setTrodeClusters track dsT tName clusts
 
-{-
-              let foldF dState (cName,cMethod) =
-                    setTrodeCluster track dState tName cName cMethod
-              print "SetAllClusters About to modifyMVar"
-              atomically $ do
-                ds <- readTVar dsT
-                ds' <- F.foldlM foldF ds (Map.toList clusts)
-                writeTVar dsT ds'
-                return ()
-  -}
-
-              ds <- readTVarIO dsT
-              print $ "SetAllClusters Finished modifying tvar, got opts: "
-                ++ show (ds^.trodeDrawOpt)
-            Request  r ->
-              putStrLn
-              (unwords ["Caught and ignored request:"
-                       ,(take 20 . show $ r),"..."]) >>
-              return ()
-            Response r ->
-              putStrLn (unwords ["Caught and ignored response:"
-                                ,(take 20 . show $ r),"..."]) >>
-              return ()
--}
 
 ------------------------------------------------------------------------------
 setTrodeClusters :: Track -> TVar DecoderState -> TrodeName
