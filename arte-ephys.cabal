@@ -3,7 +3,7 @@ version:             0.1.0.0
 synopsis:            Software for recording and analyzing tetrode data in realtime
 -- description:         
 homepage:            github.com/ImAlsoGreg/arte-ephys
-license:             GPL-3
+license:             BSD3
 license-file:        LICENSE
 author:              Greg Hale
 maintainer:          imalsogreg@gmail.com
@@ -28,6 +28,8 @@ library
                      , System.Arte.Tracker
                      , System.Arte.Tracker.Types
                      , System.Arte.Tracker.Initialize
+                     , System.Arte.Tracker.Kalman
+                     , System.Arte.Tracker.Server
   other-modules:     Paths_arte_ephys
   build-depends:     aeson
                      , array
@@ -75,12 +77,17 @@ library
                      , vector
                      , yaml
                      , zlib
+
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:       -O2 -threaded -fllvm -fprof-auto -rtsopts "-with-rtsopts=-N8" -funbox-strict-fields
 
 executable tracker
-   build-depends:    base >= 4.6 && < 5, arte-ephys
+   build-depends:    arte-ephys
+                   , base >= 4.6 && < 5
+                   , distributive
+                   , ekg
+                   , linear
    main-is:          tracker.hs
    hs-source-dirs:   exec
    default-language: Haskell2010
