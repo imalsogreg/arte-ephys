@@ -1,0 +1,63 @@
+name:                tetrode-ephys
+version:             0.1.0.0
+-- synopsis:            
+-- description:         
+license:             BSD3
+license-file:        LICENSE
+author:              Greg Hale
+maintainer:          imalsogreg@gmail.com
+-- copyright:           
+category:            Data
+build-type:          Simple
+-- extra-source-files:  
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+                  Data.Ephys,
+                  Data.Map.KDMap,
+                  Data.Ephys.PositionDecoding,
+                  Data.Ephys.EphysDefs,
+                  Data.Ephys.TrackSpec,
+                  Data.Ephys.TrackPosition,
+                  Data.Ephys.Position,
+                  Data.Ephys.PlaceCell,
+                  Data.Ephys.Timeseries,
+                  Data.Ephys.Spike,
+                  Data.Ephys.Cluster,
+                  Data.Ephys.OldMWL.Header,
+                  Data.Ephys.OldMWL.Parse,
+                  Data.Ephys.OldMWL.ParsePFile,
+                  Data.Ephys.OldMWL.ParseClusterFile,
+                  Data.Ephys.OldMWL.FileInfo,
+                  Data.Ephys.OldMWL.ParseSpike,
+                  Data.Ephys.OldMWL.ParsePxyabw,
+                  Data.Ephys.Timeseries.Types,
+                  Data.Ephys.Timeseries.Resample,
+                  Data.Ephys.Timeseries.Filter
+  other-extensions:    BangPatterns,
+                       GeneralizedNewtypeDeriving,
+                       TypeSynonymInstances,
+                       DeriveDataTypeable,
+                       TemplateHaskell,
+                       TypeFamilies,
+                       NoMonomorphismRestriction,
+                       DeriveGeneric,
+                       RecordWildCards,
+                       OverloadedStrings
+  build-depends:       base >=4.8 && <4.9,
+                       async,
+                       binary >= 0.7 && < 0.8,
+                       bytestring >=0.10 && <0.11,
+                       containers >=0.5 && <0.6,
+                       lens >= 4.6 && < 5.0,
+                       pipes,
+                       pipes-rt >= 0.5 && < 0.6,
+                       safe,
+                       safecopy,
+                       stm, 
+                       text >=1.2 && <1.3,
+                       time >=1.5 && <1.6,
+                       vector >=0.10 && <0.11
+  hs-source-dirs:      src
+  default-language:    Haskell2010
