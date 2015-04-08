@@ -42,7 +42,11 @@ data CamGroup a = SingleOverhead a
 newtype CamGroups a = CamGroups (M.Map CamGroupName (CamGroup a))
                       deriving (Show, Generic)
 
-
+data EstimationOptions = EstOpts {
+    blurPx       :: Maybe Double
+  , trackHeightM :: Double       --* For use with single overhead camera
+  
+                                 }
 
 ------------------------------------------------------------------------------
 makeFrameProducer ::
