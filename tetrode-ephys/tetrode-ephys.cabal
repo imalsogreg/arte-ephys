@@ -45,7 +45,7 @@ library
                        DeriveGeneric,
                        RecordWildCards,
                        OverloadedStrings
-  build-depends:       base >=4.8 && <4.9,
+  build-depends:       base >=4.6 && <4.9,
                        async,
                        binary >= 0.7 && < 0.8,
                        bytestring >=0.10 && <0.11,

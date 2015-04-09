@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE DeriveGeneric     #-}
 
 module Data.Ephys.OldMWL.ParseSpike where
 
@@ -13,6 +14,7 @@ import           Data.Binary.Put           (putWord16le,putWord32le)
 import qualified Data.ByteString.Lazy      as BSL
 import qualified Data.List                 as List
 import           Data.Maybe                (listToMaybe)
+import qualified Data.Serialize            as Ser
 --import           Data.Packed.Matrix        ((><))
 --import qualified Data.Packed.Matrix        as HMatrix
 import qualified Data.Text                 as T
@@ -20,6 +22,7 @@ import qualified Data.Vector               as V
 import qualified Data.Vector.Generic       as VG
 import qualified Data.Vector.Unboxed       as U
 import qualified Data.Vector.Binary
+import           GHC.Generics
 import           GHC.Int
 import           Pipes
 import qualified Pipes.Binary              as PBinary
@@ -39,7 +42,9 @@ data MWLSpike = MWLSpike { mwlSpikeTime      :: Double
                          , mwlSpikeWaveforms :: [U.Vector Double] -- Double is
                                                                   -- MWL units
                                                                   -- though
-                         } deriving (Eq, Show)
+                         } deriving (Eq, Show, Generic)
+
+instance Ser.Serialize MWLSpike where
 
 
 ------------------------------------------------------------------------------

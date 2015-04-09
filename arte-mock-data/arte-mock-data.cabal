@@ -19,6 +19,18 @@ executable arte-mock-data
   main-is:             Main.hs
   other-modules:       System.Arte.MockData.StreamTTFile, System.Arte.MockData.StreamPFile 
   -- other-extensions:    
-  build-depends:       base >=4.8 && <4.9, cereal, errors, network, safe, transformers >=0.4 && <0.5, bytestring >=0.10 && <0.11, optparse-applicative, pipes, pipes-rt, tetrode-ephys, text >=1.2 && <1.3
+  build-depends:       base >=4.6 && <4.9,
+                       cereal,
+                       errors,
+                       network,
+                       safe,
+                       transformers >=0.4 && <0.5,
+                       bytestring >=0.10 && <0.11,
+                       optparse-applicative,
+                       pipes,
+                       pipes-rt,
+                       tetrode-ephys,
+                       text >=1.2 && <1.3,
+                       vector
   hs-source-dirs:      src
   default-language:    Haskell2010
