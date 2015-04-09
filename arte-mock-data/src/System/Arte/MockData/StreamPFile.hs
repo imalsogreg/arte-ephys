@@ -1,4 +1,4 @@
-module Main where
+module System.Arte.MockData.StreamPFile where
 
 import Control.Applicative
 import Control.Error
@@ -21,6 +21,8 @@ import Data.Ephys.OldMWL.ParseSpike
 import Data.Ephys.OldMWL.Header
 import Data.Ephys.OldMWL.Parse
 
+{-
+-- commented out to get other parts working
 main :: IO ()
 main = withSocketsDo $ do
   op <- validateInput <$> getArgs
@@ -67,3 +69,4 @@ usage :: String
 usage = unlines ["Usage:"
                 ,"streamPFile P_FILE MULTICAST_IP SOURCE_PORT DESTINATION_PORT START_TIME"
                 ]
+-}
