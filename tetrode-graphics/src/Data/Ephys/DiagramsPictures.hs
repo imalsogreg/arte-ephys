@@ -2,6 +2,8 @@
 
 module Data.Ephys.DiagramsPictures where
 
+{-
+ -- This module is out until diagrams compiles from hackage on ghc 7.10
 ------------------------------------------------------------------------------
 import Control.Lens hiding ((#), at)
 import Codec.Picture
@@ -105,3 +107,4 @@ testTrack = circularTrack (0,0) 0.57 0.5 0.25 0.2
 testBin = head $ testTrack^.trackBins
 
 zz = 12
+-}

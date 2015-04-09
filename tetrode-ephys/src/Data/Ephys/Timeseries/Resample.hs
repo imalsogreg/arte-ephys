@@ -7,8 +7,9 @@ import Data.Ephys.Timeseries.Types
 
 import Data.Map
 import Safe
+import Control.Lens
 import GHC.Generics
-
+{-
 data PaddingRule = PaddingClip | PaddingZero
                  deriving (Eq, Show, Generic)
 
@@ -40,7 +41,8 @@ sample :: (Real a) => ShiftRule
 sample padR shiftR t ts
   | not (inInterval t ts) = 0
   | otherwise = undefined
-
+-}
+                {- 
 subWindow :: (Real a) =>
              PaddingRule ->
              ShiftRule ->
@@ -49,4 +51,5 @@ subWindow :: (Real a) =>
              Timeseries a ->
              Timeseries a
 subWindow padR shiftR tStart tEnd ts =
-  
+
+-}

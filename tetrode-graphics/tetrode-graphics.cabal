@@ -17,9 +17,14 @@ library
   -- other-modules:       
   other-extensions:    TypeFamilies, NoMonomorphismRestriction
   build-depends:       base >=4.8 && <4.9,
-                       diagrams,
+--                       active >= 0.2 && < 0.3,
+--                       diagrams >= 1.2 && < 1.4,
+--                       diagrams-svg >= 1.2 && < 1.4,
+--                       monoid-extras >= 0.4 && < 0.5,
                        gloss,
+                       JuicyPixels,
                        lens,
+                       tetrode-ephys,
                        vector >=0.10 && <0.11,
                        containers >=0.5 && <0.6
   hs-source-dirs:      src
