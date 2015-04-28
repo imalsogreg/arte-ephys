@@ -1,0 +1,5 @@
+# arte-backend
+
+Executables for driving the input hardware and doing low-level things like band-pass filtering, sensor-collecting into sets of 4 wires in a tetrode, and spike detection within tetrodes.
+
+There is no good start to this project because it's not clear what hardware we want to support, whether the bandpass filtering will be fast enough, etc. Right now the arte project instead uses the somewhat crappy c++ project called arte-backend, at [github.com/imalsogreg/arte-backend](http://github.com/imalsogreg/arte-backend). I say it's crappy because it's hard to install, buggy, dependent on old AD hardware for clock synchronization and not directly compatible with the rest of arte-ephys types and serialization formats. The hope is that we can replace the old c++ backend stuff with this Haskell version.

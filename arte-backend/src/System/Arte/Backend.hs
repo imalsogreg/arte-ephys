@@ -2,7 +2,7 @@
 -- |
 -- Module     : Main
 -- Copyright  : (c) Greg Hale 2013
--- License    : GPL-3
+-- License    : BSD3
 -- 
 -- Maintainer : imalsogreg@gmail.com
 -- Stability  : unstable
@@ -27,7 +27,7 @@ settingsFilename :: IO String
 settingsFilename = fmap (++ settingsName) home
   where home = getEnv "HOME"
         settingsName = "/.arte-ephys/backend.conf"
-                  
+
 main :: IO ()
 main = do
   fn <- settingsFilename
