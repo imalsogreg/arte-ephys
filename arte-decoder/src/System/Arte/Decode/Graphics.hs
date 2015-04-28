@@ -6,7 +6,6 @@ import           Control.Concurrent.STM
 import qualified Control.Concurrent.STM.TArray    as T
 import           Control.Lens
 import qualified Data.Array.MArray                as M
-import qualified Data.CircularList                as CL
 import qualified Data.Foldable                    as F
 import qualified Data.List                        as L
 import qualified Data.Map.Strict                  as Map
@@ -70,7 +69,7 @@ mkClusterlessScreenPic (DrawClusterless tName kdT (ClessDraw x y)) ds =
              ]
              ++ map (\pt -> color selectColor $ pointAtSize x y pt 1e-6)
                 psInRange
-                          
+
     return .Pictures $ catMaybes [ spikesToScreen <$> Just treePic
                                  , spikesToScreen <$> treeSelectedPic
                                  ]

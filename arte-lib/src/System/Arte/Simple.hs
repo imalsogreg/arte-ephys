@@ -2,18 +2,18 @@
 -- |
 -- Module      : Simple
 -- Copyright   : (c) Greg Hale
--- License     : GPL-3
--- 
+-- License     : BSD3
+--
 -- Maintainer  : Greg Hale <imalsogreg@gmail.com>
--- Stability   : unstable 
+-- Stability   : unstable
 -- Portability :
 --
 -- A simple demo program that acts like any other slave process
 -- For experimenting with zmq, gtk, etc
--- 
+--
 ----------------------------------------------------------------------
 
-module Main where
+module System.Arte.Simple where
 
 {-# LANGUAGE OverloadedStringss #-}
 
@@ -33,6 +33,7 @@ import Control.Concurrent.STM.TQueue
 import Control.Concurrent.Async
 import qualified Data.Serialize as S
 
+{-
 main :: IO ()
 main = do
   masterNode' <- getAppNode "master"  Nothing
@@ -62,5 +63,4 @@ sendMessages queue = loop
       case message of
         ForceQuit -> return ()
         _         -> loop
-        
-    
+-}

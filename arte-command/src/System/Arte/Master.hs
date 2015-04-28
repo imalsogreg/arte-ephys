@@ -5,10 +5,10 @@
 -- Module     : Main
 -- Copyright  : (c) Greg Hale 2013
 -- License    : BSD3
--- 
+--
 -- Maintainer : imalsogreg@gmail.com
 -- Stability  : unstable
--- Portability: 
+-- Portability:
 --
 -- ArteMaster, A user interface for issuing commands to Arte
 --
@@ -16,11 +16,9 @@
 
 module Main where
 
-import Arte.Common
-import Arte.Common.Net
-import Arte.Common.NetMessage
+import System.Arte.Net
+import System.Arte.NetMessage
 
-import System.ZMQ as Z
 import qualified Data.ByteString.Char8 as C hiding (putStrLn)
 import qualified Data.ByteString as BS
 import Control.Concurrent.STM
@@ -37,6 +35,8 @@ import qualified Data.ByteString.Char8 as C
 import qualified Data.Text as Text
 import System.Console.CmdArgs
 
+main = undefined
+{-
 acceptClients :: Node -> TQueue ArteMessage -> IO ()
 acceptClients masterNode requestQueue = case masterNode^.inPort of
     Nothing -> error "Configuration error, master node has no inPort field"
@@ -247,4 +247,5 @@ sendSimpleMessage sock = do
   send sock req []
   rep <- receive sock []
   putStrLn $ "Got response: " ++ C.unpack rep
+-}
 -}

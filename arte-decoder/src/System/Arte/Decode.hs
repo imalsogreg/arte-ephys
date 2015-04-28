@@ -18,7 +18,6 @@ import           Control.Lens
 import           Control.Monad
 import qualified Data.ByteString.Char8              as BS
 import qualified Data.ByteString.Lazy               as BSL
-import qualified Data.CircularList                  as CL
 import qualified Data.Foldable                      as F
 import qualified Data.Map.Strict                    as Map
 import           Data.Maybe

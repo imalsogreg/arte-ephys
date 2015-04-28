@@ -18,10 +18,9 @@ import qualified Data.Serialize as S
 import qualified Data.Vector as V
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Base64 as B64
-import qualified Data.Map as Map 
+import qualified Data.Map as Map
 import Data.Map (Map, keys, member)
 import Data.Text hiding (unwords,filter,head)
-import Data.Yaml
 import Foreign.Ptr
 import Foreign.Marshal.Alloc
 import Foreign.Storable

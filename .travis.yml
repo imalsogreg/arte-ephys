@@ -1,5 +1,7 @@
 # from hvr's multi-ghc-travis template
 
+language: haskell
+
 env:
  - CABALVER=1.22 GHCVER=7.8.4
  - CABALVER=1.22 GHCVER=7.10.1
