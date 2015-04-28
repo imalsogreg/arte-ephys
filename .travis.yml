@@ -1,26 +1,30 @@
 # from hvr's multi-ghc-travis template
 
 env:
- - GHCVER=7.8.3
+ - CABALVER=1.22 GHCVER=7.8.4
+ - CABALVER=1.22 GHCVER=7.10.1
 
 before_install:
- - sudo add-apt-repository -y ppa:hvr/ghc
- - sudo apt-get update
- - sudo apt-get install libzmq3-dev freeglut3-dev liblapack-dev libblas-dev libgsl0-dev llvm-3.4 llvm-3.4-dev
- - sudo apt-get install cabal-install-1.18 ghc-$GHCVER happy
- - sudo apt-get install git
+ - travis_retry sudo add-apt-repository -y ppa:hvr/ghc
+ - travis_retry sudo apt-get update
+ - sudo apt-get install freeglut3-dev liblapack-dev libblas-dev libgsl0-dev llvm-3.4 llvm-3.4-dev
+ - sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER happy alex
  - sudo apt-get install freeglut3-dev liblapack-dev libblas-dev libgsl0-dev
- - export PATH=/opt/ghc/$GHCVER/bin:$PATH
- - git clone http://github.com/ImAlsoGreg/haskell-tetrode-ephys
+ - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
 
 install:
- - cabal-1.18 update
+ - cabal-$CABALVER --version
+ - travis_retry cabal-$CABALVER update
 
 script:
- - cabal-1.18 sandbox init
- - git clone https://github.com/ImAlsoGreg/tetrode-ephys.git
- - cabal-1.18 sandbox add-source tetrode-ephys
- - cabal-1.18 install --only-dependencies --enable-tests --enable-benchmarks
- - cabal-1.18 configure
- - cabal-1.18 build
- - cabal-1.18 install
+ - cabal-$CABALVER sandbox init
+ - cabal-$CABALVER sandbox add-source tetrode-ephys
+ - cabal-$CABALVER sandbox add-source tetrode-graphics
+ - cabal-$CABALVER sandbox add-source arte-lib
+ - cabal-$CABALVER install tetrode-ephys tetrode-graphics arte-lib arte-command arte-decoder arte-lfp-viewer arte-mock-data arte-spike-viewer only-dependencies
+ - cabal-$CABALVER install tetrode-ephys --enable-tests --enable-benchmarks
+ - cabal-$CABALVER install tetrode-graphics --enable-tests --enable-benchmarks
+ - cabal-$CABALVER install arte-lib --enable-tests --enable-benchmarks
+ - cabal-$CABALVER install arte-decoder --enable-tests --enable-benchmarks
+ - cabal-$CABALVER install arte-command --enable-tests --enable-benchmarks
+ - cabal-$CABALVER install arte-mock-data --enable-tests --enable-benchmarks
