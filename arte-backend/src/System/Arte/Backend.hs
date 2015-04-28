@@ -3,7 +3,7 @@
 -- Module     : Main
 -- Copyright  : (c) Greg Hale 2013
 -- License    : BSD3
--- 
+--
 -- Maintainer : imalsogreg@gmail.com
 -- Stability  : unstable
 -- Portability: not portable, uses posix & linux kernel modules

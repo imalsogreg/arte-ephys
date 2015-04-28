@@ -1,5 +1,7 @@
 ## Arte Master
 
+A command server for arte project clients. Not currently used - out of date. But we still want an implementation thatfits this bill. Any client should be able to say, "reset the experiment timer" and all clients will reset their counter values to 0, for example.
+
 ### How it works
 
 1. Configuration files live on the 'master' computer, in ~/.arte-ephys/
