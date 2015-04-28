@@ -3,7 +3,6 @@
 language: haskell
 
 env:
- - CABALVER=1.22 GHCVER=7.8.4
  - CABALVER=1.22 GHCVER=7.10.1
 
 before_install:
@@ -23,9 +22,9 @@ script:
  - cabal-$CABALVER sandbox add-source tetrode-ephys
  - cabal-$CABALVER sandbox add-source tetrode-graphics
  - cabal-$CABALVER sandbox add-source arte-lib
- - cabal-$CABALVER install tetrode-ephys --enable-tests --enable-benchmarks
- - cabal-$CABALVER install tetrode-graphics --enable-tests --enable-benchmarks
- - cabal-$CABALVER install arte-lib --enable-tests --enable-benchmarks
- - cabal-$CABALVER install arte-decoder --enable-tests --enable-benchmarks
- - cabal-$CABALVER install arte-command --enable-tests --enable-benchmarks
- - cabal-$CABALVER install arte-mock-data --enable-tests --enable-benchmarks
+ - cabal-$CABALVER install ./tetrode-ephys --enable-tests --enable-benchmarks
+ - cabal-$CABALVER install ./tetrode-graphics --enable-tests --enable-benchmarks
+ - cabal-$CABALVER install ./arte-lib --enable-tests --enable-benchmarks
+ - cabal-$CABALVER install ./arte-decoder --enable-tests --enable-benchmarks
+ - cabal-$CABALVER install ./arte-command --enable-tests --enable-benchmarks
+ - cabal-$CABALVER install ./arte-mock-data --enable-tests --enable-benchmarks
