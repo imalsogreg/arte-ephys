@@ -23,7 +23,6 @@ script:
  - cabal-$CABALVER sandbox add-source tetrode-ephys
  - cabal-$CABALVER sandbox add-source tetrode-graphics
  - cabal-$CABALVER sandbox add-source arte-lib
- - cabal-$CABALVER install tetrode-ephys tetrode-graphics arte-lib arte-command arte-decoder arte-lfp-viewer arte-mock-data arte-spike-viewer only-dependencies
  - cabal-$CABALVER install tetrode-ephys --enable-tests --enable-benchmarks
  - cabal-$CABALVER install tetrode-graphics --enable-tests --enable-benchmarks
  - cabal-$CABALVER install arte-lib --enable-tests --enable-benchmarks
