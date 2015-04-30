@@ -37,13 +37,13 @@ import System.Arte.NetMessage
 type IPAddy   = String
 type Port     = Int
 
-data Host = Host 
+data Host = Host
             { _hostName :: String
             , _hostIp   :: IPAddy
             } deriving (Eq, Show, Generic)
 $(makeLenses ''Host)
 
-data Node = Node 
+data Node = Node
             { _nodeName       :: String
             , _nodeHost       :: Host
             , _nodeServerPort :: Int
@@ -73,7 +73,7 @@ toPacket a = do
   BS.append lenBytes payload
   where lenBytes = S.encode . BS.length $ payload
         payload  = S.encode a
-                         
+
 recvData :: (S.Serialize a) => Handle -> IO (Either String a)
 recvData h = do
   let encodedIntLen = BS.length (S.encode (1 :: Int))
@@ -83,7 +83,7 @@ recvData h = do
     Right len -> S.decode <$> BS.hGet h len
 -- TODO: Learn to use ErrorT?
 
-  
+
 {-
 mkMsg :: String -> Maybe String -> TVar ExperimentTime -> MessageBody -> IO ArteMessage
 mkMsg fromN toN time' body = do

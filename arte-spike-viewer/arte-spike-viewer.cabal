@@ -16,9 +16,20 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 executable arte-spike-viewer
-  main-is:             Main.hs
+  main-is:             System/Arte/SpikeViewer.hs
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.8 && <4.9
+  build-depends:       base >=4.8 && <4.9,
+                       array,
+                       cereal,
+                       either-unwrap,
+                       GLFW-b,
+                       GLUtil,
+                       OpenGL == 2.*,
+                       OpenGLRaw,
+                       random,
+                       statistics,
+                       stm,
+                       tetrode-ephys
   hs-source-dirs:      src
   default-language:    Haskell2010

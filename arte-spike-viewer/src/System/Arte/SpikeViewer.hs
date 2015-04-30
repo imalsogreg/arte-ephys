@@ -1,4 +1,4 @@
-module Main where
+module System.Arte.SpikeViwer where
 
 import qualified Graphics.UI.GLFW as GLFW
 import Graphics.Rendering.OpenGL as GL
@@ -13,7 +13,7 @@ import Data.Ephys.Spike
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TVar
 import Control.Concurrent
-import System.ZMQ
+--import System.ZMQ
 import Data.Serialize
 import Data.Either.Unwrap
 import Graphics.GLUtil.BufferObjects
@@ -38,7 +38,7 @@ plotList =  [Plot (0, (1/2)) (1,1) (0, 0, 0, 0)
             ,Plot (0, 0) (1,1) (0, 1, 1, 0)
             ,Plot ((1/3), 0) (1,1) (1, 0, 0, 0)
             ,Plot ((2/3), 0) (1,1) (1, 1, 0, 0)]
-  
+
 drawVBO :: Mem -> IO ()
 drawVBO (Mem ptr buff size) = do
   let vxDesc = VertexArrayDescriptor 2 (Float) (0) $ plusPtr nullPtr 0
@@ -53,25 +53,25 @@ drawVBO (Mem ptr buff size) = do
               case ((size `div` 2) `mod` 600) of
                 0 -> print (size `div` 2)
                 otherwise -> return ()
-                 
+
     Nothing -> error "null pointer"
   {-case size `mod` 100 of
     0 -> print size
-    otherwise -> return-} 
+    otherwise -> return-}
   unmapBuffer ArrayBuffer
   bindBuffer ArrayBuffer $= Nothing
   GL.clientState VertexArray $= Disabled
 
-  
+
 drawVBO' :: [(Float, Float)] -> IO ()
 drawVBO' ls = do
   renderPrimitive Points $ do
     forM_ ls $ (\(x, y) -> do
                vertex $ (Vertex3 ((realToFrac x) :: GLfloat) (realToFrac y) 0))
-                 
+
   {-case size `mod` 100 of
     0 -> print size
-    otherwise -> return-} 
+    otherwise -> return-}
 
 
 
@@ -83,8 +83,8 @@ drawArrays' ptr mode first num = do
   forM_ [0, 2 ..num] (\i -> do
                      x <- peekMem ptr (fromIntegral i)
                      y <- peekMem ptr $ fromIntegral (i+1)
-                     vertex $ (Vertex3 ((realToFrac x):: GLfloat) (realToFrac y) 0)) 
-                       
+                     vertex $ (Vertex3 ((realToFrac x):: GLfloat) (realToFrac y) 0))
+
 
 tetrodeView1 :: TetrodeView --test tetrode view. Future will have user input
 tetrodeView1 = TetrodeView 0.9 0.7 (0,0)
@@ -108,11 +108,11 @@ resizeScene _  width height = do
   GL.viewport $= ((Position 0 0) , Size (fromIntegral width) (fromIntegral height)) --make a viewport with position at 0,0 and width x height.
   GL.matrixMode $= Projection
   GL.loadIdentity
-  GL.ortho 0 1 0 1 (-1) 1 --bottom left, (0,0) top right (1,1) 
+  GL.ortho 0 1 0 1 (-1) 1 --bottom left, (0,0) top right (1,1)
   GL.matrixMode $= Modelview 0
   GL.loadIdentity
   GL.flush
-  
+
 drawGrid :: IO()
 drawGrid = renderPrimitive Lines $ do
   vertex $ (Vertex3 (0:: GLfloat) 1 0)
@@ -127,16 +127,16 @@ drawGrid = renderPrimitive Lines $ do
   vertex $ Vertex3 (0.66666666666::GLfloat) (1) 0
   vertex $ Vertex3 (0::GLfloat) 0 0
   vertex $ Vertex3 (0::GLfloat) 1 0
-  vertex $ Vertex3 (0:: GLfloat) 0 0 
+  vertex $ Vertex3 (0:: GLfloat) 0 0
   vertex $ Vertex3 (1::GLfloat) 0 0
-  
+
 shutdown :: GLFW.WindowCloseCallback
 shutdown win = do
   GLFW.destroyWindow win
   GLFW.terminate
   _ <- exitWith ExitSuccess
   return ()
-  
+
 keyPressed :: GLFW.KeyCallback
 keyPressed win GLFW.Key'Escape _ GLFW.KeyState'Pressed _ = shutdown win --if pressed escape, gtfo
 keyPressed _ _              _ _                       _  = return ()
@@ -150,7 +150,7 @@ drawSpike dist ls = do
     sequence $ map drawIndivPointsSpike ls
   GL.scale (1/(realToFrac (dist/4))) 1 (1 :: GLfloat)  
   GL.translate $ Vector3 (dist/4) 0 0 --move over 1/4 of the leftover space, basically make 4 even sections
-  
+
 drawIndivPointsSpike :: (Double, Double) -> IO()
 drawIndivPointsSpike (x,y) = do
   GL.vertex$ Vertex3 ((realToFrac (x/0.001))::GLfloat) (realToFrac (y/4e-3)) 0 
@@ -305,10 +305,8 @@ drawScene' t recs _ = do
   
   
 main :: IO ()
-main = withContext 1 $ \context -> do
-  withSocket context Sub $ \subscriber1 -> do
-    connect subscriber1 "tcp://localhost:7373"
-    subscribe subscriber1 ""
+main = do
+    -- TODO setup UDP subscriber
     True <- GLFW.init
     GLFW.defaultWindowHints
     Just win <- GLFW.createWindow 720 480 "test" Nothing Nothing
