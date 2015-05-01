@@ -16,7 +16,7 @@ library
   exposed-modules:     Data.Ephys.DiagramsPictures, Data.Ephys.GlossPictures
   -- other-modules:       
   other-extensions:    TypeFamilies, NoMonomorphismRestriction
-  build-depends:       base >=4.8 && <4.9,
+  build-depends:       base >=4.7 && <4.9,
 --                       active >= 0.2 && < 0.3,
 --                       diagrams >= 1.2 && < 1.4,
 --                       diagrams-svg >= 1.2 && < 1.4,
