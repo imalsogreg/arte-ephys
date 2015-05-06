@@ -17,4 +17,9 @@ main = execParser opts >>= runStreamer
            )
 
 runStreamer :: DataSourceOpts -> IO ()
-runStreamer = streamTT
+runStreamer opts = case extension $ fileName opts of
+  "p" -> streamP opts
+  "tt" -> streamTT opts
+
+extension :: String -> String
+extension = reverse . takeWhile ((/=) '.') . reverse
