@@ -43,7 +43,7 @@ streamTT DataSourceOpts{..} = withSocketsDo $ do
                  relativeTimeCat (\s -> spikeTime s - expStartTime) >->
       (forever $ do
        spike <- await
-       liftIO $ BS.sendAllTo sock (encode spike) destAddr)
+       liftIO $ BS.sendAllTo sock (spikeBits spike) destAddr)
 
 spikeBits :: OutputFormat -> Int -> MWLSpike -> BS.ByteString
 spikeBits ArteNew _ s = encode s                      -- the 'new arte' case is simple :)
