@@ -41,8 +41,13 @@ streamP DataSourceOpts{..} = withSocketsDo $ do
   Right fi' ->
     runEffect $ dropResult (produceMWLPos f) >->
     relativeTimeCat (\s -> _mwlPosTime s - expStartTime) >->
-    runningPosition (166, 140) 156.6 0.5 nullPosition >->
+    runningPosition (166, 140) 156.6 0.5 pos0 >->
     (forever $ do
         pos <- await
         liftIO $ BS.sendAllTo sock (encode pos) destAddr
     )
+
+pos0 :: Position
+pos0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
+       ConfSure sZ sZ (-100 :: Double) (Location 0 0 0)
+       where sZ = take 5 (repeat 0)
