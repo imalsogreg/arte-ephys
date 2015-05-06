@@ -226,23 +226,20 @@ main = do
           let ((pX0,pY0),pixPerM,h) = posShortcut
 
           putStrLn "Start pos async"
-          posAsync <- do
-            f <- BSL.readFile (head pFiles)
-            ds' <- readTVarIO dsT
-            async . runEffect $
-              dropResult (produceMWLPos f) >->
-              runningPosition (pX0,pY0) pixPerM h pos0 >->
-              relativeTimeCatDelayedBy _posTime (negate $ startExperimentTime opts) >->
-              (forever $ do
-                  p <- await
-                  lift . atomically $ do
-                    occ <- readTVar (ds^.occupancy)
-                    let posField = posToField defTrack p kernel
-                    writeTVar (ds'^.pos) p
-                    writeTVar (ds'^.trackPos)  posField
-                    when (p^.speed > runningThresholdSpeed)
-                      (writeTVar (ds'^.occupancy) (updateField (+) occ posField))
-              )
+          posSock <- socket AF_INET Datagram defaultProtocol
+          bind posSock $ SockAddrInet 6001 iNADDR_ANY
+          ds' <- readTVarIO dsT
+          posAsync <- async $ runEffect $ udpSocketProducer posSock >->
+            (forever $ do
+              p <- await
+              lift . atomically $ do
+                occ <- readTVar (ds^.occupancy)
+                let posField = posToField defTrack p kernel
+                writeTVar (ds'^.pos) p
+                writeTVar (ds'^.trackPos)  posField
+                when (p^.speed > runningThresholdSpeed)
+                  (writeTVar (ds'^.occupancy) (updateField (+) occ posField))
+            )
 
           putStrLn "Start Spike socket asyncs"
           sock <- socket AF_INET Datagram defaultProtocol
@@ -331,12 +328,12 @@ main = do
 
 ------------------------------------------------------------------------------
 
-udpSocketProducer :: Socket -> Producer TrodeSpike IO ()
+udpSocketProducer :: (Serialize t) => Socket -> Producer t IO ()
 udpSocketProducer s = forever $ do
   (buf, _) <- liftIO $ BS.recvFrom s 8192
   case decode buf of
-   Left e -> liftIO $ hPutStrLn stderr ("Error parsing TrodeSpike packet: " ++ e)
-   Right spike -> Pipes.yield spike
+   Left e -> liftIO $ hPutStrLn stderr ("Error parsing packet: " ++ e)
+   Right t -> Pipes.yield t
 
 clessKeepSpike :: TrodeSpike -> Bool
 clessKeepSpike s = amp && wid
