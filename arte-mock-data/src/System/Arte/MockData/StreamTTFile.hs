@@ -31,10 +31,25 @@ streamTT :: DataSourceOpts -> IO ()
 streamTT DataSourceOpts{..} = withSocketsDo $ do
   sock <- socket AF_INET Datagram defaultProtocol
   let trodeName = read . Text.unpack $ mwlTrodeNameFromPath fileName :: Int
-  let saddr = SockAddrInet (fromIntegral myPort) iNADDR_ANY
+  let saddr     = SockAddrInet (fromIntegral myPort) iNADDR_ANY
   destAddr <- SockAddrInet (fromIntegral destPort) <$> (inet_addr ipAddy)
   bindSocket sock saddr
-  f <- BSL.readFile fileName
+
+  case outputFormat of
+        ArteNew -> runEffect $ dropResult (produceTrodeSpikesFromFile fileName trodeName)
+                   >-> relativeTimeCat (\s -> spikeTime s - expStartTime)
+                   >-> (forever $ do
+                           spike <- await
+                           liftIO $ BS.sendAllTo sock (encode spike) destAddr)
+        ArteOld -> runEffect $ dropResult (produceMWLSpikesFromFile fileName)
+                   >-> relativeTimeCat (\s -> mwlSpikeTime s - expStartTime)
+                   >-> (forever $ do
+                           mwlSpike <- await
+                           liftIO $ BS.sendAllTo sock (spikeBits 0 mwlSpike) destAddr)
+{-
+
+
+  
   fi <- getFileInfo fileName
   case fi of
    Left e -> error $ "Error reading file " ++ fileName ++ " " ++ e
@@ -43,11 +58,10 @@ streamTT DataSourceOpts{..} = withSocketsDo $ do
                  relativeTimeCat (\s -> spikeTime s - expStartTime) >->
       (forever $ do
        spike <- await
-       liftIO $ BS.sendAllTo sock (spikeBits spike) destAddr)
-
-spikeBits :: OutputFormat -> Int -> MWLSpike -> BS.ByteString
-spikeBits ArteNew _ s = encode s                      -- the 'new arte' case is simple :)
-spikeBits ArteOld trodeName s =                     -- while 'old arte' takes some real work
+       liftIO $ BS.sendAllTo sock (encd spike) destAddr)
+-}
+spikeBits :: Int -> MWLSpike -> BS.ByteString
+spikeBits trodeName s =                     -- while 'old arte' takes some real work
   let nChans  = Prelude.length (mwlSpikeWaveforms s)
       nSamps  = sum (map U.length (mwlSpikeWaveforms s))
       sPerCh  = nSamps `div` nChans
