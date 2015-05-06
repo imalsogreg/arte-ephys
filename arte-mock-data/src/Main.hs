@@ -1,6 +1,9 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Main where
 
 import Data.Ephys
+import Control.Exception 
 import Options.Applicative
 
 import Types
@@ -9,7 +12,7 @@ import System.Arte.MockData.StreamPFile
 
 
 main :: IO ()
-main = execParser opts >>= runStreamer
+main = (execParser opts >>= runStreamer) `catch` (\(e::SomeException) -> print e)
   where
     opts = info (helper <*> dataSourceOpts) (fullDesc
            <> progDesc "Stream data from an mwl or arte file to UDP packtes"
