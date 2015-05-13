@@ -17,10 +17,25 @@ data TimeOptions = TimeOptions {
     timeClientPort :: String
  } deriving (Show)
 
+newtype Seconds = Seconds Int64 deriving (Num)
+newtype Nanoseconds = Nanoseconds Int64 deriving (Num)
+
 data NetworkTime = NetworkTime {
-    seconds :: Int64
-  , nanoseconds :: Int64
-  }
+    seconds :: Seconds
+  , nanoseconds :: Nanoseconds
+  } deriving (Show)
+
+diffNetworkTime :: NetworkTime -> NetworkTime -> NetworkTime
+diffNetworkTime a b = NetworkTime s ns
+  where
+    ans = nanoseconds a
+    bns = nanoseconds b
+    (ns, carry) = if ans >= bns
+      then (ans - bns, False)
+      else (ans + 1000000000 - bns, True)
+    as = seconds a
+    bs = seconds b
+    s = (if carry then as - 1 else as) - bs
 
 data TimeClientState = TimeClientState {
     localSystemTimeAtLastSync :: UTCTime
