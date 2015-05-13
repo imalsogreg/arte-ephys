@@ -17,15 +17,14 @@ data TimeOptions = TimeOptions {
     timeClientPort :: String
  } deriving (Show)
 
--- TODO: Sync with Data.Ephys.ExperimentTime
-data ExperimentTime = ExperimentTime {
+data NetworkTime = NetworkTime {
     seconds :: Int64
   , nanoseconds :: Int64
   }
 
 data TimeClientState = TimeClientState {
     localSystemTimeAtLastSync :: UTCTime
-  , experimentTimeAtLastSync  :: ExperimentTime
+  , networkTimeAtLastSync  :: NetworkTime
   }
 
 timeOptions :: Parser TimeOptions
@@ -33,6 +32,8 @@ timeOptions = TimeOptions
               <$> strOption
               ( long "timeClientPort"
               <> help "Timestamp client port")
+
+
 
 setupTimeQuery :: TimeOptions -> IO (TVar TimeClientState, ThreadId)
 setupTimeQuery TimeOptions{..} = do
@@ -53,8 +54,8 @@ setupTimeQuery TimeOptions{..} = do
       sysNow <- getCurrentTime
       let Done rest _ seconds = pushChunk (runGetIncremental getWord64le) buf
       let Done _ _ nanoseconds = pushChunk (runGetIncremental getWord64le) rest
-      let etm = ExperimentTime (fromIntegral seconds) (fromIntegral nanoseconds)
-      return $ TimeClientState sysNow etm
+      let ntm = NetworkTime (fromIntegral seconds) (fromIntegral nanoseconds)
+      return $ TimeClientState sysNow ntm
 
     listenForTimePackets sock stateVar = forever $ do
       st <- getState sock
