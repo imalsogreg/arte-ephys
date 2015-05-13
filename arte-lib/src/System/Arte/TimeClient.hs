@@ -38,7 +38,9 @@ setupTimeQuery :: TimeOptions -> IO (TVar TimeClientState, ThreadId)
 setupTimeQuery TimeOptions{..} = do
 
     sock <- socket AF_INET Datagram defaultProtocol
+    setSocketOption sock ReuseAddr 1
     let saddr = SockAddrInet (fromInteger $ read timeClientPort) iNADDR_ANY
+    bind sock saddr
 
     st <- getState sock
     stateVar <- newTVarIO $ st
