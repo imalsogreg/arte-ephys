@@ -17,16 +17,19 @@ getClusters clustFile waveformFile = do
   eClusts <- parseClusters `liftM` readFile clustFile :: IO (Either ParseError (Map Int ClusterMethod))
   eFI     <- getFileInfo waveformFile :: IO (Either String FileInfo)
   case (eClusts,eFI) of
-    (Right clusts, Right fi) -> 
+    (Right clusts, Right fi) ->
       return $ Right (Data.Map.map (clusterMWLToVolts (fileGains fi)) clusts)
     _ -> return $ Left "Unsuccessful at getting clusters and adjusting their gains."
 
 boundMWLToVolts :: [Double] -> CartBound -> CartBound
 boundMWLToVolts gains b@(CartBound _ _ pts) =
   let gainX = gains !! (b ^. cartXChan) :: Double
-      gainY = gains !! (b ^. cartYChan) in
-  b { _cartPolygon = Prelude.map (\(x,y) -> (mwlUnitsToVoltage gainX x, mwlUnitsToVoltage gainY y)) pts }
-      
+      gainY = gains !! (b ^. cartYChan)
+  in
+   b { _cartPolygon =
+       Prelude.map (\(x,y) -> (mwlUnitsToVoltage gainX x,
+                               mwlUnitsToVoltage gainY y)) pts }
+
 
 clusterMWLToVolts :: [Double] -> ClusterMethod -> ClusterMethod
 clusterMWLToVolts gains (ClustCartBound cb) =

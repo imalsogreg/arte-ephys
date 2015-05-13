@@ -75,6 +75,7 @@ spikeBits trodeName s =                     -- while 'old arte' takes some real 
      putWord16be (fromIntegral trodeName)           -- 16 bit trode name
      putWord16be (fromIntegral nChans)              -- 16 bit n chans
      putWord16be (fromIntegral sPerCh)              -- 16 bin n samps per chan
+     putWord16be (fromIntegral 2)
      mapM_ putMicroVolts (U.toList samps)           -- put the samps, change units to microvolts
      replicateM_ (nSpaces - nSamps) (putWord16be 0) -- fill in the gaps with 0's
      replicateM_ mAX_N_CHANS (putWord16be 1000000)  -- Put 1e6 as the gain in every gain slot

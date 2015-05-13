@@ -184,68 +184,53 @@ main = do
       d <- openFile "decoding.txt" WriteMode
       return (Just s, Just d)
   incomingSpikesChan <- atomically newTQueue
-  case mwlBaseDirectory opts of
-    {-
-        "" -> do
-          withMaster masterNode $ \(toMaster,fromMaster) -> do
-            case pNode' of
-              Left e -> error $ "No pos node: " ++ e
-              Right pNode -> do
-                subP <- async $ streamPos pNode dsT
 
-                subAs <- forM spikeNodes $ \sNode ->
-                  async $ enqueueSpikes sNode incomingSpikesChan
-                dequeueSpikesA <- async . forever $
-                                  fanoutSpikesToTrodes dsT incomingSpikesChan logSpikes
+  let ((pX0,pY0),pixPerM,h) = posShortcut
 
-                runGloss dsT fromMaster
---                playIO (InWindow "ArteDecoder" (300,300) (10,10))
---                  white 30 ds (draw dsT) (glossInputs dsT) (stepIO track fromMaster dsT)
-                mapM_ wait subAs
-                wait subP
-                _ <- wait dequeueSpikesA
-                print "Past wait subAs"
+  putStrLn "Start pos async"
+  posSock <- socket AF_INET Datagram defaultProtocol
+  bind posSock $ SockAddrInet 6001 iNADDR_ANY
+  ds' <- readTVarIO dsT
+  posAsync <- async $ runEffect $ udpSocketProducer posSock >->
+              (forever $ do
+                  p <- await
+                  lift . atomically $ do
+                    occ <- readTVar (ds^.occupancy)
+                    let posField = posToField defTrack p kernel
+                    writeTVar (ds'^.pos) p
+                    writeTVar (ds'^.trackPos)  posField
+                    when (p^.speed > runningThresholdSpeed)
+                      (writeTVar (ds'^.occupancy) (updateField (+) occ posField))
+              )
 
-                putStrLn "start handle-spikes async"
-                handleSpikesAsync <-
-                  async $
-                  fanoutSpikesToTrodes dsT incomingSpikesChan logSpikes
-                _ <- wait subP
-                _ <- mapM wait subAs
-                wait handleSpikesAsync
--}
+  putStrLn "Start Spike socket asyncs"
+  sock <- socket AF_INET Datagram defaultProtocol
+  bind sock $ SockAddrInet 5228 iNADDR_ANY
 
-        basePath -> do
-          putStrLn "Decoder streaming spikes and position from disk"
-          incomingSpikesChan <- atomically newTQueue
+  a <- case clusterless opts of
+    True -> do
+      _ <- addClusterlessTrode dsT 0
+      async $ runEffect $ udpSocketProducer sock >->
+        (forever $ do
+            spike <- await
+            ds2  <- lift . atomically $ readTVar dsT
+            pos2 <- lift . atomically $ readTVar (ds^.trackPos)
+            p    <- lift . atomically $ readTVar (ds^.pos)
+            when (clessKeepSpike spike) $
+              lift (clusterlessAddSpike ds2 0 p pos2 spike logSpikes)
+        )
 
-          [spikeFiles,pFiles] <- mapM (getFilesByExtension basePath 2)
-                                 ["tt","p"]
-          putStrLn $ "spikeFiles: " ++ show spikeFiles
-          putStrLn $ "pFiles: "     ++ show pFiles
-          let ((pX0,pY0),pixPerM,h) = posShortcut
-
-          putStrLn "Start pos async"
-          posSock <- socket AF_INET Datagram defaultProtocol
-          bind posSock $ SockAddrInet 6001 iNADDR_ANY
-          ds' <- readTVarIO dsT
-          posAsync <- async $ runEffect $ udpSocketProducer posSock >->
-            (forever $ do
-              p <- await
-              lift . atomically $ do
-                occ <- readTVar (ds^.occupancy)
-                let posField = posToField defTrack p kernel
-                writeTVar (ds'^.pos) p
-                writeTVar (ds'^.trackPos)  posField
-                when (p^.speed > runningThresholdSpeed)
-                  (writeTVar (ds'^.occupancy) (updateField (+) occ posField))
-            )
-
-          putStrLn "Start Spike socket asyncs"
-          sock <- socket AF_INET Datagram defaultProtocol
-          bind sock $ SockAddrInet 5228 iNADDR_ANY
-          _ <- addClusterlessTrode dsT 0
-          a <- async $ runEffect $ udpSocketProducer sock >->
+    False -> do
+      let cbFilePath = boundsFile opts
+      clusters' <- getClusters cbFilePath sF
+      case clusters' of
+       Right clusters -> do
+         setTetrodeClusters defTrack dsT tName clusters
+         ds' <- readTVarIO dsT
+         case Map.lookup tName (ds' ^. trodes._Clustered) of
+          Nothing -> error ("shouldn't happen, couldn't find " ++ tName)
+          Just pcTrode ->
+            async $ runEffect $ udpSocketProducer sock >->
             (forever $ do
                 spike <- await
                 ds2  <- lift . atomically $ readTVar dsT
@@ -255,7 +240,8 @@ main = do
                   lift (clusterlessAddSpike ds2 0 p pos2 spike logSpikes)
                 return ()
             )
-          let asyncsAndTrodes = [ (a, undefined) ]
+
+  let asyncsAndTrodes = [ (a, undefined) ]
           -- asyncsAndTrodes <- forM spikeFiles $ \sf -> do
           --   let tName = read . Text.unpack $ mwlTrodeNameFromPath sf
           --   print $ "working on file" ++ sf
@@ -283,8 +269,8 @@ main = do
 
           --     -- Clustered case ---------------------------------------------
           --     Right fi | otherwise -> do
-          --       let cbFilePath = Text.unpack $ cbNameFromTTPath "cbfile-run" sf
-          --       clusters' <- getClusters cbFilePath sf
+
+
           --       case clusters' of
           --         Left e -> error $ unwords ["Error in clusters from file",cbFilePath,":",e]
           --         Right clusters -> do
@@ -308,23 +294,23 @@ main = do
           --               t <- newTVarIO pcTrode
           --               return (a, undefined :: TrodeDrawOption)
 
-          reconstructionA <-
-            async $ if clusterless opts
-                    then runClusterlessReconstruction
-                         defaultClusterlessOpts   0.020 dsT logDecoding
-                    else runClusterReconstruction 0.020 dsT logDecoding
+  reconstructionA <-
+    async $ if clusterless opts
+            then runClusterlessReconstruction
+                 defaultClusterlessOpts   0.020 dsT logDecoding
+            else runClusterReconstruction 0.020 dsT logDecoding
 
-          fakeMaster <- atomically newTQueue
-          let spikeAsyncs = map fst asyncsAndTrodes
-          runGloss opts dsT fakeMaster
-          maybe (return ()) hClose logSpikes
-          maybe (return ()) hClose logDecoding
-          putStrLn "Closed filehandles"
-          putStrLn "wait for asyncs to finish"
-          _ <- wait posAsync
-          _ <- mapM wait spikeAsyncs
-          _ <- wait reconstructionA
-          return ()
+  fakeMaster <- atomically newTQueue
+  let spikeAsyncs = map fst asyncsAndTrodes
+  runGloss opts dsT fakeMaster
+  maybe (return ()) hClose logSpikes
+  maybe (return ()) hClose logDecoding
+  putStrLn "Closed filehandles"
+  putStrLn "wait for asyncs to finish"
+  _ <- wait posAsync
+  _ <- mapM wait spikeAsyncs
+  _ <- wait reconstructionA
+  return ()
 
 ------------------------------------------------------------------------------
 

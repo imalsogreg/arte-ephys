@@ -45,7 +45,7 @@ data DecoderState = DecoderState
 
 ------------------------------------------------------------------------------
 -- Placeholder.  Will be more like: KdTree (Vector Voltage) (Field Double)
-type SpikeHistory = Int 
+type SpikeHistory = Int
 
 nullHistory :: SpikeHistory
 nullHistory = 0
@@ -58,11 +58,9 @@ data DecodablePlaceCell = DecodablePlaceCell { _dpCell     :: !PlaceCell
                                              } deriving (Eq, Show)
 
 data PlaceCellTrode = PlaceCellTrode {
-    _dUnits :: Map.Map PlaceCellName (TVar DecodablePlaceCell) 
+    _dUnits :: Map.Map PlaceCellName (TVar DecodablePlaceCell)
   , _pcTrodeHistory :: !SpikeHistory
   } deriving (Eq)
-             
-
 
 type NotClust = KDMap ClusterlessPoint MostRecentTime
 
@@ -106,7 +104,7 @@ instance Monoid ClusterlessPoint where
                              wB = _pWeight b
                              wR =1/ (wA + wB)
                          in  (s*wA + t*wB) * wR
-        
+
 instance KDKey ClusterlessPoint where
   pointD p i  = _pAmplitude p U.! (fromIntegral i)
   pointSize p = fromIntegral . U.length $ _pAmplitude p
@@ -164,7 +162,7 @@ $(makeLenses ''ClusterlessTrode)
 
 
 ------------------------------------------------------------------------------
-data DecoderArgs = DecoderArgs {mwlBaseDirectory    :: FilePath
+data DecoderArgs = DecoderArgs {boundsFile          :: FilePath
                                ,startExperimentTime :: Double
                                ,doLogging           :: Bool
                                ,clusterless         :: Bool
@@ -174,9 +172,9 @@ data DecoderArgs = DecoderArgs {mwlBaseDirectory    :: FilePath
 
 decoderArgs :: DecoderArgs
 decoderArgs = DecoderArgs
-  { mwlBaseDirectory    = ""    &= help "Data directory when not from network"
+  { ttFile              = ""    &= help "tt file for gains and path to bounds"
   , startExperimentTime = 0     &= help "Start time when spooling from disk"
-  , doLogging           = False &= help "Commit data to log files"
+  , doLogging           = False &= help "Commit timing/decoding data to log files"
   , clusterless         = False &= help "Perform clusterless decoding"
   }
 
