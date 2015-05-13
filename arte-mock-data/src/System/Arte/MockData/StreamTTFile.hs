@@ -46,20 +46,7 @@ streamTT DataSourceOpts{..} = withSocketsDo $ do
                    >-> (forever $ do
                            mwlSpike <- await
                            liftIO $ BS.sendAllTo sock (spikeBits 0 mwlSpike) destAddr)
-{-
 
-
-  
-  fi <- getFileInfo fileName
-  case fi of
-   Left e -> error $ "Error reading file " ++ fileName ++ " " ++ e
-   Right fi' ->
-     runEffect $ dropResult (produceTrodeSpikes trodeName fi' f) >->
-                 relativeTimeCat (\s -> spikeTime s - expStartTime) >->
-      (forever $ do
-       spike <- await
-       liftIO $ BS.sendAllTo sock (encd spike) destAddr)
--}
 spikeBits :: Int -> MWLSpike -> BS.ByteString
 spikeBits trodeName s =                     -- while 'old arte' takes some real work
   let nChans  = Prelude.length (mwlSpikeWaveforms s)
