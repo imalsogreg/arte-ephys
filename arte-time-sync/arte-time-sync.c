@@ -16,6 +16,11 @@ int main(int argc, char ** argv) {
 		perror("creating datagram socket");
 		return 1;
 	}
+	int y = 1;
+	if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &y, sizeof y) == -1) {
+		perror("enabling broadcast");
+		return 2;
+	}
 	struct sockaddr_in addr = { 0 };
 	addr.sin_family = AF_INET;
 	/* TODO: take as param */
