@@ -3,15 +3,25 @@
 module System.Arte.TimeClient where
 
 import Data.Time.Clock
-import Data.Ephys
 import Network
 import Options.Applicative
 import Control.Concurrent.STM
+import Data.Int
+import Control.Monad
+import Data.Binary.Get
+import qualified Network.Socket.ByteString as BS
+import Control.Concurrent
+import Network.Socket
 
 data TimeOptions = TimeOptions {
-    timeServerHost :: HostName
-  , timeServerPort :: String
+    timeClientPort :: String
  } deriving (Show)
+
+-- TODO: Sync with Data.Ephys.ExperimentTime
+data ExperimentTime = ExperimentTime {
+    seconds :: Int64
+  , nanoseconds :: Int64
+  }
 
 data TimeClientState = TimeClientState {
     localSystemTimeAtLastSync :: UTCTime
@@ -21,28 +31,29 @@ data TimeClientState = TimeClientState {
 timeOptions :: Parser TimeOptions
 timeOptions = TimeOptions
               <$> strOption
-              ( long "timeServerHost"
-              <> help "IP address of the timestamp server")
-              <*> strOption
-              ( long "timeServerPort"
-              <> help "Remote timestamp server port")
+              ( long "timeClientPort"
+              <> help "Timestamp client port")
 
-data TimeQuery = TimeQuery {
-    timeTillExperimentTime   :: ExperimentTime -> IO Double
-  , getCurrentExperimentTime :: IO ExperimentTime
-    }
-
-setupTimeQuery :: TimeOptions -> IO TimeQuery
+setupTimeQuery :: TimeOptions -> IO (TVar TimeClientState, ThreadId)
 setupTimeQuery TimeOptions{..} = do
 
-  sock <- socket AF_INET Datagram defaultProtocol
-  let saddr = SockAddrInet (myPort) timeServerHost
+    sock <- socket AF_INET Datagram defaultProtocol
+    let saddr = SockAddrInet (fromInteger $ read timeClientPort) iNADDR_ANY
 
-  stateVar <- newTVarIO Nothing
+    st <- getState sock
+    stateVar <- newTVarIO $ st
 
-  forkIO $ listenForTimePackets sock stateVar
+    tid <- forkIO $ listenForTimePackets sock stateVar
+    return (stateVar, tid)
+  where
+    getState sock = do
+      (buf, _) <- BS.recvFrom sock 16
+      sysNow <- getCurrentTime
+      let Done rest _ seconds = pushChunk (runGetIncremental getWord64le) buf
+      let Done _ _ nanoseconds = pushChunk (runGetIncremental getWord64le) rest
+      let etm = ExperimentTime (fromIntegral seconds) (fromIntegral nanoseconds)
+      return $ TimeClientState sysNow etm
 
-  let getTimeNow = do
-        sysNow <- getCurrentTime
-        (TimeClientState sysOld expOld) <- readTVarIO stateVar
-  -- TO BE CONTINUED
+    listenForTimePackets sock stateVar = forever $ do
+      st <- getState sock
+      atomically $ writeTVar stateVar st
