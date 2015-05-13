@@ -6,8 +6,8 @@
 #include <stdint.h>
 
 struct time_record {
-	int64_t seconds;
-	int64_t nanoseconds;
+	int_fast64_t seconds;
+	int_fast64_t nanoseconds;
 };
 
 int main(int argc, char ** argv) {
@@ -34,13 +34,18 @@ int main(int argc, char ** argv) {
 			continue;
 		}
 		struct time_record rec = {
-			(int64_t) time.tv_sec,
-			(int64_t) time.tv_nsec
+			(int_fast64_t) time.tv_sec,
+			(int_fast64_t) time.tv_nsec
 		};
+		char buf[16]; // two 64-bit integers
+		for (char i = 0; i < 8; ++ i) {
+			buf[i] = (rec.seconds >> i * 8) & 0xFF;
+			buf[i + 8] = (rec.nanoseconds >> i * 8) & 0xFF;
+		}
 		ssize_t res = sendto(
 			sock,
-			&rec,
-			sizeof rec,
+			buf,
+			sizeof buf,
 			0,
 			(struct sockaddr *) &addr,
 			sizeof addr
