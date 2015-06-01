@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module System.Arte.TimeClient where
 
@@ -12,13 +13,28 @@ import Data.Binary.Get
 import qualified Network.Socket.ByteString as BS
 import Control.Concurrent
 import Network.Socket
+import Data.Ratio
 
 data TimeOptions = TimeOptions {
     timeClientPort :: String
  } deriving (Show)
 
-newtype Seconds = Seconds Int64 deriving (Num)
-newtype Nanoseconds = Nanoseconds Int64 deriving (Num)
+newtype Seconds = Seconds Int64 deriving ( Show
+                                         , Num
+                                         , Integral
+                                         , Ord
+                                         , Eq
+                                         , Enum
+                                         , Real
+                                         )
+newtype Nanoseconds = Nanoseconds Int64 deriving ( Show
+                                                 , Num
+                                                 , Integral
+                                                 , Ord
+                                                 , Eq
+                                                 , Enum
+                                                 , Real
+                                                 )
 
 data NetworkTime = NetworkTime {
     seconds :: Seconds
@@ -48,7 +64,14 @@ timeOptions = TimeOptions
               ( long "timeClientPort"
               <> help "Timestamp client port")
 
-
+networkTimeToSysTime :: TimeClientState -> NetworkTime -> UTCTime
+networkTimeToSysTime TimeClientState{..} nt =
+    addUTCTime diffTime localSystemTimeAtLastSync
+  where
+    ntDiff = diffNetworkTime nt networkTimeAtLastSync
+    iseconds = toInteger (seconds ntDiff)
+    inanoseconds = toInteger (nanoseconds ntDiff)
+    diffTime = fromRational ((iseconds % 1) + (inanoseconds % 1000000000))
 
 setupTimeQuery :: TimeOptions -> IO (TVar TimeClientState, ThreadId)
 setupTimeQuery TimeOptions{..} = do
