@@ -28,11 +28,12 @@ import qualified Data.Vector.Unboxed                as U
 import           Graphics.Gloss
 import           Graphics.Gloss.Interface.IO.Game
 import qualified Graphics.Gloss.Data.Color          as Color
+import           Options.Applicative
 import           Pipes
 import           Pipes.RealTime
-import           System.Console.CmdArgs
 import           System.Directory
 import           System.Exit                        (exitSuccess)
+import           System.FilePath                    ((</>))
 import           System.IO
 import           System.Mem (performGC)
 import           Network.Socket
@@ -113,68 +114,12 @@ draw _ ds = do
 
   return $ Pictures [trackPicture, posPicture, optsPicture, selectionPic] --, eHist, dHist]
 
-{-
-  (!field,!overlay) <- case drawOpt of
-
-
-    ------------------------------------------------------------------------------
-    (DrawClusterless tName kdT (ClessDraw xChan yChan)) -> do
-      tNow <- (ds^.toExpTime) <$> getCurrentTime
-      kd   <- atomically $ readTVar kdT
-      let treePic    = spikesToScreen $
-                       treePicture xChan yChan tNow (kd^.dtNotClust)
-          (samplePtPic,sampFieldPic) = case (ds^.samplePoint) of
-            Nothing ->
-              (scale 0.2 0.2 $ Text "NoPoint",
-               drawNormalizedField (labelField defTrack (emptyField defTrack)))
-            Just cp ->
-              let closestP    = fromMaybe cp $ fst <$> closest cp (kd^.dtNotClust)
-                  psInRange   = map fst $ allInRange
-                                (sqrt $ cutoffDist2 defaultClusterlessOpts)
-                                cp (kd^.dtNotClust)
-                  selectColor = Color.makeColor 0 1 0 0.5
-              in (Pictures $ [clusterlessPointPic xChan yChan tNow (closestP,(MostRecentTime tNow)),
-                              color (Color.makeColor 1 0 0 0.1) $
-                              pointAtSize xChan yChan cp (sqrt $ cutoffDist2 defaultClusterlessOpts)
-                             ] ++ (map (\pt -> color selectColor $
-                                               pointAtSize xChan yChan pt 1e-6) psInRange),
-                  drawNormalizedField $ labelField defTrack (closestP^.pField))
-
-                 
-      let inRng :: ClusterlessPoint -> [ClusterlessPoint]
-          inRng pt = map fst $ allInRange
-                     (sqrt $ cutoffDist2 defaultClusterlessOpts) pt
-                     (kd^.dtNotClust)
-
-          sampFld = (normalize . collectFields
-                     . map (\r -> bound 0.01 0.9 $ r ^. pField)
-                     . take 100 . inRng)
-                    <$> (ds^.samplePoint)
-          sampPic = maybe (Text "Nothing") (drawNormalizedField . labelField defTrack) sampFld
-          sampLab = maybe (Text "Nothing") (labelNormalizedField . labelField defTrack . V.map log) sampFld
-      return $ ( pictures [sampPic,sampLab], -- sampFieldPic,
-                pictures [treePic
-                         , uncurry translate treeTranslate
-                           . scale treeScale treeScale
-                           $ samplePtPic])
-    ------------------------------------------------------------------------------
-    (DrawError e) -> do
-      print $ "Draw was told to print DrawError" ++ e
-      return $ (pictures [] , scale 50 50 $ Text e)
-    ------------------------------------------------------------------------------
-  --threadDelay 30000
-  --let encodeHistPic = translate 200 200 $ histogramPic (100,50) eHist
-  --    decodeHistPic = translate 200 50  $ histogramPic (100,50) dHist
-  return $ pictures (overlay : optsPicture :
-                     (map $ scale 200 200 )
-                     [posPicture, trackPicture, field])
--}
 
 ------------------------------------------------------------------------------
 main :: IO ()
 main = do
-  opts <- cmdArgs decoderArgs
-  print args
+  opts <- execParser decoderOpts
+  print opts
   ds   <- initialState opts
   dsT  <- newTVarIO ds
   (logSpikes,logDecoding) <- case (doLogging opts) of
@@ -221,14 +166,23 @@ main = do
         )
 
     False -> do
-      let cbFilePath = boundsFile opts
-      clusters' <- getClusters cbFilePath sF
+      let cbFilePath = ttDir opts
+          cbFile     = cbFilePath </> "cbfile-run"
+          trodeName  = 0  -- TODO Ok to name tetrode 0?
+      ttFiles <- filterM doesFileExist =<< getDirectoryContents (ttDir opts)
+      print $ "TTFiles: " ++ show ttFiles
+      ttFilePath <- (head .  -- TODO s/head/safeHead
+                    filter (`endsIn` ".tt"))
+                    <$> map (ttDir opts </>) <$>
+                    getDirectoryContents (ttDir opts)
+      clusters' <- getClusters cbFile ttFilePath
       case clusters' of
        Right clusters -> do
-         setTetrodeClusters defTrack dsT tName clusters
+         setTrodeClusters defTrack dsT trodeName clusters
          ds' <- readTVarIO dsT
-         case Map.lookup tName (ds' ^. trodes._Clustered) of
-          Nothing -> error ("shouldn't happen, couldn't find " ++ tName)
+         case Map.lookup trodeName (ds' ^. trodes._Clustered) of
+          Nothing -> error ("shouldn't happen, couldn't find trode named "
+                            ++ show trodeName)
           Just pcTrode ->
             async $ runEffect $ udpSocketProducer sock >->
             (forever $ do
@@ -328,7 +282,7 @@ clessKeepSpike s = amp && wid
     amp = V.maximum (spikeAmplitudes s) >= amplitudeThreshold opt
     wid = spikeWidth s                  >= spikeWidthThreshold opt
 
-    
+
 runGloss :: DecoderArgs -> TVar DecoderState -> TQueue ArteMessage -> IO ()
 runGloss opts dsT fromMaster = do
   ds <- initialState opts
@@ -458,11 +412,14 @@ fanoutSpikeToCells ds trodeName trode pos trackPos spike p =
 {-# INLINE fanoutSpikeToCells #-}
 
 toBS :: TrodeSpike -> UTCTime -> UTCTime -> BS.ByteString
-toBS spike tNow tNow2 = BS.concat [(BS.pack . show . spikeTime) spike
-                            , ", "
-                            , (BS.filter (/= 's') . BS.take 9 . BS.pack . show . utctDayTime) tNow
-                            , ", "
-                            , (BS.filter (/= 's') . BS.take 9 . BS.pack . show . utctDayTime) tNow2]
+toBS spike tNow tNow2 =
+  BS.concat [(BS.pack . show . spikeTime) spike
+            , ", "
+            , (BS.filter (/= 's') . BS.take 9 . BS.pack
+               . show . utctDayTime) tNow
+            , ", "
+            , (BS.filter (/= 's') . BS.take 9 . BS.pack
+               . show . utctDayTime) tNow2]
 
 
 ------------------------------------------------------------------------------
@@ -593,3 +550,5 @@ orderClusters queue cFile ttFile = do
   -- TODO: safeRead instead
 
 
+endsIn :: FilePath -> String -> Bool
+endsIn fp str = take (length str) (reverse fp) == reverse fp

@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -13,7 +14,7 @@ import           Data.Monoid
 import           Data.Time
 import qualified Data.Vector         as V
 import qualified Data.Vector.Unboxed as U
-import           System.Console.CmdArgs
+import           Options.Applicative
 ------------------------------------------------------------------------------
 import           Data.Ephys.EphysDefs
 import           Data.Ephys.TrackPosition
@@ -162,14 +163,39 @@ $(makeLenses ''ClusterlessTrode)
 
 
 ------------------------------------------------------------------------------
-data DecoderArgs = DecoderArgs {boundsFile          :: FilePath
+data DecoderArgs = DecoderArgs {ttDir               :: FilePath
                                ,startExperimentTime :: Double
                                ,doLogging           :: Bool
                                ,clusterless         :: Bool
+                               ,decodingInterval    :: Double
                                }
-                 deriving (Show,Data,Typeable)
+                 deriving (Show)
 
+decoderArgs :: Parser DecoderArgs
+decoderArgs = DecoderArgs
+              <$> strOption
+              ( long "ttDir"
+              <> help ("Path to a directory w/ clusder bounds and a " ++
+                      ".tt file for the channel gains (??)"))
+              <*> option auto
+              ( long "startExperimentTime"
+              <> value 0
+              <> help "Start time when spooling from disk")
+              <*> flag False True
+              ( long "doLogging"
+              <> help "Commit timing/decoding data to log files")
+              <*> flag False True
+              ( long "clusterless"
+              <> help "Perform clusterless decoding")
+              <*> option auto
+              ( long "decodingInterval"
+              <> help "Time interval for emitting position estimates")
 
+decoderOpts = info (helper <*> decoderArgs)
+       (fullDesc
+       <> progDesc "Decode position from spikes"
+       <> header "arte-decoder")
+{-
 decoderArgs :: DecoderArgs
 decoderArgs = DecoderArgs
   { ttFile              = ""    &= help "tt file for gains and path to bounds"
@@ -177,4 +203,5 @@ decoderArgs = DecoderArgs
   , doLogging           = False &= help "Commit timing/decoding data to log files"
   , clusterless         = False &= help "Perform clusterless decoding"
   }
+-}
 

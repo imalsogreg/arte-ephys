@@ -27,6 +27,7 @@ dataSourceOpts = DataSourceOpts
                  <> help "File to stream data from (must be .tt or .p)")
                  <*> strOption
                  (long "ip"
+                  <> value "127.0.0.1"
                  <> help "Destination IP address")
                  <*> option auto
                  (long "localport"

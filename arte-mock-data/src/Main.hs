@@ -3,7 +3,7 @@
 module Main where
 
 import Data.Ephys
-import Control.Exception 
+import Control.Exception
 import Options.Applicative
 
 import Types
