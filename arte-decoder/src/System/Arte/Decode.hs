@@ -154,7 +154,8 @@ main = do
 
   a <- case clusterless opts of
     True -> do
-      _ <- addClusterlessTrode dsT 0
+      let trodeName = 14
+      _ <- addClusterlessTrode dsT trodeName
       async $ runEffect $ udpSocketProducer sock >->
         (forever $ do
             spike <- await
@@ -162,14 +163,14 @@ main = do
             pos2 <- lift . atomically $ readTVar (ds^.trackPos)
             p    <- lift . atomically $ readTVar (ds^.pos)
             when (clessKeepSpike spike) $
-              lift (clusterlessAddSpike ds2 0 p pos2 spike logSpikes)
+              lift (clusterlessAddSpike ds2 trodeName p pos2 spike logSpikes)
         )
 
     False -> do
       let cbFilePath = ttDir opts
           cbFile     = cbFilePath </> "cbfile-run"
-          trodeName  = 0  -- TODO Ok to name tetrode 0?
-      ttFiles <- filterM doesFileExist =<< getDirectoryContents (ttDir opts)
+          trodeName  = 14  -- TODO Ok to name tetrode 0?
+      ttFiles <-  getDirectoryContents (ttDir opts)
       print $ "TTFiles: " ++ show ttFiles
       ttFilePath <- (head .  -- TODO s/head/safeHead
                     filter (`endsIn` ".tt"))
@@ -187,11 +188,12 @@ main = do
             async $ runEffect $ udpSocketProducer sock >->
             (forever $ do
                 spike <- await
-                ds2  <- lift . atomically $ readTVar dsT
-                pos2 <- lift . atomically $ readTVar (ds^.trackPos)
-                p    <- lift . atomically $ readTVar (ds^.pos)
-                when (clessKeepSpike spike) $
-                  lift (clusterlessAddSpike ds2 0 p pos2 spike logSpikes)
+                let minWid = spikeWidthThreshold defaultClusterlessOpts
+                when (spikeWidth spike >= minWid && clessKeepSpike spike) $ do
+                  ds2  <- lift . atomically $ readTVar dsT
+                  pos2 <- lift . atomically $ readTVar (ds^.trackPos)
+                  p    <- lift . atomically $ readTVar (ds^.pos)
+                  lift (fanoutSpikeToCells ds2 trodeName pcTrode p pos2 spike logSpikes)
                 return ()
             )
 
@@ -551,4 +553,4 @@ orderClusters queue cFile ttFile = do
 
 
 endsIn :: FilePath -> String -> Bool
-endsIn fp str = take (length str) (reverse fp) == reverse fp
+endsIn fp str = take (length str) (reverse fp) == reverse str

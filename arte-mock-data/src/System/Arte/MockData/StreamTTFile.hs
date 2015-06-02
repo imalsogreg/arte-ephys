@@ -40,6 +40,7 @@ streamTT DataSourceOpts{..} = withSocketsDo $ do
                    >-> relativeTimeCat (\s -> spikeTime s - expStartTime)
                    >-> (forever $ do
                            spike <- await
+                           liftIO $ when verbose (print spike)
                            liftIO $ BS.sendAllTo sock (encode spike) destAddr)
         ArteOld -> runEffect $ dropResult (produceMWLSpikesFromFile fileName)
                    >-> relativeTimeCat (\s -> mwlSpikeTime s - expStartTime)

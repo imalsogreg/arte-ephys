@@ -112,7 +112,7 @@ clusteredUnTVar pcMap = fmap concat $ atomically . mapM trodeFields . Map.elems 
 ------------------------------------------------------------------------------
 resetClusteredSpikeCounts :: Map.Map TrodeName PlaceCellTrode
                     -> IO ()
-resetClusteredSpikeCounts clusteredTrodes = 
+resetClusteredSpikeCounts clusteredTrodes =
   atomically $ mapM_ (\dpc -> resetOneTrode dpc) (Map.elems clusteredTrodes)
   where resetOneTrode t = mapM_ resetOneCell (Map.elems . _dUnits $ t)
         resetOneCell pc = modifyTVar pc $ dpCellTauN .~ 0

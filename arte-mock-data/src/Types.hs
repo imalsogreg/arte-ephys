@@ -10,6 +10,7 @@ data OutputFormat = ArteOld
 
 data DataSourceOpts = DataSourceOpts
                       { outputFormat :: OutputFormat
+                      , verbose      :: Bool
                       , fileName     :: FilePath
                       , ipAddy       :: String
                       , myPort       :: Word32
@@ -22,6 +23,10 @@ dataSourceOpts = DataSourceOpts
                  <$> option auto
                  ( long "format"
                  <> help "Write to network in arteold or artenew format")
+                 <*> switch
+                 ( long "verbose"
+                 <> short 'v'
+                 <> help "Print lots of output")
                  <*> strOption
                  ( long "file"
                  <> help "File to stream data from (must be .tt or .p)")
