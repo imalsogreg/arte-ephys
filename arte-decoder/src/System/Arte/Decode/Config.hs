@@ -51,23 +51,28 @@ $(makeLenses ''DecoderState)
 
 
 ------------------------------------------------------------------------------
+pos0 :: Position
+pos0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
+       ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
+  where sZ = take 15 (repeat 0)
+
+field0 :: Field
+field0 = V.replicate (V.length $ allTrackPos defTrack) 0
+
+------------------------------------------------------------------------------
 initialState :: DecoderArgs -> IO DecoderState
 initialState DecoderArgs{..} = do
-  let zeroField = V.replicate (V.length $ allTrackPos defTrack) 0
-      p0        = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
-                  ConfSure sZ sZ (-1/0 :: Double) (Location 0 0 0)
-      sZ        = take 15 (repeat 0)
-      clusts    = if clusterless
+  let clusts    = if clusterless
                   then clistTrodes $ Clusterless Map.empty
                   else clistTrodes $ Clusterless Map.empty
   t0       <- getCurrentTime
   DecoderState <$>
-    newTVarIO p0
-    <*> newTVarIO zeroField
-    <*> newTVarIO zeroField
-    <*> newTVarIO zeroField
+    newTVarIO pos0
+    <*> newTVarIO field0
+    <*> newTVarIO field0
+    <*> newTVarIO field0
     <*> return (Clustered Map.empty)
-    <*> newTVarIO zeroField
+    <*> newTVarIO field0
     <*> pure clusts
     <*> pure 0
     <*> pure 0
