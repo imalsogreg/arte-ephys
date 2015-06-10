@@ -13,15 +13,19 @@ import Control.Lens hiding ((.=))
 import Control.Monad
 import Control.Monad.Trans.Either
 import Control.Monad.Trans.Class
+import Control.Monad.IO.Class (liftIO)
+import Pipes
 import Data.Aeson
 import qualified Data.Serialize as S
 import qualified Data.Vector as V
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Base64 as B64
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map as Map
 import Data.Map (Map, keys, member)
 import Data.Text hiding (unwords,filter,head)
 import Foreign.Ptr
+import qualified Network.Socket.ByteString as BS
 import Foreign.Marshal.Alloc
 import Foreign.Storable
 import Network
@@ -33,7 +37,7 @@ import Text.Printf
 import Data.Ephys.EphysDefs
 import System.Arte.NetMessage
 
-
+{- These definitions are old, probably not in use
 type IPAddy   = String
 type Port     = Int
 
@@ -55,7 +59,16 @@ data NetConfig = NetConfig
                  , _nodes :: Map.Map String Node
                  } deriving (Eq, Show)
 $(makeLenses ''NetConfig)
+-}
 
+udpSocketProducer :: (S.Serialize t) => Int -> Socket -> Producer t IO ()
+udpSocketProducer buffSize s = forever $ do
+  (buf, _) <- liftIO $ BS.recvFrom s buffSize
+  case S.decode buf of
+   Left e -> liftIO $ hPutStrLn stderr ("Error parsing packet: " ++ e)
+   Right t -> Pipes.yield t
+
+{-
 ------------------------------------------------------------------------------
 sendData :: (S.Serialize a) => Handle -> a -> IO Bool
 sendData h a = do
@@ -109,14 +122,14 @@ withMaster masterNode f = case masterInPort' of
         putStrLn $ "About to send: " ++ (Prelude.take 20 . show . msgBody $ arteMsg)
         sendWithSize hToMaster arteMsg
 
-{-
+
            (\_ -> do
             print "FORK FINALLY!"
             sendWithSize hToMaster (ArteMessage 0 "" Nothing (Request ServerHangup))
             hClose hToMaster
         )-}
       _ <- printf "Successfully connected to masterInPort"
-      
+
       -- Subscription to master 'pub' port
       _ <- printf "Connecting to master pub port %s %s\n" masterIP (show masterInPort)
       ZMQ.withContext 1 $ \ctx -> do
@@ -137,9 +150,7 @@ withMaster masterNode f = case masterInPort' of
   where masterIP      = masterNode^.host.ip
         masterPubPort = masterNode^.port
         masterInPort' = masterNode^.inPort
-  -}
 
-{-
 getAppNode :: String -> Maybe FilePath -> IO (Either String Node)
 getAppNode name fn' = do
   fn <- netConfOrDefaultPath fn'
@@ -178,9 +189,7 @@ receiveWithSize h = do
         Left e  -> return . Left $ "Couldn't decode a value." ++ e
         Right a -> return $ Right a
 
--}
 
-{-
 instance FromJSON Host where
   parseJSON (Object v) = Host
                          <$> v .: "hostName"

@@ -13,6 +13,7 @@ import Text.Printf
 
 import System.Arte.Net
 
+{-
 data DataPublisher a =
   DataPublisher { _chan        :: TQueue a
                 , _subscribers :: TVar [Handle] }
@@ -59,3 +60,4 @@ withSubscription node action = do
     where loop h = do
             b <- action =<< recvData h
             when b $ loop h
+-}

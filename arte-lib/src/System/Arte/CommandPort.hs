@@ -16,6 +16,7 @@ import Text.Printf
 
 import System.Arte.Net
 
+{-
 ------------------------------------------------------------------------------
 acceptClients :: Node -> (BSL.ByteString -> IO BSL.ByteString) -> IO ()
 acceptClients rep talker = do
@@ -44,3 +45,4 @@ talk h talker = forever $ do
     (\e -> putStrLn $ show (e :: IOException))
     
         
+-}

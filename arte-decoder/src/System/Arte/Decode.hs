@@ -136,7 +136,7 @@ main = do
   posSock <- socket AF_INET Datagram defaultProtocol
   bind posSock $ SockAddrInet 6001 iNADDR_ANY
   ds' <- readTVarIO dsT
-  posAsync <- async $ runEffect $ udpSocketProducer posSock >->
+  posAsync <- async $ runEffect $ udpSocketProducer 9000 posSock >->
               (forever $ do
                   p <- await
                   lift . atomically $ do
@@ -156,7 +156,7 @@ main = do
     True -> do
       let trodeName = 14
       _ <- addClusterlessTrode dsT trodeName
-      async $ runEffect $ udpSocketProducer sock >->
+      async $ runEffect $ udpSocketProducer 9000 sock >->
         (forever $ do
             spike <- await
             ds2  <- lift . atomically $ readTVar dsT
@@ -185,7 +185,7 @@ main = do
           Nothing -> error ("shouldn't happen, couldn't find trode named "
                             ++ show trodeName)
           Just pcTrode ->
-            async $ runEffect $ udpSocketProducer sock >->
+            async $ runEffect $ udpSocketProducer 9000 sock >->
             (forever $ do
                 spike <- await
                 let minWid = spikeWidthThreshold defaultClusterlessOpts
@@ -269,14 +269,6 @@ main = do
   return ()
 
 ------------------------------------------------------------------------------
-
-udpSocketProducer :: (Serialize t) => Socket -> Producer t IO ()
-udpSocketProducer s = forever $ do
-  (buf, _) <- liftIO $ BS.recvFrom s 8192
-  case decode buf of
-   Left e -> liftIO $ hPutStrLn stderr ("Error parsing packet: " ++ e)
-   Right t -> Pipes.yield t
-
 clessKeepSpike :: TrodeSpike -> Bool
 clessKeepSpike s = amp && wid
   where
