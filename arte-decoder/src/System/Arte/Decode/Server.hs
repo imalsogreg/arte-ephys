@@ -1,5 +1,8 @@
 module System.Arte.Decode.Server where
 
+import Data.Monoid
+import GHC.Word
+import Options.Applicative
 import Network
 import Network.Socket.ByteString
 import System.Arte.Decode.Types
