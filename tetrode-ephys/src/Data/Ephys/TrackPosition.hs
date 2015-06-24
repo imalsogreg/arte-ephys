@@ -9,7 +9,7 @@ import           Data.Graph
 import           Data.List           (sortBy)
 import qualified Data.Map            as Map
 import           Data.Ord            (comparing)
-import           Data.SafeCopy  
+import           Data.SafeCopy
 import qualified Data.Vector         as V
 ------------------------------------------------------------------------------
 import Data.Ephys.Position

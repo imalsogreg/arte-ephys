@@ -1,0 +1,3 @@
+:set -isrc
+:set -iexec
+:load exec/MasterDecoder.hs
