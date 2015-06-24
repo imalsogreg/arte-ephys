@@ -53,6 +53,19 @@ diffNetworkTime a b = NetworkTime s ns
     bs = seconds b
     s = (if carry then as - 1 else as) - bs
 
+sumNetworkTime :: NetworkTime -> NetworkTime -> NetworkTime
+sumNetworkTime a b = NetworkTime s ns
+  where
+    ans = nanoseconds a
+    bns = nanoseconds b
+    sum = ans + bns
+    (ns, carry) = if sum >= 1000000000
+      then (sum - 1000000000, True)
+      else (sum, False)
+    as = seconds a
+    bs = seconds b
+    s = as + bs + (if carry then 1 else 0)
+
 data TimeClientState = TimeClientState {
     localSystemTimeAtLastSync :: UTCTime
   , networkTimeAtLastSync  :: NetworkTime
@@ -72,6 +85,17 @@ networkTimeToSysTime TimeClientState{..} nt =
     iseconds = toInteger (seconds ntDiff)
     inanoseconds = toInteger (nanoseconds ntDiff)
     diffTime = fromRational ((iseconds % 1) + (inanoseconds % 1000000000))
+
+sysTimeToNetworkTime :: TimeClientState -> UTCTime -> NetworkTime
+sysTimeToNetworkTime TimeClientState{..} st =
+    sumNetworkTime networkTimeAtLastSync ntDiff
+  where
+    stDiff = diffUTCTime st localSystemTimeAtLastSync
+    secs = floor stDiff
+    nanosecs = round $ (stDiff - (fromInteger secs)) * 1000000000
+    ntDiff = NetworkTime
+      (Seconds $ fromInteger secs)
+      (Nanoseconds $ fromInteger nanosecs)
 
 setupTimeQuery :: TimeOptions -> IO (TVar TimeClientState, ThreadId)
 setupTimeQuery TimeOptions{..} = do
