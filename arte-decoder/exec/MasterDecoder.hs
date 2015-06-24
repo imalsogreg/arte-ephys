@@ -5,7 +5,9 @@ module Main where
 import Control.Monad (forever)
 import Control.Concurrent.Async
 import Control.Monad.IO.Class (liftIO)
+import qualified Data.List as L
 import Data.Traversable
+import qualified Data.Vector as V
 import Options.Applicative
 import GHC.Word
 import Control.Concurrent.STM
@@ -14,10 +16,12 @@ import Data.Ephys.EphysDefs
 import Network.Socket
 import qualified Data.Map as Map
 import Pipes
+import Pipes.RealTime
 import Data.Ephys.Position
 import Data.Ephys.TrackPosition
 import System.Arte.Net (udpSocketProducer)
 import System.Arte.Decode.Config (pos0, field0)
+import System.Arte.Decode.Algorithm (normalize)
 
 data Opts = Opts {
     estPort :: Word16
@@ -50,35 +54,69 @@ main :: IO ()
 main = do
   masterState <- newMasterState
   opts <- execParser masterOpts
-  (estSock,posSock) <- setupSockets opts
-  async . runEffect $ udpSocketProducer 9000 posSock >->
-    (forever $ await >>= \p -> liftIO $
-                               atomically $ writeTVar (ratPos masterState) p)
+
   print opts
 
+  (estSock,posSock) <- setupSockets opts
+
+  posThread <- async . runEffect $ udpSocketProducer 9000 posSock >->
+    (forever $ await >>= \p -> liftIO $
+                               atomically $ writeTVar (ratPos masterState) p)
+
+  slavesThread <- async . runEffect $ udpSocketProducer 9090 estSock >->
+    (forever $ await >>= \est -> liftIO (acceptEstimate masterState est))
+
+  combineThread <- async . runEffect $ forever (yield ())
+    >-> steadyCat 100
+    >-> forever (await >> liftIO (updateMasterEstimate masterState))
+
+  mapM_ wait [posThread
+             , slavesThread
+             , combineThread]
+
+  return ()
+
 data MasterState = MasterState {
-    tetrodeEstimate :: Map.Map TrodeName (TVar (Field))
+    tetrodeEstimate :: TVar (Map.Map TrodeName Field)
   , ratPos          :: TVar Position
   , masterEstimate  :: TVar Field
   }
 
+type Estimate = Int
+
+acceptEstimate :: MasterState -> Estimate -> IO ()
+acceptEstimate = undefined
+
+updateMasterEstimate :: MasterState -> IO ()
+updateMasterEstimate MasterState{..} = do
+  fields <- Map.elems <$> readTVarIO tetrodeEstimate
+  let fieldLogs = V.map log <$> fields
+      logSums   = V.map (L.foldl' (+) 0) (sequenceA fieldLogs)
+      fieldPDF  = normalize (V.map exp logSums)
+  atomically . writeTVar masterEstimate $ fieldPDF
+
+
 setupSockets :: Opts -> IO (Socket,Socket)
 setupSockets Opts{..} = do
   estSock <- socket AF_INET Datagram defaultProtocol
-  bind estSock $ SockAddrInet (PortNum estPort) iNADDR_ANY
+  bind estSock $ SockAddrInet (fromIntegral estPort) iNADDR_ANY
   posSock <- socket AF_INET Datagram defaultProtocol
-  bind posSock $ SockAddrInet (PortNum posPort) iNADDR_ANY
+  bind posSock $ SockAddrInet (fromIntegral posPort) iNADDR_ANY
   return (estSock,posSock)
 
 newMasterState :: IO MasterState
-newMasterState = MasterState <$> return Map.empty <*> newTVarIO pos0 <*> newTVarIO field0
+newMasterState = do
+  ests <- newTVarIO Map.empty
+  p    <- newTVarIO pos0
+  est0 <- newTVarIO field0
+  return $ MasterState ests p est0
 
-------------------------------------------------------------------------------
-showMasterState :: MasterState -> IO String
-showMasterState MasterState{..} =
-  (\tEs p mE ->
-     unlines [ "MasterState {", show tEs, show p, show mE, "}"])
-  <$> traverse readTVarIO tetrodeEstimate
-  <*> readTVarIO ratPos
-  <*> readTVarIO masterEstimate
+-- ------------------------------------------------------------------------------
+-- showMasterState :: MasterState -> IO String
+-- showMasterState MasterState{..} =
+--   (\tEs p mE ->
+--      unlines [ "MasterState {", show tEs, show p, show mE, "}"])
+--   <$> traverse readTVarIO tetrodeEstimate
+--   <*> readTVarIO ratPos
+--   <*> readTVarIO masterEstimate
 
