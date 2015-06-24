@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns    #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module System.Arte.Decode.Algorithm where
 
@@ -16,6 +17,8 @@ import qualified Data.Vector.Unboxed      as U
 import qualified Data.Vector              as V
 import           System.IO
 import           System.Mem (performGC)
+import           Network.IP.Quoter
+import           Network.Socket
 ------------------------------------------------------------------------------
 import           Data.Ephys.EphysDefs
 import           Data.Map.KDMap
@@ -226,7 +229,12 @@ data ClusterlessOpts = ClusterlessOpts {
   , amplitudeThreshold  :: !Voltage
   , spikeWidthThreshold :: !Int
   , kdClumpThreshold    :: !Double
+  , accumulatorPort     :: !PortNumber
+  , accumulatorAddr     :: !HostAddress
   } deriving (Eq, Show)
+
+iNADDR_LOOPBACK :: HostAddress
+iNADDR_LOOPBACK = [ip|127.0.0.1|]
 
 defaultClusterlessOpts :: ClusterlessOpts
 defaultClusterlessOpts =
@@ -235,6 +243,8 @@ defaultClusterlessOpts =
                   , amplitudeThreshold  = 40e-6
                   , spikeWidthThreshold = 13
                   , kdClumpThreshold    = 8e-6
+                  , accumulatorPort     = 2139
+                  , accumulatorAddr     = iNADDR_LOOPBACK
                   }
 
 
