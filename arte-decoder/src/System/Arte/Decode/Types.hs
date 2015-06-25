@@ -205,3 +205,15 @@ decoderArgs = DecoderArgs
   }
 -}
 
+data Packet = Packet {
+    vectors :: Field
+  , time    :: SOME KIND OF TIME --edit
+  , name    :: String
+
+} deriving (Generic)
+
+instance Serialize Packet where
+  {
+
+  --Since I'm deriving (Generic), and ghc >= 7.2.1, no implementation is required for the Serialize instance.
+}
