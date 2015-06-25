@@ -25,6 +25,8 @@ import           Data.Ephys.TrackPosition
 import qualified System.Arte.Decode.Histogram    as H
 import           System.Arte.Decode.Types
 import           System.Arte.Decode.Config
+import           Network.Socket
+import qualified Network.Socket.Bytestring as BS
 
 
 ------------------------------------------------------------------------------
@@ -252,3 +254,33 @@ bound l h = unInf h . unZero l
 -- unused
 liftTC :: (a -> b) -> TrodeCollection a -> TrodeCollection b
 liftTC f tca = Map.map (Map.map f) tca
+
+
+
+------------------sending stuff-----------------------
+
+--remember to initialized myPort in ClusterlessOpts
+--initialize ipAddy (String) remember inet_addr :: String -> IO Host Address
+streamData :: Clusterless0pts -> IO ()
+streamData ClusterlessOpts{..} = withSocketsDo $ do
+  sock <- socket AF_INT Datagram defaultProtocol --creates an IO socket with address family, socket type and prot number
+  let trodeName = "name" --INSERT NAME LATER
+  let saddr = SockAddrInet (fromIntegral myPort) iNADDR_ANY --initializes a socket address with port number "myPort" and takes a hostAddress that will take any scrub. Note: myPort must be initialized somewhere.
+  destAddr <- SockAddrInet (fromIntegral destPort) <$> (inet_addr ipAddy) --creates a socket address with port number "distPort" and takes a hostAddress contained in the data Clusterlessopts
+  bind sock saddr --binds the socket to the address.
+    runEffect $ getFields --run getFields
+      >-> forever $ do
+          spike <- await --retrieve spikes from getFields
+          liftIO $ BS.sendAllTo sock (turnToBytestring spike time trodeName) --send all this crap over the scoket
+
+
+
+turnToBytestring :: Field -> WhateverTimeIs -> String -> BS.Bytestring
+turnToBytestring spike time name =  
+
+
+
+
+getFields :: IO (Field)
+
+
