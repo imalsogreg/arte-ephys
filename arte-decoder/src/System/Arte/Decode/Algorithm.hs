@@ -56,6 +56,10 @@ runClusterReconstruction rTauSec dsT h = do
           maybe (return ()) (flip hPutStr (show tNow ++ ", ")) h
           maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
           let timeRemaining = diffUTCTime binEndTime tNow
+          sock <- initSock
+          --note. we don't have time nor name implemented yet.
+          let pack = Packet estimate {- Is estimate the field here? -} time name
+          streamData sock pack --send Data through socket
           threadDelay $ floor (timeRemaining * 1e6)
           go fields binEndTime
       fields0 = [] -- TODO: fix. (locks up if clusteredReconstrution doesn't
@@ -261,22 +265,16 @@ liftTC f tca = Map.map (Map.map f) tca
 
 --remember to initialized myPort in ClusterlessOpts
 --initialize ipAddy (String) remember inet_addr :: String -> IO Host Address
-streamData :: Clusterless0pts -> IO ()
-streamData ClusterlessOpts{..} = withSocketsDo $ do
+initSock :: IO (Socket)
+initSock = withSocketsDo $ do
   sock <- socket AF_INT Datagram defaultProtocol --creates an IO socket with address family, socket type and prot number
-  let trodeName = "name" --INSERT NAME LATER
-  let saddr = SockAddrInet (fromIntegral myPort) iNADDR_ANY --initializes a socket address with port number "myPort" and takes a hostAddress that will take any scrub. Note: myPort must be initialized somewhere.
-  destAddr <- SockAddrInet (fromIntegral destPort) <$> (inet_addr ipAddy) --creates a socket address with port number "distPort" and takes a hostAddress contained in the data Clusterlessopts
+  let saddr = SockAddrInet (fromIntegral 0) iNADDR_ANY --initializes a socket address with port number "0" (bind to any port) and takes a hostAddress that will take any port.
   bind sock saddr --binds the socket to the address.
-    runEffect $ getFields --run getFields
-      >-> forever $ do
-          spike <- await --retrieve spikes from getFields
-          liftIO $ BS.sendAllTo sock (turnToBytestring spike time trodeName) --send all this crap over the scoket
 
 
-
-turnToBytestring :: Field -> WhateverTimeIs -> String -> BS.Bytestring
-turnToBytestring spike time name =  
+streamData :: Socket -> Packet -> IO ()
+streamData p = withSocketsDo $ do
+  liftIO $ BS.sendAll sock (p) --send packet over the scoket 
 
 
 
