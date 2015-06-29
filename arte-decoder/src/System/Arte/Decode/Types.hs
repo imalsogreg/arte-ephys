@@ -168,10 +168,11 @@ data DecoderArgs = DecoderArgs {ttDir               :: FilePath
                                ,doLogging           :: Bool
                                ,clusterless         :: Bool
                                ,decodingInterval    :: Double
+                               ,trodeName           :: String
                                }
                  deriving (Show)
 
-decoderArgs :: Parser DecoderArgs
+decoderArgs :: Parser DecoderArgs --update to include trodeName
 decoderArgs = DecoderArgs
               <$> strOption
               ( long "ttDir"
@@ -190,6 +191,8 @@ decoderArgs = DecoderArgs
               <*> option auto
               ( long "decodingInterval"
               <> help "Time interval for emitting position estimates")
+              ( long "trodeName"
+              <> help "Name of the tetrode we are recording from")
 
 decoderOpts = info (helper <*> decoderArgs)
        (fullDesc
@@ -206,9 +209,9 @@ decoderArgs = DecoderArgs
 -}
 
 data Packet = Packet {
-    vectors :: Field
-  , time    :: SOME KIND OF TIME --edit
-  , name    :: String
+    positionEstimate :: Field
+  , experimentTime    :: SOME KIND OF TIME --edit: will this be real time? Or experiment time? tbd.
+  , trodeName    :: String
 
 } deriving (Generic)
 

@@ -35,12 +35,14 @@ pcFieldRate occ field = V.zipWith (/) field occ
 
 
 ------------------------------------------------------------------------------
-runClusterReconstruction :: Double ->
+runClusterReconstruction :: DecoderArgs -> Double ->
                       TVar DecoderState -> Maybe Handle -> 
                       IO ()
-runClusterReconstruction rTauSec dsT h = do
+runClusterReconstruction args rTauSec dsT h = do
   ds <- readTVarIO $ dsT
   t0 <- getCurrentTime
+  sock <- initSock
+  let name = trodeName args
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
       go lastFields binStartTime = do
@@ -53,12 +55,12 @@ runClusterReconstruction rTauSec dsT h = do
           atomically $ writeTVar (ds^.decodedPos) estimate
           resetClusteredSpikeCounts clusteredTrodes
           tNow <- getCurrentTime
-          maybe (return ()) (flip hPutStr (show tNow ++ ", ")) h
+          maybe (return ()) (filterWithKeyp hPutStr (show tNow ++ ", ")) h
           maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
           let timeRemaining = diffUTCTime binEndTime tNow
-          sock <- initSock
+          expTime = undefined
           --note. we don't have time nor name implemented yet.
-          let pack = Packet estimate {- Is estimate the field here? -} time name
+          let pack = Packet estimate expTime name{- Is estimate the field here? -} time name
           streamData sock pack --send Data through socket
           threadDelay $ floor (timeRemaining * 1e6)
           go fields binEndTime
