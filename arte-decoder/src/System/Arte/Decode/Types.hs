@@ -11,6 +11,7 @@ import           Control.Concurrent.STM.TVar
 import           Control.Lens
 import qualified Data.Map.Strict as Map
 import           Data.Monoid
+import           Data.Serialize
 import           Data.Time
 import qualified Data.Vector         as V
 import qualified Data.Vector.Unboxed as U
@@ -198,25 +199,11 @@ decoderOpts = info (helper <*> decoderArgs)
        (fullDesc
        <> progDesc "Decode position from spikes"
        <> header "arte-decoder")
-{-
-decoderArgs :: DecoderArgs
-decoderArgs = DecoderArgs
-  { ttFile              = ""    &= help "tt file for gains and path to bounds"
-  , startExperimentTime = 0     &= help "Start time when spooling from disk"
-  , doLogging           = False &= help "Commit timing/decoding data to log files"
-  , clusterless         = False &= help "Perform clusterless decoding"
-  }
--}
 
 data Packet = Packet {
-    positionEstimate :: Field
-  , experimentTime    :: SOME KIND OF TIME --edit: will this be real time? Or experiment time? tbd.
-  , trodeName    :: String
-
+    packetEstimate :: Field
+  , packetTime     :: SOME KIND OF TIME
+  , packetTrode    :: TrodeName
 } deriving (Generic)
 
 instance Serialize Packet where
-  {
-
-  --Since I'm deriving (Generic), and ghc >= 7.2.1, no implementation is required for the Serialize instance.
-}
