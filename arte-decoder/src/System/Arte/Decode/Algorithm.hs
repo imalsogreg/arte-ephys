@@ -29,7 +29,7 @@ import qualified System.Arte.Decode.Histogram    as H
 import           System.Arte.Decode.Types
 import           System.Arte.Decode.Config
 import           Network.Socket
-import qualified Network.Socket.Bytestring as BS
+import qualified Network.Socket.ByteString as BS
 
 
 ------------------------------------------------------------------------------
@@ -39,7 +39,7 @@ pcFieldRate occ field = V.zipWith (/) field occ
 
 ------------------------------------------------------------------------------
 runClusterReconstruction :: DecoderArgs -> Double ->
-                      TVar DecoderState -> Maybe Handle -> 
+                      TVar DecoderState -> Maybe Handle ->
                       IO ()
 runClusterReconstruction args rTauSec dsT h = do
   ds <- readTVarIO $ dsT
