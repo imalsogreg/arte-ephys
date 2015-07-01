@@ -28,6 +28,8 @@ import           Data.Ephys.TrackPosition
 import qualified System.Arte.Decode.Histogram    as H
 import           System.Arte.Decode.Types
 import           System.Arte.Decode.Config
+import           Network.Socket
+import qualified Network.Socket.Bytestring as BS
 
 
 ------------------------------------------------------------------------------
@@ -36,12 +38,14 @@ pcFieldRate occ field = V.zipWith (/) field occ
 
 
 ------------------------------------------------------------------------------
-runClusterReconstruction :: Double ->
+runClusterReconstruction :: DecoderArgs -> Double ->
                       TVar DecoderState -> Maybe Handle -> 
                       IO ()
-runClusterReconstruction rTauSec dsT h = do
+runClusterReconstruction args rTauSec dsT h = do
   ds <- readTVarIO $ dsT
   t0 <- getCurrentTime
+  sock <- initSock
+  let name = trodeName args
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
       go lastFields binStartTime = do
@@ -54,9 +58,13 @@ runClusterReconstruction rTauSec dsT h = do
           atomically $ writeTVar (ds^.decodedPos) estimate
           resetClusteredSpikeCounts clusteredTrodes
           tNow <- getCurrentTime
-          maybe (return ()) (flip hPutStr (show tNow ++ ", ")) h
+          maybe (return ()) (filterWithKeyp hPutStr (show tNow ++ ", ")) h
           maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
           let timeRemaining = diffUTCTime binEndTime tNow
+          expTime = undefined
+          --note. we don't have time nor name implemented yet.
+          let pack = Packet estimate expTime name{- Is estimate the field here? -} time name
+          streamData sock pack --send Data through socket
           threadDelay $ floor (timeRemaining * 1e6)
           go fields binEndTime
       fields0 = [] -- TODO: fix. (locks up if clusteredReconstrution doesn't
@@ -262,3 +270,27 @@ bound l h = unInf h . unZero l
 -- unused
 liftTC :: (a -> b) -> TrodeCollection a -> TrodeCollection b
 liftTC f tca = Map.map (Map.map f) tca
+
+
+
+------------------sending stuff-----------------------
+
+--remember to initialized myPort in ClusterlessOpts
+--initialize ipAddy (String) remember inet_addr :: String -> IO Host Address
+initSock :: IO (Socket)
+initSock = withSocketsDo $ do
+  sock <- socket AF_INT Datagram defaultProtocol --creates an IO socket with address family, socket type and prot number
+  let saddr = SockAddrInet (fromIntegral 0) iNADDR_ANY --initializes a socket address with port number "0" (bind to any port) and takes a hostAddress that will take any port.
+  bind sock saddr --binds the socket to the address.
+
+
+streamData :: Socket -> Packet -> IO ()
+streamData p = withSocketsDo $ do
+  liftIO $ BS.sendAll sock (p) --send packet over the scoket 
+
+
+
+
+getFields :: IO (Field)
+
+
