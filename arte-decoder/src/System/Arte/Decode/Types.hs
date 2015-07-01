@@ -194,6 +194,12 @@ decoderArgs = DecoderArgs
               <> help "Time interval for emitting position estimates")
               ( long "trodeName"
               <> help "Name of the tetrode we are recording from")
+              <*> strOption
+              ( long "estimateIP"
+              <> help "IP address to send decoding estimates to")
+              <*> option auto
+              ( long "estimatePort"
+              <> help "Port to send decoding estimates to")
 
 decoderOpts = info (helper <*> decoderArgs)
        (fullDesc
