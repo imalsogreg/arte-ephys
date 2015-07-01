@@ -169,7 +169,9 @@ data DecoderArgs = DecoderArgs {ttDir               :: FilePath
                                ,doLogging           :: Bool
                                ,clusterless         :: Bool
                                ,decodingInterval    :: Double
-                               ,trodeName           :: String
+                               ,tName               :: TrodeName
+                               ,packetIP            :: String
+                               ,packetPort          :: Int
                                }
                  deriving (Show)
 
