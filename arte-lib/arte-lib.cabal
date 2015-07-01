@@ -17,7 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-                  System.Arte.TimeClient
+                  System.Arte.TimeSync
                   System.Arte.DataPublisher,
                   System.Arte.FileUtils,
                   System.Arte.NetMessage,
