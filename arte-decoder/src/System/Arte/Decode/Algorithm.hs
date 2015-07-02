@@ -45,9 +45,11 @@ runClusterReconstruction args rTauSec dsT h = do
   ds <- readTVarIO $ dsT
   t0 <- getCurrentTime
   sock <- initSock
+  (timeSyncState, tID) <- setupTimeSync
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
       go lastFields binStartTime = do
+        binEndTime
         let binEndTime = addUTCTime (realToFrac rTauSec) binStartTime
         -- H.timeAction (ds^.decodeProf) $ do  -- <-- Slow space leak here (why?)
         do
@@ -73,6 +75,9 @@ runClusterReconstruction args rTauSec dsT h = do
     in
    go fields0 t0
 
+timeToNextFreqTick :: Double -> TimeSyncState -> UTCTime -> IO DiffTime
+timeToNextFreqTick freq TimeSyncState{..} tNow =
+  let networkTimeNow = addUTCTime (tNow)
 
 ------------------------------------------------------------------------------
 -- P(x|n) = C(tau,N) * P(x) * Prod_i(f_i(x) ^ n_i) * exp (-tau * Sum_i( f_i(x) ))
