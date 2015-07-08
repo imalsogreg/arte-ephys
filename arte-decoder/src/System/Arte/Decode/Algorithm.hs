@@ -20,6 +20,7 @@ import           System.Mem (performGC)
 import           Network.IP.Quoter
 import           Network.Socket
 import           Data.Serialize
+import           Data.Fixed
 ------------------------------------------------------------------------------
 import           Data.Ephys.EphysDefs
 import           Data.Map.KDMap
@@ -30,6 +31,7 @@ import qualified System.Arte.Decode.Histogram    as H
 import           System.Arte.Decode.Types
 import           System.Arte.Decode.Config
 import           System.Arte.TimeSync
+import           System.Arte.NetworkTime
 import           Network.Socket
 import qualified Network.Socket.ByteString as BS
 
@@ -45,41 +47,38 @@ runClusterReconstruction :: DecoderArgs -> Double ->
                       IO ()
 runClusterReconstruction args rTauSec dsT h = do
   ds <- readTVarIO $ dsT
-  t0 <- getCurrentTime
   sock <- initSock
-  let opts = undefined
-  (timeSyncState, tID) <- setupTimeSync opts
+  (timeSyncStateVar, _) <- setupTimeSync $ tsOptions args
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
-      go lastFields binStartTime = do
-        let binEndTime = addUTCTime (realToFrac rTauSec) binStartTime
+      go lastFields = do
         -- H.timeAction (ds^.decodeProf) $ do  -- <-- Slow space leak here (why?)
         do
           (fields,counts) <- unzip <$> clusteredUnTVar clusteredTrodes
           occ <- readTVarIO occT
           let !estimate = clusteredReconstruction rTauSec lastFields counts occ
+          ntNow <- getCurrentNetworkTime timeSyncStateVar
+          let p = Packet estimate ntNow $ tName args
+          streamData sock p
           atomically $ writeTVar (ds^.decodedPos) estimate
 
-          let expTime = undefined -- TODO Placeholder
-          let name = undefined
-          let pack = Packet estimate expTime name
-          streamData sock pack
-
           resetClusteredSpikeCounts clusteredTrodes
-          tNow <- getCurrentTime
-          maybe (return ()) (flip hPutStr (show tNow ++ ", ")) h
-          maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
-          let timeRemaining = diffUTCTime binEndTime tNow
 
-          threadDelay $ floor (timeRemaining * 1e6)
-          go fields binEndTime
+          binEndInterval <-
+            timeToNextTick (realToFrac $ decodingInterval args) timeSyncStateVar
+          threadDelay . floor $ binEndInterval * 1000000
+          go fields
       fields0 = [] -- TODO: fix. (locks up if clusteredReconstrution doesn't
                    --             check for exactly this case)
     in
-   go fields0 t0
+   go fields0
 
-timeToNextFreqTick :: Double -> TimeSyncState -> UTCTime -> IO DiffTime
-timeToNextFreqTick freq TimeSyncState{..} tNow = undefined
+timeToNextTick :: DiffTime -> TVar TimeSyncState -> IO DiffTime
+timeToNextTick period stVar = do
+  st@TimeSyncState{..} <- readTVarIO stVar
+  ntNow <- flip sysTimeToNetworkTime st <$> getCurrentTime
+  -- -(now - epoch) % period
+  return $ (diffNetworkTime networkTimeEpoch ntNow) `mod'` period
 
 ------------------------------------------------------------------------------
 -- P(x|n) = C(tau,N) * P(x) * Prod_i(f_i(x) ^ n_i) * exp (-tau * Sum_i( f_i(x) ))

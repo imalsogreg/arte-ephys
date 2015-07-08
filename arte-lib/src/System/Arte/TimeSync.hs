@@ -80,3 +80,10 @@ sysTimeToNetworkTime t TimeSyncState{..} =
     addNetworkTime elapsed networkTimeAtLastSync
   where
     elapsed = realToFrac $ diffUTCTime t localTimeAtLastSync
+
+-- | Get the current network time
+getCurrentNetworkTime :: TVar TimeSyncState -- ^ The synchronization state
+                      -> IO NetworkTime
+getCurrentNetworkTime stVar = do
+  st <- readTVarIO stVar
+  flip sysTimeToNetworkTime st <$> getCurrentTime
