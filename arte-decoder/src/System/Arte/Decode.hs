@@ -189,7 +189,7 @@ main = do
     async $ if clusterless opts
             then runClusterlessReconstruction
                  defaultClusterlessOpts   0.020 dsT logDecoding
-            else runClusterReconstruction 0.020 dsT logDecoding
+            else runClusterReconstruction undefined 0.020 dsT logDecoding
 
   fakeMaster <- atomically newTQueue
   let spikeAsyncs = map fst asyncsAndTrodes
