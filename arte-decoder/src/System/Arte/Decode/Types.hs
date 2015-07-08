@@ -4,12 +4,14 @@
 {-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module System.Arte.Decode.Types where
 
 ------------------------------------------------------------------------------
 import           Control.Concurrent.STM.TVar
 import           Control.Lens
+import           Control.Monad
 import qualified Data.Aeson as A
 import qualified Data.Map.Strict as Map
 import           Data.Monoid
@@ -220,6 +222,16 @@ data Packet = Packet {
 instance A.ToJSON Packet where
 instance A.FromJSON Packet where
 
+instance Serialize Day where
+  get = liftM utctDay get
+  put = put . toModifiedJulianDay
+
+instance Serialize DiffTime where
+  get = liftM fromRational get
+  put = put . toRational
+
+deriving instance Generic UTCTime
+
+instance Serialize UTCTime where
+
 instance Serialize Packet where
-  put = S.encode  . A.encode
-  get = A.decodeEither  <=< S.decode 
