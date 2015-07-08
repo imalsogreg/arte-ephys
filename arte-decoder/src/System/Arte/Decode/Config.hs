@@ -74,7 +74,6 @@ initialState DecoderArgs{..} = do
     <*> newTVarIO field0
     <*> pure clusts
     <*> pure 0
-    <*> pure 0
     <*> pure False
     <*> pure (\t -> startExperimentTime + realToFrac (diffUTCTime t t0))
     <*> pure Nothing
@@ -85,15 +84,15 @@ initialState DecoderArgs{..} = do
 ------------------------------------------------------------------------------
 clistTrodes :: Trodes -> TrodeDrawOptions
 clistTrodes (Clustered tMap) =
-  (map f $ Map.toList tMap) ++
-  [[DrawOccupancy], [DrawDecoding]]
+  (f $ Map.toList tMap) ++
+  [DrawOccupancy, DrawDecoding]
     where
       f :: (TrodeName, PlaceCellTrode) -> [TrodeDrawOption]
       f (tName, PlaceCellTrode units _) = map (\(n,u) -> DrawPlaceCell n u)
                                           (Map.toList units)
 clistTrodes (Clusterless tMap) =
-  (map f $ Map.toList tMap)
-  ++ [[DrawOccupancy], [DrawDecoding] ]
+  (f $ Map.toList tMap)
+  ++ [DrawOccupancy, DrawDecoding ]
   where
     f :: (TrodeName,TVar ClusterlessTrode) -> [TrodeDrawOption]
     f (n,t) = [ DrawClusterless n t

@@ -39,7 +39,6 @@ data DecoderState = DecoderState
                     , _trodes        :: Trodes
                     , _decodedPos    :: TVar (Field)
                     , _trodeDrawOpt  :: TrodeDrawOptions
-                    , _trodeInd      :: Int
                     , _clustInd      :: Int
                     , _drawKDESample :: Bool
                     , _toExpTime     :: UTCTime -> Double
@@ -76,8 +75,8 @@ data ClusterlessTrode = ClusterlessTrode
                         } deriving (Eq, Show)
 
 
-data Trodes = Clusterless (Map.Map TrodeName (TVar ClusterlessTrode))
-            | Clustered   (Map.Map TrodeName PlaceCellTrode)
+data Trodes = Clusterless (TVar ClusterlessTrode)
+            | Clustered   (PlaceCellTrode)
 
 
 
@@ -157,7 +156,7 @@ instance Show TrodeDrawOption where
   show DrawDecoding            = "DrawDecoding"
   show (DrawError s)           = "DrawError " ++ s
 
-type TrodeDrawOptions = [[TrodeDrawOption]]
+type TrodeDrawOptions = [TrodeDrawOption]
 
 $(makeLenses ''PlaceCellTrode)
 $(makeLenses ''DecodablePlaceCell)

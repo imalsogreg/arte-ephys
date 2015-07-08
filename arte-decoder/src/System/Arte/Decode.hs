@@ -67,9 +67,9 @@ import           System.Arte.Decode.Types
 ------------------------------------------------------------------------------
 focusCursor :: DecoderState -> TrodeDrawOption
 focusCursor ds = fromMaybe (DrawError "Couldn't index at cursor") $
-                 (ds^.trodeDrawOpt) ^? ix (ds^.trodeInd) . ix (ds^.clustInd)
+                 (ds^.trodeDrawOpt) ^? ix (ds^.clustInd)
 
-atCursor ds = trodeDrawOpt . ix (ds^.trodeInd) . ix (ds^.clustInd)
+atCursor ds = trodeDrawOpt . ix (ds^.clustInd)
 
 
 ------------------------------------------------------------------------------
