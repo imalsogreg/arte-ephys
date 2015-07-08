@@ -19,6 +19,7 @@ import           System.IO
 import           System.Mem (performGC)
 import           Network.IP.Quoter
 import           Network.Socket
+import           Data.Serialize
 ------------------------------------------------------------------------------
 import           Data.Ephys.EphysDefs
 import           Data.Map.KDMap
@@ -28,6 +29,7 @@ import           Data.Ephys.TrackPosition
 import qualified System.Arte.Decode.Histogram    as H
 import           System.Arte.Decode.Types
 import           System.Arte.Decode.Config
+import           System.Arte.TimeSync
 import           Network.Socket
 import qualified Network.Socket.ByteString as BS
 
@@ -38,18 +40,18 @@ pcFieldRate occ field = V.zipWith (/) field occ
 
 
 ------------------------------------------------------------------------------
-runClusterReconstruction :: DecoderArgs{..} -> Double ->
+runClusterReconstruction :: DecoderArgs -> Double ->
                       TVar DecoderState -> Maybe Handle ->
                       IO ()
 runClusterReconstruction args rTauSec dsT h = do
   ds <- readTVarIO $ dsT
   t0 <- getCurrentTime
   sock <- initSock
-  (timeSyncState, tID) <- setupTimeSync
+  let opts = undefined
+  (timeSyncState, tID) <- setupTimeSync opts
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
       go lastFields binStartTime = do
-        binEndTime
         let binEndTime = addUTCTime (realToFrac rTauSec) binStartTime
         -- H.timeAction (ds^.decodeProf) $ do  -- <-- Slow space leak here (why?)
         do
@@ -58,13 +60,14 @@ runClusterReconstruction args rTauSec dsT h = do
           let !estimate = clusteredReconstruction rTauSec lastFields counts occ
           atomically $ writeTVar (ds^.decodedPos) estimate
 
-          expTime = 200 -- TODO Placeholder
-          let pack = Packet estimate expTime tName
+          let expTime = undefined -- TODO Placeholder
+          let name = undefined
+          let pack = Packet estimate expTime name
           streamData sock pack
 
           resetClusteredSpikeCounts clusteredTrodes
           tNow <- getCurrentTime
-          maybe (return ()) (filterWithKeyp hPutStr (show tNow ++ ", ")) h
+          maybe (return ()) (flip hPutStr (show tNow ++ ", ")) h
           maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
           let timeRemaining = diffUTCTime binEndTime tNow
 
@@ -76,8 +79,7 @@ runClusterReconstruction args rTauSec dsT h = do
    go fields0 t0
 
 timeToNextFreqTick :: Double -> TimeSyncState -> UTCTime -> IO DiffTime
-timeToNextFreqTick freq TimeSyncState{..} tNow =
-  let networkTimeNow = addUTCTime (tNow)
+timeToNextFreqTick freq TimeSyncState{..} tNow = undefined
 
 ------------------------------------------------------------------------------
 -- P(x|n) = C(tau,N) * P(x) * Prod_i(f_i(x) ^ n_i) * exp (-tau * Sum_i( f_i(x) ))
@@ -285,18 +287,19 @@ liftTC f tca = Map.map (Map.map f) tca
 --initialize ipAddy (String) remember inet_addr :: String -> IO Host Address
 initSock :: IO (Socket)
 initSock = withSocketsDo $ do
-  sock <- socket AF_INT Datagram defaultProtocol --creates an IO socket with address family, socket type and prot number
+  sock <- socket AF_INET Datagram defaultProtocol --creates an IO socket with address family, socket type and prot number
   let saddr = SockAddrInet (fromIntegral 0) iNADDR_ANY --initializes a socket address with port number "0" (bind to any port) and takes a hostAddress that will take any port.
   bind sock saddr --binds the socket to the address.
+  return sock
 
 
 streamData :: Socket -> Packet -> IO ()
-streamData p = withSocketsDo $ do
-  liftIO $ BS.sendAll sock (p) --send packet over the scoket 
+streamData sock p = withSocketsDo $ do
+  BS.sendAll sock $ encode p --send packet over the scoket 
 
 
 
 
 getFields :: IO (Field)
-
+getFields = undefined
 
