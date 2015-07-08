@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
@@ -9,12 +10,14 @@ module System.Arte.Decode.Types where
 ------------------------------------------------------------------------------
 import           Control.Concurrent.STM.TVar
 import           Control.Lens
+import qualified Data.Aeson as A
 import qualified Data.Map.Strict as Map
 import           Data.Monoid
 import           Data.Serialize
 import           Data.Time
 import qualified Data.Vector         as V
 import qualified Data.Vector.Unboxed as U
+import GHC.Generics
 import           Options.Applicative
 ------------------------------------------------------------------------------
 import           Data.Ephys.EphysDefs
@@ -31,7 +34,6 @@ data DecoderState = DecoderState
                     { _pos           :: TVar Position
                     , _trackPos      :: TVar (Field)
                     , _occupancy     :: TVar (Field)
-                    , _maybeunused   :: TVar (Field)
                     , _trodes        :: Trodes
                     , _decodedPos    :: TVar (Field)
                     , _trodeDrawOpt  :: TrodeDrawOptions
@@ -194,6 +196,7 @@ decoderArgs = DecoderArgs
               <*> option auto
               ( long "decodingInterval"
               <> help "Time interval for emitting position estimates")
+              <*> option auto
               ( long "trodeName"
               <> help "Name of the tetrode we are recording from")
               <*> strOption
@@ -210,8 +213,13 @@ decoderOpts = info (helper <*> decoderArgs)
 
 data Packet = Packet {
     packetEstimate :: Field
-  , packetTime     :: SOME KIND OF TIME
+  , packetTime     :: UTCTime
   , packetTrode    :: TrodeName
-} deriving (Generic)
+} deriving (Eq, Show, Generic)
+
+instance A.ToJSON Packet where
+instance A.FromJSON Packet where
 
 instance Serialize Packet where
+  put = S.encode  . A.encode
+  get = A.decodeEither  <=< S.decode 

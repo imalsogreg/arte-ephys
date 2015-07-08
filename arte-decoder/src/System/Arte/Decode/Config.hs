@@ -64,14 +64,13 @@ initialState :: DecoderArgs -> IO DecoderState
 initialState DecoderArgs{..} = do
   let clusts    = if clusterless
                   then clistTrodes $ Clusterless Map.empty
-                  else clistTrodes $ Clusterless Map.empty
+                  else clistTrodes $ Clustered Map.empty
   t0       <- getCurrentTime
   DecoderState <$>
     newTVarIO pos0
     <*> newTVarIO field0
     <*> newTVarIO field0
-    <*> newTVarIO field0
-    <*> return (Clustered Map.empty)
+    <*> return clusts
     <*> newTVarIO field0
     <*> pure clusts
     <*> pure 0
