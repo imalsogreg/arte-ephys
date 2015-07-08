@@ -1,5 +1,5 @@
 {-|
-Module      : System.Arte.TimeSync.Internal
+Module      : System.Arte.NetworkTime
 Description : Types for arte network time
 Copyright   : (c) Greg Hale, 2015
                   Shea Levy, 2015
@@ -11,11 +11,11 @@ Portability : GHC, Linux
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module System.Arte.TimeSync.Internal ( NetworkTime -- Don't export constructors!
-                                     , diffNetworkTime
-                                     , addNetworkTime
-                                     , networkTimeEpoch
-                                     ) where
+module System.Arte.NetworkTime ( NetworkTime -- Don't export constructors!
+                               , diffNetworkTime
+                               , addNetworkTime
+                               , networkTimeEpoch
+                               ) where
 
 import Data.Time.Clock
 import Data.Ratio

@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                  System.Arte.NetworkTime,
                   System.Arte.TimeSync
                   System.Arte.DataPublisher,
                   System.Arte.FileUtils,
@@ -24,8 +25,6 @@ library
                   System.Arte.Net,
                   System.Arte.CommandPort,
                   System.Arte.Simple
-  other-modules:
-                  System.Arte.TimeSync.Internal
   other-extensions:    TemplateHaskell,
                        DeriveDataTypeable,
                        NoMonomorphismRestriction,

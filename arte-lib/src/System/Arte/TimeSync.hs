@@ -11,12 +11,7 @@ Portability : GHC, Linux
 
 {-# LANGUAGE RecordWildCards #-}
 
-module System.Arte.TimeSync ( module System.Arte.TimeSync.Internal
-                            , TimeSyncState ( .. )
-                            , TimeSyncOptions ( .. )
-                            , timeSyncOptions
-                            , setupTimeSync
-                            ) where
+module System.Arte.TimeSync where
 
 import Data.Time.Clock
 import Options.Applicative
@@ -26,7 +21,7 @@ import qualified Network.Socket.ByteString as BS
 import Control.Concurrent
 import Network.Socket
 import Data.Serialize
-import System.Arte.TimeSync.Internal
+import System.Arte.NetworkTime
 
 -- | The state of network time synchronization
 data TimeSyncState = TimeSyncState {
