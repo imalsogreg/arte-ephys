@@ -24,6 +24,8 @@ library
                   System.Arte.Net,
                   System.Arte.CommandPort,
                   System.Arte.Simple
+  other-modules:
+                  System.Arte.TimeSync.Internal
   other-extensions:    TemplateHaskell,
                        DeriveDataTypeable,
                        NoMonomorphismRestriction,
