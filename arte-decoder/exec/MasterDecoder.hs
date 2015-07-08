@@ -70,6 +70,7 @@ main = do
     >-> steadyCat 100
     >-> forever (await >> liftIO (updateMasterEstimate masterState))
 
+  let runMasterGui = undefined
   runMasterGui undefined
 
 
