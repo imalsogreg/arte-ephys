@@ -47,37 +47,31 @@ runClusterReconstruction :: DecoderArgs -> Double ->
                       IO ()
 runClusterReconstruction args rTauSec dsT h = do
   ds <- readTVarIO $ dsT
-  t0 <- getCurrentTime
   sock <- initSock
-  (timeSyncState, _) <- setupTimeSync $ tsOptions args
+  (timeSyncStateVar, _) <- setupTimeSync $ tsOptions args
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
-      go lastFields binStartTime = do
-        let binEndTime = addUTCTime (realToFrac rTauSec) binStartTime
+      go lastFields = do
         -- H.timeAction (ds^.decodeProf) $ do  -- <-- Slow space leak here (why?)
         do
           (fields,counts) <- unzip <$> clusteredUnTVar clusteredTrodes
           occ <- readTVarIO occT
           let !estimate = clusteredReconstruction rTauSec lastFields counts occ
+          ntNow <- getCurrentNetworkTime timeSyncStateVar
+          let p = Packet estimate ntNow $ tName args
+          streamData sock p
           atomically $ writeTVar (ds^.decodedPos) estimate
 
-          let expTime = undefined -- TODO Placeholder
-          let name = undefined
-          let pack = Packet estimate expTime name
-          streamData sock pack
-
           resetClusteredSpikeCounts clusteredTrodes
-          tNow <- getCurrentTime
-          maybe (return ()) (flip hPutStr (show tNow ++ ", ")) h
-          maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
-          let timeRemaining = diffUTCTime binEndTime tNow
 
-          threadDelay $ floor (timeRemaining * 1e6)
-          go fields binEndTime
+          binEndInterval <-
+            timeToNextTick (realToFrac $ decodingInterval args) timeSyncStateVar
+          threadDelay . floor $ binEndInterval * 1000000
+          go fields
       fields0 = [] -- TODO: fix. (locks up if clusteredReconstrution doesn't
                    --             check for exactly this case)
     in
-   go fields0 t0
+   go fields0
 
 timeToNextTick :: DiffTime -> TVar TimeSyncState -> IO DiffTime
 timeToNextTick period stVar = do
