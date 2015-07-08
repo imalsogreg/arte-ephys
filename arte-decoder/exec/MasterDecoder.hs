@@ -70,11 +70,8 @@ main = do
     >-> steadyCat 100
     >-> forever (await >> liftIO (updateMasterEstimate masterState))
 
-  mapM_ wait [posThread
-             , slavesThread
-             , combineThread]
+  runMasterGui undefined
 
-  return ()
 
 data MasterState = MasterState {
     tetrodeEstimate :: TVar (Map.Map TrodeName Field)
@@ -87,6 +84,7 @@ type Estimate = Int
 acceptEstimate :: MasterState -> Estimate -> IO ()
 acceptEstimate = undefined
 
+-- TODO: ? Profile and decide: switch to Rational (infinite precision)
 updateMasterEstimate :: MasterState -> IO ()
 updateMasterEstimate MasterState{..} = do
   fields <- Map.elems <$> readTVarIO tetrodeEstimate
@@ -110,13 +108,3 @@ newMasterState = do
   p    <- newTVarIO pos0
   est0 <- newTVarIO field0
   return $ MasterState ests p est0
-
--- ------------------------------------------------------------------------------
--- showMasterState :: MasterState -> IO String
--- showMasterState MasterState{..} =
---   (\tEs p mE ->
---      unlines [ "MasterState {", show tEs, show p, show mE, "}"])
---   <$> traverse readTVarIO tetrodeEstimate
---   <*> readTVarIO ratPos
---   <*> readTVarIO masterEstimate
-

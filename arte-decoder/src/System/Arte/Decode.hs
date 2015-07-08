@@ -64,20 +64,6 @@ import qualified System.Arte.Decode.Histogram as H
 import           System.Arte.Decode.Types
 
 
-------------------------------------------
--- TODO: There is way too much STM here --
--- UI timing here is handled by gloss,  --
--- So decoderState top-level fields     --
--- probably don't need to be in TVars.  --
---                                      --
--- Also ought to be using lens better   --
---                                      --
--- Divide up into modules. No big mess  --
---                                      --
--- Get data from distributed-process    --
-------------------------------------------
-
-
 ------------------------------------------------------------------------------
 focusCursor :: DecoderState -> TrodeDrawOption
 focusCursor ds = fromMaybe (DrawError "Couldn't index at cursor") $
@@ -198,57 +184,6 @@ main = do
             )
 
   let asyncsAndTrodes = [ (a, undefined) ]
-          -- asyncsAndTrodes <- forM spikeFiles $ \sf -> do
-          --   let tName = read . Text.unpack $ mwlTrodeNameFromPath sf
-          --   print $ "working on file" ++ sf
-          --   fi' <- getFileInfo sf
-          --   case fi' of
-          --     Left e -> error $ unwords ["Error getting info on file",sf,":",e]
-
-          --     -- Clusterless case ------------------------------------------
-          --     Right fi | clusterless opts -> do
-          --       trodeTVar <- addClusterlessTrode dsT tName
-          --       f <- BSL.readFile sf
-          --       a <- async $ runEffect $
-          --         dropResult (produceTrodeSpikes tName fi f) >->
-          --         relativeTimeCat (\s -> spikeTime s - startExperimentTime opts) >->
-          --         (forever $ do
-          --             spike <- await
-          --             ds2  <- lift . atomically $ readTVar dsT
-          --             pos2 <- lift . atomically $ readTVar (ds^.trackPos)
-          --             p    <- lift . atomically $ readTVar (ds^.pos)
-          --             when (clessKeepSpike spike) $
-          --               lift (clusterlessAddSpike ds2 tName p pos2 spike logSpikes)
-          --             return ()
-          --         )
-          --       return (a, undefined) -- DrawClusterless trodeTVar)
-
-          --     -- Clustered case ---------------------------------------------
-          --     Right fi | otherwise -> do
-
-
-          --       case clusters' of
-          --         Left e -> error $ unwords ["Error in clusters from file",cbFilePath,":",e]
-          --         Right clusters -> do
-          --           setTrodeClusters defTrack dsT tName clusters
-          --           ds' <- readTVarIO dsT
-          --           case Map.lookup tName (ds'^.trodes._Clustered) of
-          --             Nothing -> error $ unwords ["Shouldn't happen, couldn't find",tName]
-          --             Just pcTrode -> do
-          --               f <- BSL.readFile sf
-          --               a <- async $ runEffect $
-          --                 dropResult (produceTrodeSpikes tName fi f) >->
-          --                 relativeTimeCat (\s -> (spikeTime s - startExperimentTime opts)) >->
-          --                 (forever $ do
-          --                     spike <- await
-          --                     let minWid = spikeWidthThreshold defaultClusterlessOpts
-          --                     when (spikeWidth spike >= minWid) $ do
-          --                       ds2 <- lift . atomically $ readTVar dsT
-          --                       pos2 <- lift . atomically $ readTVar (ds^.trackPos)
-          --                       p    <- lift . atomically $ readTVar (ds^.pos)
-          --                       lift $ fanoutSpikeToCells ds2 tName pcTrode p pos2 spike logSpikes)
-          --               t <- newTVarIO pcTrode
-          --               return (a, undefined :: TrodeDrawOption)
 
   reconstructionA <-
     async $ if clusterless opts
