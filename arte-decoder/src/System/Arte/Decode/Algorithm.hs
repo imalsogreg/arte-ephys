@@ -49,8 +49,7 @@ runClusterReconstruction args rTauSec dsT h = do
   ds <- readTVarIO $ dsT
   t0 <- getCurrentTime
   sock <- initSock
-  let opts = undefined
-  (timeSyncState, tID) <- setupTimeSync opts
+  (timeSyncState, _) <- setupTimeSync $ tsOptions args
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
       go lastFields binStartTime = do
