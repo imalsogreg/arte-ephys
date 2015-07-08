@@ -28,6 +28,7 @@ import           Data.Ephys.PlaceCell
 import           Data.Ephys.Position
 import           Data.Map.KDMap
 import           System.Arte.Decode.Histogram
+import           System.Arte.TimeSync
 
 -- TODO: This module would be a lot clearer with some organization
 
@@ -176,6 +177,7 @@ data DecoderArgs = DecoderArgs {ttDir               :: FilePath
                                ,tName               :: TrodeName
                                ,packetIP            :: String
                                ,packetPort          :: Int
+                               ,tsOptions           :: TimeSyncOptions
                                }
                  deriving (Show)
 
@@ -207,6 +209,7 @@ decoderArgs = DecoderArgs
               <*> option auto
               ( long "estimatePort"
               <> help "Port to send decoding estimates to")
+              <*> timeSyncOptions
 
 decoderOpts = info (helper <*> decoderArgs)
        (fullDesc
