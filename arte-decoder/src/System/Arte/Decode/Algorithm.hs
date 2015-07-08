@@ -20,6 +20,7 @@ import           System.Mem (performGC)
 import           Network.IP.Quoter
 import           Network.Socket
 import           Data.Serialize
+import           Data.Fixed
 ------------------------------------------------------------------------------
 import           Data.Ephys.EphysDefs
 import           Data.Map.KDMap
@@ -30,6 +31,7 @@ import qualified System.Arte.Decode.Histogram    as H
 import           System.Arte.Decode.Types
 import           System.Arte.Decode.Config
 import           System.Arte.TimeSync
+import           System.Arte.NetworkTime
 import           Network.Socket
 import qualified Network.Socket.ByteString as BS
 
@@ -78,8 +80,12 @@ runClusterReconstruction args rTauSec dsT h = do
     in
    go fields0 t0
 
-timeToNextFreqTick :: Double -> TimeSyncState -> UTCTime -> IO DiffTime
-timeToNextFreqTick freq TimeSyncState{..} tNow = undefined
+timeToNextTick :: DiffTime -> TVar TimeSyncState -> IO DiffTime
+timeToNextTick period stVar = do
+  st@TimeSyncState{..} <- readTVarIO stVar
+  ntNow <- flip sysTimeToNetworkTime st <$> getCurrentTime
+  -- -(now - epoch) % period
+  return $ (diffNetworkTime networkTimeEpoch ntNow) `mod'` period
 
 ------------------------------------------------------------------------------
 -- P(x|n) = C(tau,N) * P(x) * Prod_i(f_i(x) ^ n_i) * exp (-tau * Sum_i( f_i(x) ))
