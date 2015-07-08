@@ -71,3 +71,12 @@ setupTimeSync TimeSyncOptions{..} = do
     listenForTimePackets sock stateVar = forever $ do
       st <- getState sock
       atomically $ writeTVar stateVar st
+
+-- | Convert a system time to a network time
+sysTimeToNetworkTime :: UTCTime       -- ^ The system time
+                     -> TimeSyncState -- ^ The state of synchronization
+                     -> NetworkTime
+sysTimeToNetworkTime t TimeSyncState{..} =
+    addNetworkTime elapsed networkTimeAtLastSync
+  where
+    elapsed = realToFrac $ diffUTCTime t localTimeAtLastSync
