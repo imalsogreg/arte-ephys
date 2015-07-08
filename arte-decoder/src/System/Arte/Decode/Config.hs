@@ -70,7 +70,7 @@ initialState DecoderArgs{..} = do
     newTVarIO pos0
     <*> newTVarIO field0
     <*> newTVarIO field0
-    <*> return clusts
+    <*> return (Clustered Map.empty)
     <*> newTVarIO field0
     <*> pure clusts
     <*> pure 0
