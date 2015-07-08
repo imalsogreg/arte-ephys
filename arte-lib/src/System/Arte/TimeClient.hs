@@ -58,11 +58,22 @@ data TimeClientState = TimeClientState {
   , networkTimeAtLastSync  :: NetworkTime
   }
 
+--find nextwork time now 
+
 timeOptions :: Parser TimeOptions
 timeOptions = TimeOptions
               <$> strOption
               ( long "timeClientPort"
               <> help "Timestamp client port")
+
+sysTimeToNetworkTime :: UTCTime -> TimeClientState -> NetworkTime
+sysTimeToNetworkTime utc TimeClientState{..} =
+    diffNetworkTime networkTimeAtLastSync (-diffTime)
+  where
+    utcdiff = diffUTCTime utc localSystemTimeAtLastSync
+    iseconds = floor $ utctDayTime utcdiff
+    inanoseconds = (iseconds - (utctDayTime utcdiff)) * 1000000000
+    diffTime = NetworkTime iseconds inanoseconds 
 
 networkTimeToSysTime :: TimeClientState -> NetworkTime -> UTCTime
 networkTimeToSysTime TimeClientState{..} nt =

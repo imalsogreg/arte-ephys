@@ -9,8 +9,10 @@ import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Lens
 import           Control.Monad
+import           Control.Monad.IO.Class
 import qualified Data.List                as L
 import qualified Data.Map.Strict          as Map
+import qualified Data.IntMap.Strict       as IMap
 import           Data.Time.Clock
 import qualified Data.Vector.Unboxed      as U
 import qualified Data.Vector              as V
@@ -22,11 +24,12 @@ import           Data.Map.KDMap
 import qualified Data.Map.KDMap                   as KDMap
 import           Data.Ephys.PlaceCell
 import           Data.Ephys.TrackPosition
+import           System.Arte.TimeClient
 import qualified System.Arte.Decode.Histogram    as H
 import           System.Arte.Decode.Types
 import           System.Arte.Decode.Config
 import           Network.Socket
-import qualified Network.Socket.Bytestring as BS
+import qualified Network.Socket.ByteString as BS
 
 
 ------------------------------------------------------------------------------
@@ -35,13 +38,17 @@ pcFieldRate occ field = V.zipWith (/) field occ
 
 
 ------------------------------------------------------------------------------
-runClusterReconstruction :: DecoderArgs -> Double ->
+-- as a function of data points, test the speed of training and testing of both clustered and clusterless
+--runClusterReconstruction is now passed TimeOptions
+runClusterReconstruction :: TimeOptions -> DecoderArgs -> Double ->
                       TVar DecoderState -> Maybe Handle -> 
                       IO ()
-runClusterReconstruction args rTauSec dsT h = do
+runClusterReconstruction topts args rTauSec dsT h = do
   ds <- readTVarIO $ dsT
   t0 <- getCurrentTime
   sock <- initSock
+  (tsyncstatetvar, tId) <- setupTimeQuery topts
+  tsyncstate <- readTVarIO tsyncstatetvar
   let name = trodeName args
   let occT = ds ^. occupancy
       Clustered clusteredTrodes = ds^.trodes
@@ -55,19 +62,30 @@ runClusterReconstruction args rTauSec dsT h = do
           atomically $ writeTVar (ds^.decodedPos) estimate
           resetClusteredSpikeCounts clusteredTrodes
           tNow <- getCurrentTime
-          maybe (return ()) (filterWithKeyp hPutStr (show tNow ++ ", ")) h
+          maybe (return ()) (IMap.filterWithKey (hPutStr (show tNow ++ ", "))) h
           maybe (return ()) (flip hPutStrLn (showPosterior estimate tNow)) h
-          let timeRemaining = diffUTCTime binEndTime tNow
-          expTime = undefined
+          --let timeRemaining = diffUTCTime binEndTime tNow
+          let expTime = (-100)
           --note. we don't have time nor name implemented yet.
-          let pack = Packet estimate expTime name{- Is estimate the field here? -} time name
+          let pack = Packet estimate expTime name{- Is estimate the field here? -}
           streamData sock pack --send Data through socket
+          timeRemaining <- timeToNextFreqTick 20 tsyncstate tNow
           threadDelay $ floor (timeRemaining * 1e6)
           go fields binEndTime
       fields0 = [] -- TODO: fix. (locks up if clusteredReconstrution doesn't
                    --             check for exactly this case)
-    in
+    in 
    go fields0 t0
+
+
+timeToNextFreqTick :: Integer -> TimeClientState -> UTCTime -> IO DiffTime
+timeToNextFreqTick interval sync tNow = do
+  let diffTimeInterval = secondsToDiffTime interval
+  let timeSinceSync = diffUTCTime (tNow) ((localSystemTimeAtLastSync) sync) --gives you nominalDiffTime since last sync 
+  let netTimeSinceSync = networkTimeToSysTime timeSinceSync
+  let currNetworkTime = sysTimeToNetworkTime $ (addUTCTime timeSinceSync (localSystemTimeAtLastSync sync)) sync
+  return $ secondsToDiffTime (interval - (mod ((seconds currNetworkTime) + ((nanoseconds currNetworkTime)/1000000000)) interval)) --not sure if this is in difftime yet... 
+     
 
 
 ------------------------------------------------------------------------------
@@ -269,18 +287,13 @@ liftTC f tca = Map.map (Map.map f) tca
 --initialize ipAddy (String) remember inet_addr :: String -> IO Host Address
 initSock :: IO (Socket)
 initSock = withSocketsDo $ do
-  sock <- socket AF_INT Datagram defaultProtocol --creates an IO socket with address family, socket type and prot number
+  sock <- socket AF_INET Datagram defaultProtocol --creates an IO socket with address family, socket type and prot number
   let saddr = SockAddrInet (fromIntegral 0) iNADDR_ANY --initializes a socket address with port number "0" (bind to any port) and takes a hostAddress that will take any port.
   bind sock saddr --binds the socket to the address.
 
 
 streamData :: Socket -> Packet -> IO ()
-streamData p = withSocketsDo $ do
+streamData sock p = withSocketsDo $ do
   liftIO $ BS.sendAll sock (p) --send packet over the scoket 
-
-
-
-
-getFields :: IO (Field)
 
 

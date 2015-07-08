@@ -3,6 +3,7 @@
 {-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module System.Arte.Decode.Types where
 
@@ -15,6 +16,9 @@ import           Data.Time
 import qualified Data.Vector         as V
 import qualified Data.Vector.Unboxed as U
 import           Options.Applicative
+import           Data.Serialize
+import           Generics.Deriving
+import           Generics.Deriving.Base
 ------------------------------------------------------------------------------
 import           Data.Ephys.EphysDefs
 import           Data.Ephys.TrackPosition
@@ -191,6 +195,7 @@ decoderArgs = DecoderArgs
               <*> option auto
               ( long "decodingInterval"
               <> help "Time interval for emitting position estimates")
+              <*> option auto
               ( long "trodeName"
               <> help "Name of the tetrode we are recording from")
 
@@ -210,8 +215,8 @@ decoderArgs = DecoderArgs
 
 data Packet = Packet {
     positionEstimate :: Field
-  , experimentTime    :: SOME KIND OF TIME --edit: will this be real time? Or experiment time? tbd.
-  , trodeName    :: String
+  , experimentTime    ::  Int --edit: will this be real time? Or experiment time? tbd.
+  , tetrodeName    :: String
 
 } deriving (Generic)
 
