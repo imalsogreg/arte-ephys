@@ -50,6 +50,7 @@ data BinCaps = CapCircle -- ^ A circular bin for choice points on the track
                -- | Rectangular bins for paths along the track. Parameter is
                --   a tuple of the angle between the bin and its predecessor and
                --   the angle between the bin and its successor.
+               -- <<CapEnd.png>
              | CapFlat (Double,Double)
              deriving (Eq, Ord, Show)
 
@@ -123,7 +124,7 @@ posToField t pos kern =
           | cos (pos^.heading - binC^.binDir) > 0 = Outbound
           | otherwise                             = Inbound
         ecc b
-          | (abs y') > (b^.binWid / 2) = OutOfBounds 
+          | (abs y') > (b^.binWid / 2) = OutOfBounds
           | otherwise                  = InBounds
           where (_,y') = relativeCoords b (pos^.location^.x, pos^.location^.y)
         trackPosValUnNormalized :: TrackPos -> Double
