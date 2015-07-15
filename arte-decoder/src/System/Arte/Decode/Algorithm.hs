@@ -99,7 +99,7 @@ clusteredReconstruction rTauSecs clusterFields clusterCounts occ =
       posteriorPart  = V.zipWith (*) occ likelihoodPart :: Field
       invPostSum     = 1 / V.sum  posteriorPart
   in
-   V.map (* invPostSum) posteriorPart 
+   V.map (* invPostSum) posteriorPart
 
 
 ------------------------------------------------------------------------------
@@ -174,14 +174,14 @@ runClusterlessReconstruction rOpts rTauSec dsT _ = do
           let tRemaining = diffUTCTime tNow binEndTime
           threadDelay $ floor (tRemaining * 1e6)
           go ds binEndTime
-  
+
 
 ------------------------------------------------------------------------------
 -- TODO: Fix order. This add spikes then decodes.
 --       Should decode, then add spikes
 stepTrode :: ClusterlessOpts -> TVar ClusterlessTrode -> IO Field
 stepTrode opts trode' = do
-  
+
   (spikes,kde) <- atomically $ do -- TODO timeEvent encodeProf here
     trode <- readTVar trode'
     let spikesTimes = (trode^.dtTauN)
@@ -294,11 +294,10 @@ initSock = withSocketsDo $ do
 
 streamData :: Socket -> Packet -> IO ()
 streamData sock p = withSocketsDo $ do
-  BS.sendAll sock $ encode p --send packet over the scoket 
+  BS.sendAll sock $ encode p --send packet over the scoket
 
 
 
 
 getFields :: IO (Field)
 getFields = undefined
-

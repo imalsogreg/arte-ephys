@@ -61,10 +61,8 @@ field0 = V.replicate (V.length $ allTrackPos defTrack) 0
 
 ------------------------------------------------------------------------------
 initialState :: DecoderArgs -> IO DecoderState
-initialState DecoderArgs{..} = do
-  let clusts    = if clusterless
-                  then clistTrodes $ Clusterless Map.empty
-                  else clistTrodes $ Clustered Map.empty
+initialState args@DecoderArgs{..} = do
+  let defDrawOpts = trodeDrawOptions args Nothing
   t0       <- getCurrentTime
   DecoderState <$>
     newTVarIO pos0
@@ -72,7 +70,7 @@ initialState DecoderArgs{..} = do
     <*> newTVarIO field0
     <*> return (Clustered Map.empty)
     <*> newTVarIO field0
-    <*> pure clusts
+    <*> pure defDrawOpts
     <*> pure 0
     <*> pure False
     <*> pure (\t -> startExperimentTime + realToFrac (diffUTCTime t t0))
@@ -82,16 +80,16 @@ initialState DecoderArgs{..} = do
 
 
 ------------------------------------------------------------------------------
-clistTrodes :: Trodes -> TrodeDrawOptions
-clistTrodes (Clustered tMap) =
-  (f $ Map.toList tMap) ++
+trodeDrawOptions :: DecoderArgs -> Maybe Trode -> TrodeDrawOptions
+trodeDrawOptions DecoderArgs{..} (Clustered theTrode) =
+  f (tName, theTrode) ++
   [DrawOccupancy, DrawDecoding]
     where
       f :: (TrodeName, PlaceCellTrode) -> [TrodeDrawOption]
-      f (tName, PlaceCellTrode units _) = map (\(n,u) -> DrawPlaceCell n u)
+      f (tName, PlaceCellTrode units _) = map (uncurry DrawPlaceCell)
                                           (Map.toList units)
-clistTrodes (Clusterless tMap) =
-  (f $ Map.toList tMap)
+trodeDrawOptions DecoderArgs{..} (Clusterless theTrode) =
+  f (tName, theTrode)
   ++ [DrawOccupancy, DrawDecoding ]
   where
     f :: (TrodeName,TVar ClusterlessTrode) -> [TrodeDrawOption]

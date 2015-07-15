@@ -13,6 +13,7 @@ import           Control.Concurrent.STM.TVar
 import           Control.Lens
 import           Control.Monad
 import qualified Data.Aeson as A
+import Data.Default
 import qualified Data.Map.Strict as Map
 import           Data.Monoid
 import           Data.Serialize
@@ -36,10 +37,10 @@ import           System.Arte.NetworkTime
 ------------------------------------------------------------------------------
 data DecoderState = DecoderState
                     { _pos           :: TVar Position
-                    , _trackPos      :: TVar (Field)
-                    , _occupancy     :: TVar (Field)
-                    , _trodes        :: Trodes
-                    , _decodedPos    :: TVar (Field)
+                    , _trackPos      :: TVar Field
+                    , _occupancy     :: TVar Field
+                    , _trode         :: Trode
+                    , _decodedPos    :: TVar Field
                     , _trodeDrawOpt  :: TrodeDrawOptions
                     , _clustInd      :: Int
                     , _drawKDESample :: Bool
@@ -51,7 +52,6 @@ data DecoderState = DecoderState
                     }
 
 ------------------------------------------------------------------------------
--- Placeholder.  Will be more like: KdTree (Vector Voltage) (Field Double)
 type SpikeHistory = Int
 
 nullHistory :: SpikeHistory
@@ -69,16 +69,16 @@ data PlaceCellTrode = PlaceCellTrode {
   , _pcTrodeHistory :: !SpikeHistory
   } deriving (Eq)
 
-type NotClust = KDMap ClusterlessPoint MostRecentTime
+type TrackAmplitudeModel = KDMap ClusterlessPoint MostRecentTime
 
 data ClusterlessTrode = ClusterlessTrode
-                        { _dtNotClust :: NotClust
+                        { _dtNotClust :: TrackAmplitudeModel
                         , _dtTauN     :: [(ClusterlessPoint,MostRecentTime,Bool)]
                         } deriving (Eq, Show)
 
 
-data Trodes = Clusterless (TVar ClusterlessTrode)
-            | Clustered   (PlaceCellTrode)
+data Trode = Clusterless (TVar ClusterlessTrode)
+           | Clustered   (PlaceCellTrode)
 
 
 
@@ -113,7 +113,7 @@ instance Monoid ClusterlessPoint where
                          in  (s*wA + t*wB) * wR
 
 instance KDKey ClusterlessPoint where
-  pointD p i  = _pAmplitude p U.! (fromIntegral i)
+  pointD p i  = _pAmplitude p U.! fromIntegral i
   pointSize p = fromIntegral . U.length $ _pAmplitude p
   pointW p    = realToFrac $ _pWeight p
   dSucc p d   = succ d `mod` pointSize p
@@ -163,8 +163,8 @@ type TrodeDrawOptions = [TrodeDrawOption]
 $(makeLenses ''PlaceCellTrode)
 $(makeLenses ''DecodablePlaceCell)
 $(makeLenses ''ClusterlessPoint)
-$(makeLenses ''Trodes)
-$(makePrisms ''Trodes)
+$(makeLenses ''Trode)
+$(makePrisms ''Trode)
 $(makeLenses ''ClusterlessTrode)
 
 
