@@ -1,15 +1,16 @@
 name:                tetrode-ephys
 version:             0.1.0.0
--- synopsis:            
--- description:         
+synopsis:            Types and functions for describing neurons and place fields
+description:
+  Representations of neural concepts pertaining to hippocampal place cells, with
+  utilities for serialization and conversion from legacy formats.
 license:             BSD3
 license-file:        LICENSE
 author:              Greg Hale
 maintainer:          imalsogreg@gmail.com
--- copyright:           
+copyright:           (c) 2015 Greg Hale, Shea Levy
 category:            Data
 build-type:          Simple
--- extra-source-files:  
 cabal-version:       >=1.10
 
 library
