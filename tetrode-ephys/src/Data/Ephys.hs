@@ -1,3 +1,13 @@
+{-|
+Module      : Data.Ephys
+Description : Top-level module
+Copyright   : (c) 2015 Greg Hale, Shea Levy
+License     : BSD3
+Maintainer  : imalsogreg@gmail.com
+Stability   : experimental
+Portability : GHC, Linux
+-}
+
 module Data.Ephys (
   module Data.Ephys.Spike,
   module Data.Ephys.Cluster,

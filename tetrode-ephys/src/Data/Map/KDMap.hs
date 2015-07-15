@@ -1,3 +1,14 @@
+{-|
+Module      : Data.Map.KDMap
+Description : KD map data structure for storing spike amplitudes.
+              Undocumented, will be replaced by kdt package.
+Copyright   : (c) 2015 Greg Hale, Shea Levy
+License     : BSD3
+Maintainer  : imalsogreg@gmail.com
+Stability   : experimental
+Portability : GHC, Linux
+-}
+
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
