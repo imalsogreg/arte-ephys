@@ -1,29 +1,25 @@
 name:                tetrode-graphics
 version:             0.1.0.0
--- synopsis:            
--- description:         
+-- synopsis:
+-- description:
 license:             BSD3
 license-file:        LICENSE
 author:              Greg Hale
 maintainer:          imalsogreg@gmail.com
--- copyright:           
+-- copyright:
 category:            Graphics
 build-type:          Simple
--- extra-source-files:  
+-- extra-source-files:
 cabal-version:       >=1.10
 
 library
   exposed-modules:     Data.Ephys.DiagramsPictures, Data.Ephys.GlossPictures
-  -- other-modules:       
+  -- other-modules:
   other-extensions:    TypeFamilies, NoMonomorphismRestriction
   build-depends:       base >=4.8 && <4.9,
---                       active >= 0.2 && < 0.3,
---                       diagrams >= 1.2 && < 1.4,
---                       diagrams-svg >= 1.2 && < 1.4,
---                       monoid-extras >= 0.4 && < 0.5,
-                       gloss,
-                       JuicyPixels,
-                       lens,
+                       gloss >= 1.9 && < 1.10,
+                       JuicyPixels >= 3.2 && < 3.3,
+                       lens >= 4.9 && < 4.11,
                        tetrode-ephys,
                        vector >=0.10 && <0.11,
                        containers >=0.5 && <0.6
