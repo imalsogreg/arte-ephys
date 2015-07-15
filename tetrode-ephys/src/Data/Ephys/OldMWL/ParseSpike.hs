@@ -132,14 +132,13 @@ produceTrodeSpikesFromFile fn trodeName = do
     (_,Left e2) -> error $ fn ++ ": Bad file: " ++ e2   
 
 mwlToArteSpike :: FileInfo -> Int -> MWLSpike -> Arte.TrodeSpike
-mwlToArteSpike fi tName s = Arte.TrodeSpike tName tOpts tTime tWaveforms
+mwlToArteSpike fi tName s = Arte.TrodeSpike tName tTime tWaveforms
   where tTime      = mwlSpikeTime s
         gains      = V.fromList $ fileGains fi
         tWaveforms = V.zipWith
                      (\g -> U.map (mwlUnitsToVoltage g))
                      gains
                      (V.fromList $ mwlSpikeWaveforms s)
-        tOpts = 1001 -- TODO: Get trodeopts
 {-# INLINE mwlToArteSpike #-}
 
 -- "path/to/0224.tt" -> "24"
