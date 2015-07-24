@@ -14,7 +14,7 @@
    id="svg2"
    version="1.1"
    inkscape:version="0.48.4 r9939"
-   sodipodi:docname="New document 1">
+   sodipodi:docname="allRaw.svg">
   <defs
      id="defs4">
     <marker
@@ -284,8 +284,8 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="1.3199868"
-     inkscape:cx="397.21565"
-     inkscape:cy="200.92793"
+     inkscape:cx="360.89913"
+     inkscape:cy="837.29794"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -312,7 +312,10 @@
      id="layer1">
     <g
        id="g4672"
-       transform="translate(0,20)">
+       transform="translate(0,20)"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
       <path
          sodipodi:nodetypes="csc"
          inkscape:connector-curvature="0"
@@ -382,26 +385,38 @@
        d="m 484.57173,345.71142 c 0,0 67.61979,20.93812 105.2887,-39.92617 17.40047,-28.11514 2.49348,-44.17577 -2.43156,-54.35954"
        id="path3004-9"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="csc" />
+       sodipodi:nodetypes="csc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="opacity:0.48623855;fill:none;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow2Mend)"
        d="m 560.35767,192.16152 c 0,0 -19.08175,-60.0077 16.17079,-79.87166 7.57915,-4.27066 19.25564,-2.98549 32.40064,-2.98549"
        id="path3006-5"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="csc" />
+       sodipodi:nodetypes="csc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="opacity:0.48623855;fill:none;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow2Mend)"
        d="m 552.4647,223.58052 c -48.57143,0 -74.28571,0 -74.28571,0"
        id="path3008-2"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="cc" />
+       sodipodi:nodetypes="cc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <text
        xml:space="preserve"
        style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
        x="443.21481"
        y="349.09415"
        id="text3010-9"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan3012-1"
          x="443.21481"
@@ -413,7 +428,10 @@
        x="562.92816"
        y="237.69421"
        id="text3014-2"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan3016-4"
          x="562.92816"
@@ -424,7 +442,10 @@
        x="437.11829"
        y="238.80267"
        id="text3018-0"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan3020-2"
          x="437.11829"
@@ -435,7 +456,10 @@
        x="621.67633"
        y="125.18588"
        id="text3022-8"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan3024-0"
          x="621.67633"
@@ -444,70 +468,109 @@
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 489.87331,334.02513 -10.97316,26.64911 29.78429,3.91899 2.35139,-29.0005 z"
        id="path4709"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 516.52242,335.59273 -1.5676,28.2167 32.13569,-5.48658 -10.18937,-26.64911 z"
        id="path4711"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 542.38773,330.88994 8.62177,25.08152 29.78429,-18.02734 -17.24354,-16.45974 z"
        id="path4713"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 568.25304,317.56539 16.45974,15.67595 19.59493,-25.86531 -22.73012,-7.83798 z"
        id="path4715"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 583.92898,296.40286 21.94633,6.27038 0,-26.64911 -20.37873,3.13519 z"
        id="path4717"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 583.92898,274.45654 21.16253,-5.48658 -17.24354,-26.64911 -12.54076,3.91899 z"
        id="path4719"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 550.2257,210.18516 0.7838,26.64911 -29.7843,0 0.7838,-26.64911 z"
        id="path4721"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="ccccc" />
+       sodipodi:nodetypes="ccccc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 516.52242,210.18516 -0.7838,27.43291 -43.10885,0 0,-27.43291 z"
        id="path4723"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 573.73962,189.80643 -26.64911,7.83797 -6.27038,-34.48708 27.43291,-0.78379 z"
        id="path4725"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 567.46924,157.67074 -27.43291,2.35139 7.05418,-36.83847 25.08151,11.75696 z"
        id="path4727"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 573.73962,131.02164 -25.08152,-11.75696 23.51392,-15.67595 9.40557,18.02734 z"
        id="path4729"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 576.87481,102.02114 7.83797,18.81113 24.29772,-1.56759 -0.7838,-23.51392 z"
        id="path4731"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <text
        xml:space="preserve"
        style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
        x="125.40757"
        y="36.560894"
        id="text4733"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan4735"
          x="125.40757"
@@ -518,7 +581,10 @@
        x="477.33255"
        y="36.560894"
        id="text4737"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan4739"
          x="477.33255"
@@ -528,61 +594,91 @@
        d="m 366.43161,22.490975 c 48.57143,0 74.28571,0 74.28571,0"
        id="path3008-2-5"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="cc" />
+       sodipodi:nodetypes="cc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackSpec.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="opacity:0.16972477;fill:none;stroke:#000000;stroke-width:10.04175949000000045;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker-end:url(#Arrow2Mend)"
        d="m 275.61859,623.45558 c 0,0 125.32175,56.11857 219.8873,-96.67756 43.68283,-70.58137 20.4785,-48.69348 24.1106,-81.36862"
        id="path3004-9-6"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="csc" />
+       sodipodi:nodetypes="csc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/CapEnd.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:#6a6d5b;fill-opacity:0.521327;stroke:#000000;stroke-width:2.51043987px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 311.39522,601.6079 -6.07815,67.08649 84.42457,-12.70234 -21.29425,-63.68684 z"
        id="path4711-6"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="ccccc" />
+       sodipodi:nodetypes="ccccc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/CapEnd.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:#9fbb0d;fill-opacity:0.521327;stroke:#000000;stroke-width:2.02995825;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
        d="m 376.32853,589.80184 21.64443,62.96564 74.77167,-45.25655 -43.28888,-41.32119 z"
        id="path4713-0"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/CapEnd.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:#6a6d5b;fill-opacity:0.521327;stroke:#000000;stroke-width:2.51043987px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 435.36922,562.24397 41.85687,40.42491 54.54882,-71.89731 -57.0626,-19.67677 z"
        id="path4715-0"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="ccccc" />
+       sodipodi:nodetypes="ccccc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/CapEnd.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#4f4f4f;stroke-width:1.60344243000000009px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 301.99636,637.58713 95.44136,-11.60047"
        id="path4825"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="cc" />
+       sodipodi:nodetypes="cc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/CapEnd.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#4d4d4d;stroke-width:1.60344243000000009px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="M 512.54688,545.48715 329.48018,666.34672"
        id="path4827"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="cc" />
+       sodipodi:nodetypes="cc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/CapEnd.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#646464;stroke-width:1.60344243000000009px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="M 506.95649,511.81211 448.6105,592.70059"
        id="path4829"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="cc" />
+       sodipodi:nodetypes="cc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/CapEnd.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="color:#000000;fill:none;stroke:#000000;stroke-width:4;stroke-miterlimit:4;stroke-opacity:1;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
        d="m 370.20028,641.33616 c -3.01988,-4.15234 -5.0012,-8.96766 -5.77809,-14.04291"
        id="path4831"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="cc" />
+       sodipodi:nodetypes="cc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/CapEnd.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <text
        xml:space="preserve"
        style="font-size:25.72031212px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;filter:url(#filter4936);font-family:Sans"
        x="333.45279"
        y="648.22339"
        id="text4834"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/CapEnd.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan4836"
          x="333.45279"
@@ -596,7 +692,10 @@
        x="484.23129"
        y="553.31091"
        id="text4834-4"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/CapEnd.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan4836-2"
          x="484.23129"
@@ -609,7 +708,10 @@
        d="m 468.40835,559.83304 c 4.27192,2.84822 7.79945,6.6783 10.28731,11.16965"
        id="path4831-9"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="cc" />
+       sodipodi:nodetypes="cc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/CapEnd.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <text
        xml:space="preserve"
        style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
@@ -627,7 +729,10 @@
        x="261.38327"
        y="498.67026"
        id="text4834-7"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/CapEnd.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan4836-4"
          x="261.38327"
@@ -642,42 +747,63 @@
        d="m 253.91603,934.04594 c 0,0 125.32175,56.11857 219.8873,-96.67756 43.68283,-70.58137 20.4785,-48.69348 24.1106,-81.36862"
        id="path3004-9-6-7"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="csc" />
+       sodipodi:nodetypes="csc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:#6a6d5b;fill-opacity:0.52132699999999998;stroke:#000000;stroke-width:2.51043986999999991px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:0.21800947000000001;opacity:0.56256883;filter:url(#filter5396)"
        d="m 289.69266,912.19826 -6.07815,67.08649 84.42457,-12.70234 -21.29425,-63.68684 z"
        id="path4711-6-7"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="ccccc" />
+       sodipodi:nodetypes="ccccc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:#9fbb0d;fill-opacity:0.521327;stroke:#000000;stroke-width:2.02995825;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
        d="m 354.62597,900.3922 21.64443,62.96564 74.77167,-45.25655 -43.28888,-41.32119 z"
        id="path4713-0-0"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="opacity:0.56256883;fill:#6a6d5b;fill-opacity:0.52132699999999998;stroke:#000000;stroke-width:2.51043986999999991px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:0.21800949999999999;filter:url(#filter5400)"
        d="m 415.93941,873.13716 41.85687,40.42491 54.54882,-71.89731 -57.0626,-19.67677 z"
        id="path4715-0-1"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="ccccc" />
+       sodipodi:nodetypes="ccccc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
        d="m 427.18884,896.03255 -60.48507,40.19191"
        id="path4827-3"
        inkscape:connector-curvature="0"
-       sodipodi:nodetypes="cc" />
+       sodipodi:nodetypes="cc"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 266.77478,935.58126 260.34646,0"
        id="path5184"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <text
        xml:space="preserve"
        style="font-size:25.72031212px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;filter:url(#filter4936-4);font-family:Sans"
        x="401.42087"
        y="932.26721"
        id="text4834-5"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan4836-0"
          x="401.42087"
@@ -691,7 +817,10 @@
        x="440.68564"
        y="878.11804"
        id="text5245"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan5247"
          x="440.68564"
@@ -704,7 +833,10 @@
        y="763.54437"
        id="text5278"
        sodipodi:linespacing="125%"
-       transform="matrix(0.55366705,-0.58302136,0.90186611,0.8564584,0,0)"><tspan
+       transform="matrix(0.55366705,-0.58302136,0.90186611,0.8564584,0,0)"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan5280"
          x="-440.58231"
@@ -717,7 +849,10 @@
        y="-37.028214"
        id="text5278-4"
        sodipodi:linespacing="125%"
-       transform="matrix(-0.45265184,-0.97171799,0.84562274,-0.3938859,0,0)"><tspan
+       transform="matrix(-0.45265184,-0.97171799,0.84562274,-0.3938859,0,0)"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan5280-1"
          x="-900.2113"
@@ -730,7 +865,10 @@
        y="-6.9371428"
        id="text5278-4-0"
        sodipodi:linespacing="125%"
-       transform="matrix(-0.45265184,-0.97171799,0.84562274,-0.3938859,0,0)"><tspan
+       transform="matrix(-0.45265184,-0.97171799,0.84562274,-0.3938859,0,0)"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan5280-1-2"
          x="-900.21027"
@@ -740,7 +878,10 @@
        style="fill:none;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
        d="m 383.44321,888.61814 15.90925,25.37904"
        id="path5324"
-       inkscape:connector-curvature="0" />
+       inkscape:connector-curvature="0"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <path
        sodipodi:type="arc"
        style="color:#000000;fill:#3e49cc;fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:7.68605614;stroke-linecap:round;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
@@ -750,14 +891,20 @@
        sodipodi:rx="29.54575"
        sodipodi:ry="29.54575"
        d="m 394.70093,883.42108 a 29.54575,29.54575 0 1 1 -59.0915,0 29.54575,29.54575 0 1 1 59.0915,0 z"
-       transform="matrix(0.13010574,0,0,0.13010574,352.11644,799.54384)" />
+       transform="matrix(0.13010574,0,0,0.13010574,352.11644,799.54384)"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
     <text
        xml:space="preserve"
        style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
        x="289.39682"
        y="872.4361"
        id="text5326"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan5328"
          x="289.39682"
@@ -769,7 +916,10 @@
        x="378.79166"
        y="859.17847"
        id="text5330"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan5332"
          x="378.79166"
@@ -781,7 +931,10 @@
        x="398.86761"
        y="907.28497"
        id="text5334"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan5336"
          x="398.86761"
@@ -793,7 +946,10 @@
        x="278.03308"
        y="801.9809"
        id="text5338"
-       sodipodi:linespacing="125%"><tspan
+       sodipodi:linespacing="125%"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
          sodipodi:role="line"
          id="tspan5340"
          x="278.03308"
@@ -809,6 +965,9 @@
        d="m 388.46677,916.98231 a 28.409374,28.409374 0 0 1 7.08384,23.11655"
        sodipodi:start="5.5462927"
        sodipodi:end="6.4253684"
-       sodipodi:open="true" />
+       sodipodi:open="true"
+       inkscape:export-filename="/home/greghale/Programming/arte-ephys/documentation/figs/TrackBin.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
   </g>
 </svg>

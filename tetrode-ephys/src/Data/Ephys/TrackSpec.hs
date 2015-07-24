@@ -1,3 +1,8 @@
+
+|
+Module : Data.Ephys.TrackSpec
+
+
 module Data.Ephys.TrackSpec where
 
 import Data.Graph

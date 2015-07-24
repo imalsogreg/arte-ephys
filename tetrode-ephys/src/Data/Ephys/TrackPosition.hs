@@ -26,6 +26,8 @@ import Data.Ephys.Position
 
 ------------------------------------------------------------------------------
 -- | A physical track segment
+-- 
+--  <<TrackBin.png>>
 data TrackBin =
   TrackBin { -- | Identifier for the bin to define trajectories
              _binName :: !String
@@ -47,11 +49,11 @@ data TrackBin =
 
 -- | A bin shape
 data BinCaps = CapCircle -- ^ A circular bin for choice points on the track
-               -- | Rectangular bins for paths along the track. Parameter is
+             | CapFlat (Double,Double)
+             -- ^ A rectangular bin for linear track segments. Parameter is
                --   a tuple of the angle between the bin and its predecessor and
                --   the angle between the bin and its successor.
-               -- <<CapEnd.png>
-             | CapFlat (Double,Double)
+               --  <<CapEnd.png>>
              deriving (Eq, Ord, Show)
 
 $(makeLenses ''TrackBin)
