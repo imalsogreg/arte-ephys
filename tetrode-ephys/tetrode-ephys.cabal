@@ -22,7 +22,6 @@ library
                   Data.Ephys.TrackPosition,
                   Data.Ephys.Position,
                   Data.Ephys.PlaceCell,
-                  Data.Ephys.Timeseries,
                   Data.Ephys.Spike,
                   Data.Ephys.Cluster,
                   Data.Ephys.OldMWL.Header,
@@ -31,10 +30,7 @@ library
                   Data.Ephys.OldMWL.ParseClusterFile,
                   Data.Ephys.OldMWL.FileInfo,
                   Data.Ephys.OldMWL.ParseSpike,
-                  Data.Ephys.OldMWL.ParsePxyabw,
-                  Data.Ephys.Timeseries.Types,
-                  Data.Ephys.Timeseries.Resample,
-                  Data.Ephys.Timeseries.Filter
+                  Data.Ephys.OldMWL.ParsePxyabw
   other-extensions:    BangPatterns,
                        GeneralizedNewtypeDeriving,
                        TypeSynonymInstances,
