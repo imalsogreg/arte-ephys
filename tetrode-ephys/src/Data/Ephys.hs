@@ -15,7 +15,6 @@ module Data.Ephys (
   module Data.Ephys.TrackPosition,
   module Data.Ephys.EphysDefs,
   module Data.Ephys.PlaceCell,
-  module Data.Ephys.PositionDecoding,
   module Data.Ephys.OldMWL.Header,
   module Data.Ephys.OldMWL.FileInfo,
   module Data.Ephys.OldMWL.Parse,
@@ -31,7 +30,6 @@ import Data.Ephys.Cluster
 import Data.Ephys.Position
 import Data.Ephys.TrackPosition
 import Data.Ephys.PlaceCell
-import Data.Ephys.PositionDecoding
 import Data.Ephys.OldMWL.Header
 import Data.Ephys.OldMWL.FileInfo
 import Data.Ephys.OldMWL.Parse
