@@ -19,23 +19,8 @@ library
   exposed-modules:
                   System.Arte.NetworkTime,
                   System.Arte.TimeSync
-                  System.Arte.DataPublisher,
                   System.Arte.FileUtils,
-                  System.Arte.NetMessage,
                   System.Arte.Net,
-                  System.Arte.CommandPort,
-                  System.Arte.Simple
-  other-extensions:    TemplateHaskell,
-                       DeriveDataTypeable,
-                       NoMonomorphismRestriction,
-                       TupleSections,
-                       OverloadedStrings,
-                       DeriveGeneric,
-                       OverloadedStrings,
-                       RecordWildCards,
-                       ScopedTypeVariables,
-                       GeneralizedNewtypeDeriving,
-                       DeriveFunctor
   build-depends:       base >=4.8 && <4.9,
                        aeson >= 0.8,
                        async == 2.0.*,
