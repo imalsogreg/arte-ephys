@@ -1,3 +1,12 @@
+{-|
+Module      : Data.Ephys.Cluster
+Description : Cluster boundaries
+Copyright   : (c) 2015 Greg Hale, Shea Levy
+License     : BSD3
+Maintainer  : imalsogreg@gmail.com
+Stability   : experimental
+Portability : GHC, Linux
+-}
 {-# LANGUAGE TemplateHaskell, DeriveGeneric #-}
 
 module Data.Ephys.Cluster where
@@ -11,12 +20,16 @@ import GHC.Generics (Generic)
 
 import Control.Lens
 
+-- | Channel index
 type ChanInd = Int
+-- | List of polygon points in trode voltage by trode voltage space, in Volts
 type Polygon = [(Double,Double)]
 
-data CartBound = CartBound { _cartXChan   :: !ChanInd
-                           , _cartYChan   :: !ChanInd
-                           , _cartPolygon :: !Polygon
+-- | A cartesian boundary, defined by a pair of channels and a polygon in the
+--   projection of the total voltage space onto the plane they span
+data CartBound = CartBound { _cartXChan   :: !ChanInd -- ^ The X channel
+                           , _cartYChan   :: !ChanInd -- ^ The Y channel
+                           , _cartPolygon :: !Polygon -- ^ The bounding polygon
                            }
                       deriving (Eq, Show,Generic)
 
@@ -24,31 +37,26 @@ $(makeLenses ''CartBound)
 
 instance Serialize CartBound where
 
-data PolarBound = PolarBound -- Placeholder
-                  deriving (Eq, Show, Generic)
-
-instance Serialize PolarBound where
-                           
+-- | A method of clustering
 data ClusterMethod =
-  ClustCartBound       !CartBound
-  | ClustPolarBound    !PolarBound
-  | ClustSoftCartesian 
+  ClustCartBound       !CartBound -- ^ A single cartesian boundary
+    -- | The intersection of multiple boundaries
   | ClustIntersection  ![ClusterMethod]
+    -- | The union of multiple boundaries
   | ClustUnion         ![ClusterMethod]
   deriving (Eq, Show,Generic)
 
 instance Serialize ClusterMethod where
 
-spikeInCluster :: ClusterMethod -> TrodeSpike -> Bool
+-- | Determine if a spike is in a cluster
+spikeInCluster :: ClusterMethod -- ^ The method of clustering
+               -> TrodeSpike -- ^ The spike of interest
+               -> Bool
 spikeInCluster (ClustCartBound cb) s =
   pointInPolygon (cb ^. cartPolygon) p
   where
     amps = spikeAmplitudes s :: V.Vector Double
     p    = (amps ! (cb ^. cartXChan), amps ! (cb ^. cartYChan))
-spikeInCluster (ClustPolarBound _) _ =
-  error "Not implemented polar clusts"
-spikeInCluster (ClustSoftCartesian) _ =
-  error "Not implemented soft cartesian clusts"
 spikeInCluster (ClustIntersection cbs) s =
   all (`spikeInCluster` s) cbs
 spikeInCluster (ClustUnion cbs) s =
@@ -70,7 +78,10 @@ int pnpoly(int nvert, float *vertx, float *verty, float testx, float testy)
 }
 -}
 
-pointInPolygon :: Polygon -> (Double,Double) -> Bool
+-- | Determine if a point is in a polygon
+pointInPolygon :: Polygon -- ^ The polygon of interest
+               -> (Double,Double) -- ^ The point of interest
+               -> Bool
 pointInPolygon polyPts' (tx,ty) = 
   loop 0 lastInd False where
     lastInd = length polyPts' - 1

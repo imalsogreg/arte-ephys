@@ -16,7 +16,6 @@ Portability : GHC, Linux
 
 module Data.Ephys.Spike where
 
-import Data.Ephys.Timeseries.Filter
 import Data.Ord (comparing)
 import Data.Text hiding (zip, map,foldl1')
 import Data.Text.Encoding
@@ -130,10 +129,9 @@ data SpikeModel = SpikeModel { -- TODO: determine what exactly this means
 -- This should be part of arte, not tetrode-ephys?  It's about recording
 -- But I need it to decode files...
 -- | Trode acquisition parameters
-data TrodeAcquisitionOpts = TrodeAcquisitionOpts { -- | Filter settings applied.
-                                                   spikeFilterSpec :: FilterSpec
-                                                   -- | Thresholds for spike detection
-                                                 , spikeThresholds :: [Voltage]
+data TrodeAcquisitionOpts = TrodeAcquisitionOpts { -- | Thresholds for spike
+                                                   --   detection
+                                                   spikeThresholds :: [Voltage]
                                                  } deriving (Eq, Show)
 
 
