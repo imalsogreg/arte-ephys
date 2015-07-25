@@ -1,8 +1,20 @@
+{-|
+Module      : Data.Ephys.GlossPictures
+Description : Gloss rendering for Ephys types
+Copyright   : (c) Greg Hale, 2015
+                  Shea Levy, 2015
+License     : BSD3
+Maintainer  : imalsogreg@gmail.com
+Stability   : experimental
+Portability : GHC, Linux
+-}
+
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Data.Ephys.GlossPictures where
 
 ------------------------------------------------------------------------------
+import           Control.Arrow (second)
 import           Graphics.Gloss
 import qualified Data.List      as List
 import qualified Data.Map       as Map
@@ -18,36 +30,34 @@ import           Data.Ephys.Spike
 
 
 ------------------------------------------------------------------------------
+-- | Picture of a single track pos. (units: Meters)
 trackPosPicture :: TrackPos -> Picture
 trackPosPicture (TrackPos bin bir ecc) = trackBinFrame bin lineLoop
 
-trackBinFrame :: TrackBin -> ([(Float,Float)] -> Picture) -> Picture
-trackBinFrame b f = trackBinFrameDilated b f 1 
+-- | Drawing-style flexible picture for a single track bin (units: Meters)
+trackBinFrame :: TrackBin  -- ^ Bin to draw
+              -> ([(Float,Float)] -> Picture) -- ^ Drawing method
+              -> Picture
+trackBinFrame b f = trackBinFrameDilated b f 1
 
+-- | Draw a track bin widened (e.g. for 'out-of-bounds' pictures)
 trackBinFrameDilated :: TrackBin -> ([(Float,Float)] -> Picture) -> Float
                         -> Picture
 trackBinFrameDilated (TrackBin _ (Location lx ly _) dir bStart bEnd w caps)
   picType d =
   case caps of
     CapFlat (inAngle,outAngle) ->
-      let inNudge   = r2 $ (r2 w)/2 * sin inAngle * r2 d
-          outNudge  = r2 $ (r2 w)/2 * sin outAngle * r2 d
-          backLow   = (r2 bStart + inNudge, (r2 w)/(-2) * d)
-          backHigh  = (r2 bStart - inNudge, (r2 w)/2 * d) 
-          frontLow  = (r2 bEnd + outNudge, (r2 w)/(-2) * d)
-          frontHigh = (r2 bEnd - outNudge, (r2 w)/2 * d)
+      let inNudge   = r2 $ r2 w * 0.5 * sin inAngle * r2 d
+          outNudge  = r2 $ r2 w * 0.5 * sin outAngle * r2 d
+          backLow   = (r2 bStart + inNudge, r2 w /(-2) * d)
+          backHigh  = (r2 bStart - inNudge, r2 w /2 * d)
+          frontLow  = (r2 bEnd + outNudge,  r2 w /(-2) * d)
+          frontHigh = (r2 bEnd - outNudge,  r2 w /2 * d)
       in Translate (r2 lx) (r2 ly) $ Rotate (rad2Deg $ r2 dir) $
          picType [backLow,backHigh,frontHigh,frontLow]
     CapCircle -> error "Not implemented: drawing circular track bin"
 
-{-
-(r2 bStart, (r2 w)/(-2)* d)
-            ,(r2 bEnd,   (r2 w)/(-2)* d)
-            ,(r2 bEnd,   (r2 w)/2* d)
-            ,(r2 bStart, (r2 w)/2* d)
-            ,(r2 bStart, (r2 w)/(-2)*d)
-  -}          
-
+-- | Draw all track bins an their outbound directions (units: Meters)
 drawTrack :: Track -> Picture
 drawTrack t =
   pictures $ map (flip trackBinFrame lineLoop) (t ^. trackBins) --  ++ map binArrow (t^. trackBins)
@@ -55,8 +65,14 @@ drawTrack t =
                        ((r2 $ bin^.binZ - bin^.binA)/2)
                        (rad2Deg . r2 $ bin^.binDir) 0.01 0.08 0.04
 
-
-drawArrowFloat :: (Float,Float) -> Float -> Float -> Float -> Float -> Float -> Picture
+-- | Draw an arrow
+drawArrowFloat :: (Float,Float) -- ^ Origin
+               -> Float         -- ^ Length
+               -> Float         -- ^ Angle (radians)
+               -> Float         -- ^ Thickness
+               -> Float         -- ^ Head length
+               -> Float         -- ^ Head thickness
+               -> Picture
 drawArrowFloat (baseX,baseY) mag ang thickness headLen headThickness =
   let body = Polygon [(0, - thickness/2)
                      ,(mag - headLen, - thickness/2)
@@ -66,9 +82,12 @@ drawArrowFloat (baseX,baseY) mag ang thickness headLen headThickness =
       aHead = Polygon [(mag - headLen, - headThickness/2)
                      ,(mag,0)
                      ,(mag - headLen, headThickness/2)]
-  in Translate (baseX) (baseY) . Rotate (ang) $ pictures [body,aHead]
+  in Translate baseX baseY . Rotate ang $ pictures [body,aHead]
 
-drawTrackPos :: TrackPos -> Float -> Picture
+-- | Draw a single valued track pos
+drawTrackPos :: TrackPos
+             -> Float  -- ^ Value at pos (0 to 1)
+             -> Picture
 drawTrackPos (TrackPos bin dir ecc) alpha =
   Color (setAlpha col alpha) $
   trackBinFrameDilated bin Polygon dilation
@@ -77,20 +96,25 @@ drawTrackPos (TrackPos bin dir ecc) alpha =
     col      = if ecc == InBounds then baseCol else addColors baseCol green
     dilation = if ecc == InBounds then 1 else 2
 
+-- | Draw rat's current position as an arrow (units: Meters)
 drawPos :: Position -> Picture
 drawPos p = drawArrowFloat
-            (r2 $ p^.location.x, r2 $ p^.location.y) (r2 $ p^.speed) (rad2Deg . r2 $ p^.heading)
+            (r2 $ p^.location.x, r2 $ p^.location.y)
+            (r2 $ p^.speed) (rad2Deg . r2 $ p^.heading)
             0.01 0.08 0.04
-    
+
+-- | Draw an entire field (all valued track positions)
 drawField :: LabeledField Double -> Picture
 drawField field =
   pictures . map (uncurry drawTrackPos) $
-  map (\(x,y) -> (x,r2 y)) (V.toList field)
+  map (second r2) (V.toList field)
 
+-- | Draw an entire field (all valued track positions),
+--   first normalizing the sum of all values to 1
 drawNormalizedField :: LabeledField Double -> Picture
 drawNormalizedField field =
-  pictures $ map (uncurry drawTrackPos)
-  (map  (\(x,y) -> (x,(*fMax) . r2 $ y)) $ V.toList field)
+  pictures $ map (uncurry drawTrackPos .
+    second ((*fMax) . r2)) $ V.toList field
     where fMax :: Float
           fMax = r2 $ 1 / V.foldl' (\a (_,v) -> max a v ) 0.1 field
 
@@ -109,9 +133,10 @@ labelTrackPos (TrackPos (TrackBin _ (Location x y _) _ _ _ _ _ ) dir ecc,v) =
     offsetY = case (dir,ecc) of
           (Outbound,InBounds)    ->  3 * c
           (Inbound, InBounds)    ->  1 * c
-          (Outbound,OutOfBounds) -> -1 * c 
+          (Outbound,OutOfBounds) -> -1 * c
           (Inbound, OutOfBounds) -> -3 * c
-                 
+
+-- | Override a color's alpha component (0 to 1)
 setAlpha :: Color -> Float -> Color
 setAlpha c alpha = case rgbaOfColor c of
   (r,g,b,_) -> makeColor r g b alpha

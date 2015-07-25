@@ -26,7 +26,7 @@ import Data.Ephys.Position
 
 ------------------------------------------------------------------------------
 -- | A physical track segment
--- 
+--
 --  <<TrackBin.png>>
 data TrackBin =
   TrackBin { -- | Identifier for the bin to define trajectories
@@ -199,6 +199,18 @@ circularTrack (cX,cY) r h w tau =
       (-1 * tau' / 2) (tau' / 2)
       w
       (CapFlat (thetaIncr/(-2), thetaIncr/2))
+
+radialArmMaze :: (Double, Double) -- ^ Center of track in room coords
+              -> Double           -- ^ Start arm angle from x axis (radians)
+              -> Double           -- ^ Home platform radius
+              -> Int              -- ^ Number of arms
+              -> Double           -- ^ Origin to arm tip distance (meters)
+              -> Double           -- ^ Height (meters)
+              -> Double           -- ^ Track width (meters)
+              -> Double           -- ^ Bin length (meters)
+              -> Track
+radialArmMaze (x0,y0) a0 rPlat nArm lenArm h w binLen = undefined -- plat : arms
+ where plat = TrackBin "Home" (Location x0 y0 h) a0
 ------------------------------------------------------------------------------
 -- | Zip a function over two fields
 updateField :: (Double->Double->Double) -- ^ The function to combine each pair of values

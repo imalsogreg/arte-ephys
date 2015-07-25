@@ -10,6 +10,7 @@ Portability : GHC, Linux
 -}
 module System.Arte.Net where
 
+import Control.Monad (forever)
 import Control.Monad.IO.Class (liftIO)
 import Pipes
 import Data.Serialize
