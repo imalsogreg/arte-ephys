@@ -55,7 +55,7 @@ import           Data.Ephys.TrackPosition
 import           Data.Map.KDMap
 import           System.Arte.FileUtils
 import           System.Arte.Net
-import           System.Arte.NetMessage
+--import           System.Arte.NetMessage
 ------------------------------------------------------------------------------
 import           System.Arte.Decode.Algorithm
 import           System.Arte.Decode.Config
@@ -193,7 +193,7 @@ main = do
 
   fakeMaster <- atomically newTQueue
   let spikeAsyncs = map fst asyncsAndTrodes
-  runGloss opts dsT fakeMaster
+  runGloss opts dsT
   maybe (return ()) hClose logSpikes
   maybe (return ()) hClose logDecoding
   putStrLn "Closed filehandles"
@@ -212,11 +212,11 @@ clessKeepSpike s = amp && wid
     wid = spikeWidth s                  >= spikeWidthThreshold opt
 
 
-runGloss :: DecoderArgs -> TVar DecoderState -> TQueue ArteMessage -> IO ()
-runGloss opts dsT fromMaster = do
+runGloss :: DecoderArgs -> TVar DecoderState -> IO ()
+runGloss opts dsT = do
   ds <- initialState opts
   playIO (InWindow "ArteDecoder" (700,700) (10,10))
-    white 100 ds (draw dsT) (glossInputs dsT) (stepIO defTrack fromMaster dsT)
+    white 100 ds (draw dsT) (glossInputs dsT) (stepIO defTrack dsT)
 
 pos0 :: Position
 pos0 = Position 0 (Location 0 0 0) (Angle 0 0 0) 0 0
@@ -268,10 +268,9 @@ glossInputs dsT e ds =
 
 
 ------------------------------------------------------------------------------
-stepIO :: Track -> TQueue ArteMessage -> TVar DecoderState ->
+stepIO :: Track -> TVar DecoderState ->
           Float -> DecoderState -> IO DecoderState
-stepIO track queue dsT t ds = do
-  -- handleRequests queue dsT track -- TODO this is distributed-process' job
+stepIO track dsT t ds = do
   ds' <- readTVarIO dsT
   return ds'
 
@@ -466,16 +465,17 @@ newPlaceCell track ds trodeName cMethod = do
 
 
 ------------------------------------------------------------------------------
-orderClusters :: TQueue ArteMessage -> FilePath -> FilePath -> IO ()
-orderClusters queue cFile ttFile = do
+orderClusters :: FilePath -> FilePath -> IO ()
+orderClusters cFile ttFile = do
   let trodeName = Text.unpack $ mwlTrodeNameFromPath ttFile
   cExists <- doesFileExist cFile
   when cExists $ do
     clusters' <- getClusters cFile ttFile
     case clusters' of
       Left _         -> return ()
-      Right clusts -> atomically . writeTQueue queue $
-                      (ArteMessage 0 "" Nothing (Request $ TrodeSetAllClusters (read trodeName) clusts))
+      --Right clusts -> atomically . writeTQueue queue $
+      --                (ArteMessage 0 "" Nothing (Request $ TrodeSetAllClusters (read trodeName) clusts))
+      Right _ -> error "Got rid of ArteMessage"
   -- TODO: safeRead instead
 
 

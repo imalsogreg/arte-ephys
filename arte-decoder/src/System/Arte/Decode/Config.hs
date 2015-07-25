@@ -18,7 +18,8 @@ import           Data.Ephys.Position            (Angle (..), Location (..),
                                                  PosConf (..), Position (..))
 import           Data.Ephys.TrackPosition       (Field, PosKernel (..),
                                                  Track (..), TrackPos (..),
-                                                 allTrackPos, circularTrack)
+                                                 allTrackPos, circularTrack,
+                                                 radialArmMaze)
 import           System.Arte.Decode.Types
 import           System.Arte.Decode.Histogram
 
@@ -26,7 +27,8 @@ import           System.Arte.Decode.Histogram
 ------------------------------------------------------------------------------
 -- TODO: Make decode general on tracks and kernels.
 defTrack :: Track
-defTrack = circularTrack (0,0) 0.57 0.5 0.25 0.2
+--defTrack = circularTrack (0,0) 0.57 0.5 0.25 0.2
+defTrack = radialArmMaze (0,0) 0 0.5 8 2 0.5 0.25 0.2
 kernel :: PosKernel
 --kernel = PosDelta
 kernel  = PosGaussian 0.15
