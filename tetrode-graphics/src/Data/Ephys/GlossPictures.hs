@@ -55,7 +55,7 @@ trackBinFrameDilated (TrackBin _ (Location lx ly _) dir bStart bEnd w caps)
           frontHigh = (r2 bEnd - outNudge,  r2 w /2 * d)
       in Translate (r2 lx) (r2 ly) $ Rotate (rad2Deg $ r2 dir) $
          picType [backLow,backHigh,frontHigh,frontLow]
-    CapCircle -> error "Not implemented: drawing circular track bin"
+    CapCircle -> translate (r2 lx) (r2 ly) $ circle (r2 w)
 
 -- | Draw all track bins an their outbound directions (units: Meters)
 drawTrack :: Track -> Picture
