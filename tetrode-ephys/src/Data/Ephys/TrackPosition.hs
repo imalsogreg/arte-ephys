@@ -17,6 +17,7 @@ import           Control.Applicative ((<$>),(<*>))
 import           Data.Graph
 import           Data.List           (sortBy)
 import qualified Data.Map            as Map
+import           Data.Monoid
 import           Data.Ord            (comparing)
 import           Data.SafeCopy
 import qualified Data.Vector         as V
@@ -209,8 +210,29 @@ radialArmMaze :: (Double, Double) -- ^ Center of track in room coords
               -> Double           -- ^ Track width (meters)
               -> Double           -- ^ Bin length (meters)
               -> Track
-radialArmMaze (x0,y0) a0 rPlat nArm lenArm h w binLen = undefined -- plat : arms
- where plat = TrackBin "Home" (Location x0 y0 h) a0
+radialArmMaze (x0,y0) a0 rPlat nArm lenArm h w binLen = Track $ plat : arms
+ where plat  = TrackBin "c" (Location x0 y0 h) a0 (negate rPlat) rPlat
+               rPlat CapCircle
+       fI    = fromIntegral
+       arms  = concatMap arm [0..nArm-1]
+       arm n = let ang     = 2 * pi * fI n / fI nArm + a0
+                   nSeg    = floor ((lenArm - rPlat) / binLen)
+                   binLen' = (lenArm - rPlat) / fI nSeg
+                   seg m   =
+                     let r = (fI m+0.5)*binLen'
+                     in if m == nSeg - 1
+                        then
+                         TrackBin (show n <> "." <> show n)
+                         (Location (r * cos ang) (r * sin ang) h)
+                         ang (-0.5 * binLen') (0.5 * binLen') w
+                         (CapFlat (0,0))
+                        else
+                         TrackBin (show n <> ".e")
+                         (Location (r * cos ang) (r * sin ang) h)
+                         ang (-0.5 * binLen') (0.5 * binLen') w
+                         CapCircle
+                in map seg [0 .. nSeg-1]
+
 ------------------------------------------------------------------------------
 -- | Zip a function over two fields
 updateField :: (Double->Double->Double) -- ^ The function to combine each pair of values
