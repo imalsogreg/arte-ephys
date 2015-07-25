@@ -23,10 +23,12 @@ Instructions for Ubuntu 14.04:
 arte-decoder
 ============
 
-Soft realtime electrophysiology setup
+`tetrode-decoder` listens for spikes from a single tetrode, combines them with position data, maintains a model of the relationship between tetrode spiking an track position, and produces Bayesian estimate's of the current position at regular intervals given all of this information. `master-decoder` collects the estimates of multiple `tetrode-decoder`s into a single estimate.
 
 tetrode-ephys
 =============
+
+Basic types for spikes an position, operations over spikes (e.g. cluster labeling), and file format parsing.
 
 arte-time-sync
 ==============
