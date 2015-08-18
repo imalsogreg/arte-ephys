@@ -170,17 +170,54 @@ $(makeLenses ''ClusterlessTrode)
 
 
 ------------------------------------------------------------------------------
-data DecoderArgs = DecoderArgs {ttDir               :: FilePath
-                               ,startExperimentTime :: Double
-                               ,doLogging           :: Bool
-                               ,clusterless         :: Bool
-                               ,decodingInterval    :: Double
-                               ,tName               :: TrodeName
-                               ,packetIP            :: String
-                               ,packetPort          :: Int
-                               ,tsOptions           :: TimeSyncOptions
-                               }
-                 deriving (Show)
+
+data PosSource = PosSource {
+    psPort      :: Int
+  , psPosFormat :: PosFormat
+  } deriving (Eq, Show, Read)
+
+data PosFormat = PosFormatOat | PosFormatArtE
+               deriving (Read, Show, Eq)
+
+data SpikeSource = SpikeSource {
+  ssPort :: Int
+  , ssSpikeFormat :: SpikeFormat
+  } deriving (Eq, Show, Read)
+
+data SpikeFormat = ArteSpikeFormat | JonSpikeFormat
+                 deriving (Eq, Show, Read)
+
+data DecoderArgs = DecoderArgs
+  {ttDir               :: FilePath
+  ,startExperimentTime :: Double
+  ,doLogging           :: Bool
+  ,clusterless         :: Bool
+  ,decodingInterval    :: Double
+  ,tName               :: TrodeName
+  ,packetIP            :: String
+  ,packetPort          :: Int
+  ,tsOptions           :: TimeSyncOptions
+  ,posSource           :: PosSource
+  ,spikeSource         :: SpikeSource
+  } deriving (Show)
+
+posSrcArgs :: Parser PosSource
+posSrcArgs = PosSource
+             <$> option auto
+                 (long "posport" <> help "Pos source UDP port")
+             <*> option auto
+                 (long "posformat"
+                  <> help "Format for pos {PosFormatOat|PosFormatArtE}")
+
+spikeSrcArgs :: Parser SpikeSource
+spikeSrcArgs = SpikeSource
+                <$> option auto
+                    (long "spikeport" <> help "Spike source UDP port")
+                <*> option auto
+                    (long "spikeformat"
+                     <> help "Format for spikes {ArteSpikeFormat|JonSpikeFormat}")
+
+
 
 decoderArgs :: Parser DecoderArgs --update to include trodeName
 decoderArgs = DecoderArgs
@@ -211,6 +248,8 @@ decoderArgs = DecoderArgs
               ( long "estimatePort"
               <> help "Port to send decoding estimates to")
               <*> timeSyncOptions
+              <*> posSrcArgs
+              <*> spikeSrcArgs
 
 decoderOpts = info (helper <*> decoderArgs)
        (fullDesc
