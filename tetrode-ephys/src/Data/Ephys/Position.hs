@@ -14,6 +14,7 @@ module Data.Ephys.Position where
 
 import Data.Ephys.EphysDefs
 
+import qualified Data.Aeson as A
 import Data.Graph
 import Control.Lens
 import Pipes
@@ -79,6 +80,11 @@ instance Serialize Location
 instance Serialize Angle
 instance Serialize PosConf
 instance Serialize Position
+
+instance A.FromJSON Location
+instance A.FromJSON Angle
+instance A.FromJSON PosConf
+instance A.FromJSON Position
 
 $(makeLenses ''Location)
 $(makeLenses ''Angle)

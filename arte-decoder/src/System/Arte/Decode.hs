@@ -16,6 +16,8 @@ import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Lens
 import           Control.Monad
+import qualified Data.Aeson                         as A
+import           Data.Aeson                         (Object(..), (.:))
 import qualified Data.ByteString.Char8              as BS
 import qualified Data.ByteString.Lazy               as BSL
 import qualified Data.Foldable                      as F
@@ -30,6 +32,7 @@ import           Graphics.Gloss.Interface.IO.Game
 import qualified Graphics.Gloss.Data.Color          as Color
 import           Options.Applicative
 import           Pipes
+import qualified Pipes.Prelude                      as P
 import           Pipes.RealTime
 import           System.Directory
 import           System.Exit                        (exitSuccess)
@@ -120,9 +123,9 @@ main = do
 
   putStrLn "Start pos async"
   posSock <- socket AF_INET Datagram defaultProtocol
-  bind posSock $ SockAddrInet 6001 iNADDR_ANY
+  bind posSock $ SockAddrInet (fromIntegral $ psPort $ posSource opts) iNADDR_ANY
   ds' <- readTVarIO dsT
-  posAsync <- async $ runEffect $ udpSocketProducer 9000 posSock >->
+  posAsync <- async $ runEffect $ interpretPos opts posSock >->
               (forever $ do
                   p <- await
                   lift . atomically $ do
@@ -481,3 +484,32 @@ orderClusters cFile ttFile = do
 
 endsIn :: FilePath -> String -> Bool
 endsIn fp str = take (length str) (reverse fp) == reverse str
+
+interpretPos :: DecoderArgs -> Socket -> Producer Position IO ()
+interpretPos DecoderArgs{..} sock = case psPosFormat posSource of
+  PosFormatOat  -> let posProducerNoHistory = udpJsonProducer 9000 sock
+                   in  posProducerNoHistory >-> P.map unOatPosition >-> producePos
+  PosFormatArtE -> udpSocketProducer 9000 sock
+
+newtype OatPosition = OatPosition { unOatPosition :: Position }
+
+instance A.FromJSON OatPosition where
+  parseJSON (A.Object v) = do
+    posConf         <- oatPosConvert <$> v .: "pos_ok"
+    [pos_x,pos_y]   <- v .: "pos_xy"
+    [vel_x,vel_y]   <- v .: "vel_xy"
+    return . OatPosition $ (Position (-200) (Location pos_x pos_y 0) (Angle 0 0 0)
+            (atan2 vel_y vel_x) (-300) posConf [] [] (-400) (Location 0 0 0))
+
+oatPosConvert True = ConfSure
+oatPosConvert False = ConfUnsure
+
+    -- {"ID":"NA"
+    -- ,"unit":0
+    -- ,"pos_ok":true
+    -- ,"pos_xy":[-393085.1284289367,-32104.866198798318]
+    -- ,"vel_ok":true
+    -- ,"vel_xy":[-86.56935814544997,-35.44021106250909]
+    -- ,"head_ok":false
+    -- ,"reg_ok":false
+    -- }

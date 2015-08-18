@@ -42,6 +42,7 @@ library
                        RecordWildCards,
                        OverloadedStrings
   build-depends:       base >=4.6 && <4.9,
+                       aeson >= 0.7 && < 0.10,
                        async >= 2.0 && < 2.1,
                        binary >= 0.7 && < 0.8,
                        bytestring >=0.10 && <0.11,

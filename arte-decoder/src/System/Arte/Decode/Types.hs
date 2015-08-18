@@ -19,7 +19,7 @@ import           Data.Serialize
 import           Data.Time
 import qualified Data.Vector         as V
 import qualified Data.Vector.Unboxed as U
-import GHC.Generics
+import           GHC.Generics
 import           Options.Applicative
 ------------------------------------------------------------------------------
 import           Data.Ephys.EphysDefs
