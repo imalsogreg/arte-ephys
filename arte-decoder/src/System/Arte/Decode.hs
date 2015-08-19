@@ -125,9 +125,11 @@ main = do
   posSock <- socket AF_INET Datagram defaultProtocol
   bind posSock $ SockAddrInet (fromIntegral $ psPort $ posSource opts) iNADDR_ANY
   ds' <- readTVarIO dsT
+  print "About to posAsync"
   posAsync <- async $ runEffect $ interpretPos opts posSock >->
               (forever $ do
                   p <- await
+                  lift $ print "Forever awaiting"
                   lift . atomically $ do
                     occ <- readTVar (ds^.occupancy)
                     let posField = posToField defTrack p kernel
@@ -488,7 +490,7 @@ endsIn fp str = take (length str) (reverse fp) == reverse str
 interpretPos :: DecoderArgs -> Socket -> Producer Position IO ()
 interpretPos DecoderArgs{..} sock = case psPosFormat posSource of
   PosFormatOat  -> let posProducerNoHistory = udpJsonProducer 9000 sock
-                   in  posProducerNoHistory >-> P.map unOatPosition >-> producePos
+                   in  posProducerNoHistory >-> P.map unOatPosition >-> P.tee P.print >-> producePos
   PosFormatArtE -> udpSocketProducer 9000 sock
 
 newtype OatPosition = OatPosition { unOatPosition :: Position }

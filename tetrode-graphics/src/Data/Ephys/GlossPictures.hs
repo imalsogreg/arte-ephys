@@ -89,7 +89,8 @@ drawTrackPos :: TrackPos
              -> Float  -- ^ Value at pos (0 to 1)
              -> Picture
 drawTrackPos (TrackPos bin dir ecc) alpha =
-  Color (setAlpha col alpha) $
+--  Color (setAlpha col alpha) $
+  Color (setAlpha col (0.1)) $
   trackBinFrameDilated bin Polygon dilation
   where
     baseCol  = if dir == Outbound then blue    else red

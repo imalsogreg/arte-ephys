@@ -184,7 +184,7 @@ data SpikeSource = SpikeSource {
   , ssSpikeFormat :: SpikeFormat
   } deriving (Eq, Show, Read)
 
-data SpikeFormat = ArteSpikeFormat | JonSpikeFormat
+data SpikeFormat = SpikeFormatArte | SpikeFormatJSON
                  deriving (Eq, Show, Read)
 
 data DecoderArgs = DecoderArgs
