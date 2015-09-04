@@ -1,0 +1,1 @@
+dist/build/trode-decoder/trode-decoder --ttDir /home/greghale/Data/caillou/112812clip2/1028/ --startExperimentTime 4490 --decodingInterval 0.02 --estimateIP 127.0.0.1 --estimatePort 5556 --timeSyncPort 6080 --posport 15001 --posformat dunno --spikeformat dunno
