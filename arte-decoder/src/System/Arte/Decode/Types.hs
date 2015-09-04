@@ -204,52 +204,74 @@ data DecoderArgs = DecoderArgs
 posSrcArgs :: Parser PosSource
 posSrcArgs = PosSource
              <$> option auto
-                 (long "posport" <> help "Pos source UDP port")
+                 (long "posport"
+                  <> value 15001
+                  <> help "Pos source UDP port")
              <*> option auto
                  (long "posformat"
+                  <> value PosFormatOat
                   <> help "Format for pos {PosFormatOat|PosFormatArtE}")
 
 spikeSrcArgs :: Parser SpikeSource
 spikeSrcArgs = SpikeSource
                 <$> option auto
-                    (long "spikeport" <> help "Spike source UDP port")
+                    (long "spikeport"
+                     <> value 5527
+                     <> help "Spike source UDP port")
                 <*> option auto
                     (long "spikeformat"
+                     <> value SpikeFormatArte
                      <> help "Format for spikes {ArteSpikeFormat|JonSpikeFormat}")
 
 
 
 decoderArgs :: Parser DecoderArgs --update to include trodeName
 decoderArgs = DecoderArgs
+
               <$> strOption
               ( long "ttDir"
               <> help ("Path to a directory w/ clusder bounds and a " ++
                       ".tt file for the channel gains (??)"))
+
               <*> option auto
               ( long "startExperimentTime"
-              <> value 0
+              <> value 4492
               <> help "Start time when spooling from disk")
+
               <*> flag False True
               ( long "doLogging"
               <> help "Commit timing/decoding data to log files")
+
               <*> flag False True
               ( long "clusterless"
               <> help "Perform clusterless decoding")
+
               <*> option auto
               ( long "decodingInterval"
-              <> help "Time interval for emitting position estimates")
+                <> value 0.02
+                <> help "Time interval for emitting position estimates")
+
               <*> option auto
               ( long "trodeName"
-              <> help "Name of the tetrode we are recording from")
+                <> value 0
+                <> help "Name of the tetrode we are recording from")
+
               <*> strOption
               ( long "estimateIP"
-              <> help "IP address to send decoding estimates to")
+                <> value "127.0.0.1"
+                <> help "IP address to send decoding estimates to")
+
               <*> option auto
               ( long "estimatePort"
-              <> help "Port to send decoding estimates to")
+                <> value 5556
+                <> help "Port to send decoding estimates to")
+
               <*> timeSyncOptions
+
               <*> posSrcArgs
+
               <*> spikeSrcArgs
+
 
 decoderOpts = info (helper <*> decoderArgs)
        (fullDesc

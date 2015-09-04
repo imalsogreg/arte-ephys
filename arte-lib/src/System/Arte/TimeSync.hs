@@ -42,7 +42,8 @@ timeSyncOptions :: Parser TimeSyncOptions
 timeSyncOptions = TimeSyncOptions
               <$> strOption
               ( long "timeSyncPort"
-              <> help "Network time synchronization port")
+                <> value "6080"
+                <> help "Network time synchronization port")
 
 -- | Start time synchronization in a background thread. Blocks until the first
 -- network time update is received.

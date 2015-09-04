@@ -85,7 +85,7 @@ executable trode-decoder
 executable master-decoder
   main-is:             MasterDecoder.hs
   hs-source-dirs:      exec
-  hidden-modules:      MasterGui
+  other-modules:       MasterGui
   build-depends:       base >=4.8 && <4.10,
                        arte-decoder,
                        async,

@@ -21,6 +21,7 @@ import Pipes
 import Data.Serialize
 import GHC.Generics
 import Data.Complex
+import System.IO.Unsafe
 
 -- | Position of the head in room coordinates, in meters
 data Location = Location { _x :: !Double -- ^ X axis
@@ -124,12 +125,13 @@ stepPos p0 t loc ang conf =
           maxFrameDiff   = 0.1
 
 -- | Running position producer
-producePos :: (Monad m) => Pipe Position Position m r
-producePos = await >>= go
+producePos :: (Monad m, MonadIO m) => Position -> Pipe Position Position m r
+producePos initialP = go initialP
     where go p0 = do
             p <- await
             let p' = stepPos p0 (p^.posTime) (p^.location)
                      (p^.angle) (p^.posConfidence)
+            liftIO $ print $ "producePos got p' of: " ++ show p'
             yield p'
             go p'
 
