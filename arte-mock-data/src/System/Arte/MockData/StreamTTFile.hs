@@ -2,29 +2,29 @@
 
 module System.Arte.MockData.StreamTTFile where
 
-import Control.Applicative
-import Control.Monad.IO.Class
-import Control.Monad
-import qualified Data.ByteString.Lazy as BSL
-import GHC.Word
-import Data.Traversable (traverse)
-import Network
-import Data.Serialize
-import qualified Data.Vector.Unboxed as U
-import Network.Socket
+import           Control.Applicative
+import           Control.Monad.IO.Class
+import           Control.Monad
 import qualified Data.ByteString as BS
-import qualified Network.Socket.ByteString as BS
-import System.Environment
-import Pipes
-import Pipes.RealTime
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as Text
+import           Data.Traversable (traverse)
+import           Data.Serialize
+import qualified Data.Vector.Unboxed as U
+import           GHC.Word
+import           Network
+import           Network.Socket
+import qualified Network.Socket.ByteString as BS
+import           System.Environment
+import           Pipes
+import           Pipes.RealTime
 
-import Data.Ephys.Spike
-import Data.Ephys.OldMWL.FileInfo
-import Data.Ephys.OldMWL.ParseSpike
-import Data.Ephys.OldMWL.Header
-import Data.Ephys.OldMWL.Parse
-import Types
+import           Data.Ephys.Spike
+import           Data.Ephys.OldMWL.FileInfo
+import           Data.Ephys.OldMWL.ParseSpike
+import           Data.Ephys.OldMWL.Header
+import           Data.Ephys.OldMWL.Parse
+import           Types
 
 -- TODO Are we accidentally naming all tetrodes '0'??
 streamTT :: DataSourceOpts -> IO ()
@@ -36,17 +36,19 @@ streamTT DataSourceOpts{..} = withSocketsDo $ do
   bindSocket sock saddr
 
   case outputFormat of
-        ArteNew -> runEffect $ dropResult (produceTrodeSpikesFromFile fileName trodeName)
-                   >-> relativeTimeCat (\s -> spikeTime s - expStartTime)
-                   >-> (forever $ do
-                           spike <- await
-                           liftIO $ when verbose (print spike)
-                           liftIO $ BS.sendAllTo sock (encode spike) destAddr)
-        ArteOld -> runEffect $ dropResult (produceMWLSpikesFromFile fileName)
-                   >-> relativeTimeCat (\s -> mwlSpikeTime s - expStartTime)
-                   >-> (forever $ do
-                           mwlSpike <- await
-                           liftIO $ BS.sendAllTo sock (spikeBits 0 mwlSpike) destAddr)
+        ArteBinary ->
+          runEffect $ dropResult (produceTrodeSpikesFromFile fileName trodeName)
+          >-> relativeTimeCat (\s -> spikeTime s - expStartTime)
+          >-> (forever $ do
+                 spike <- await
+                 liftIO $ when verbose (print spike)
+                 liftIO $ BS.sendAllTo sock (encode spike) destAddr)
+        OldArteBinary ->
+          runEffect $ dropResult (produceMWLSpikesFromFile fileName)
+          >-> relativeTimeCat (\s -> mwlSpikeTime s - expStartTime)
+          >-> (forever $ do
+                 mwlSpike <- await
+                 liftIO $ BS.sendAllTo sock (spikeBits 0 mwlSpike) destAddr)
 
 spikeBits :: Int -> MWLSpike -> BS.ByteString
 spikeBits trodeName s =                     -- while 'old arte' takes some real work

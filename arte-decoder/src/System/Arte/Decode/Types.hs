@@ -171,21 +171,25 @@ $(makeLenses ''ClusterlessTrode)
 
 ------------------------------------------------------------------------------
 
+data Format = ArteBinary
+            -- ^ tetrode-ephys Position/Spike Serialize encoding
+            | ArteJSON
+            -- ^ tetrode-ephys Pos/Spike FromJSON encoding
+            | OldArteBinary
+            -- ^ Old arte C library binary encoding
+            | OatJSON
+            -- ^ Oat JSON encoding
+            deriving (Eq, Ord, Show, Read, Generic)
+
 data PosSource = PosSource {
     psPort      :: Int
-  , psPosFormat :: PosFormat
-  } deriving (Eq, Show, Read)
-
-data PosFormat = PosFormatOat | PosFormatArtE
-               deriving (Read, Show, Eq)
+  , psPosFormat :: Format
+  } deriving (Eq, Show, Read, Generic)
 
 data SpikeSource = SpikeSource {
   ssPort :: Int
-  , ssSpikeFormat :: SpikeFormat
-  } deriving (Eq, Show, Read)
-
-data SpikeFormat = SpikeFormatArte | SpikeFormatJSON
-                 deriving (Eq, Show, Read)
+  , ssSpikeFormat :: Format
+  } deriving (Eq, Show, Read, Generic)
 
 data DecoderArgs = DecoderArgs
   {ttDir               :: FilePath
@@ -209,8 +213,8 @@ posSrcArgs = PosSource
                   <> help "Pos source UDP port")
              <*> option auto
                  (long "posformat"
-                  <> value PosFormatOat
-                  <> help "Format for pos {PosFormatOat|PosFormatArtE}")
+                  <> value OatJSON
+                  <> help "Format for pos {OatJSON|ArteBinary|ArteJSON}")
 
 spikeSrcArgs :: Parser SpikeSource
 spikeSrcArgs = SpikeSource
@@ -220,8 +224,8 @@ spikeSrcArgs = SpikeSource
                      <> help "Spike source UDP port")
                 <*> option auto
                     (long "spikeformat"
-                     <> value SpikeFormatArte
-                     <> help "Format for spikes {ArteSpikeFormat|JonSpikeFormat}")
+                     <> value ArteBinary
+                     <> help "Format for spikes {ArteBinary|ArteJSON|OatJSON}")
 
 
 

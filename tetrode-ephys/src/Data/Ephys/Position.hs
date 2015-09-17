@@ -87,6 +87,11 @@ instance A.FromJSON Angle
 instance A.FromJSON PosConf
 instance A.FromJSON Position
 
+instance A.ToJSON Location
+instance A.ToJSON Angle
+instance A.ToJSON PosConf
+instance A.ToJSON Position
+
 $(makeLenses ''Location)
 $(makeLenses ''Angle)
 $(makeLenses ''Position)
@@ -178,4 +183,3 @@ circLengthNorm angs =
   let (r :+ i) = mrv angs in
   (r^(2::Int) + i^(2::Int)) /
   ((^(2::Int)) . fromIntegral $ length angs)
-  

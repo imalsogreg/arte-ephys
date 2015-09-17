@@ -5,9 +5,10 @@ import Control.Applicative
 import Control.Error
 import Control.Monad.IO.Class
 import Control.Monad
+import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BSL
 import Network
-import Data.Serialize
+import qualified Data.Serialize as S
 import Network.Socket
 import qualified Network.Socket.ByteString as BS
 import System.Environment
@@ -30,6 +31,9 @@ streamP :: DataSourceOpts -> IO ()
 streamP DataSourceOpts{..} = withSocketsDo $ do
  sock <- socket AF_INET Datagram defaultProtocol
  let saddr = SockAddrInet (fromIntegral myPort) iNADDR_ANY
+     enc   = case outputFormat of
+               ArteBinary -> S.encode
+               ArteJSON   -> BSL.toStrict . A.encode
  destAddr <- SockAddrInet
              (fromIntegral (destPort :: Word32))
              <$> inet_addr ipAddy
@@ -44,7 +48,7 @@ streamP DataSourceOpts{..} = withSocketsDo $ do
     runningPosition (166, 140) 156.6 0.5 pos0 >->
     (forever $ do
         pos <- await
-        liftIO $ BS.sendAllTo sock (encode pos) destAddr
+        liftIO $ BS.sendAllTo sock (enc pos) destAddr
     )
 
 pos0 :: Position

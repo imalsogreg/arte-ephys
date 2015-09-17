@@ -58,7 +58,6 @@ import           Data.Ephys.TrackPosition
 import           Data.Map.KDMap
 import           System.Arte.FileUtils
 import           System.Arte.Net
---import           System.Arte.NetMessage
 ------------------------------------------------------------------------------
 import           System.Arte.Decode.Algorithm
 import           System.Arte.Decode.Config
@@ -484,9 +483,11 @@ endsIn fp str = take (length str) (reverse fp) == reverse str
 
 interpretPos :: DecoderArgs -> Socket -> Producer Position IO ()
 interpretPos DecoderArgs{..} sock = case psPosFormat posSource of
-  PosFormatOat  -> let posProducerNoHistory = udpJsonProducer 9000 sock
-                   in  posProducerNoHistory >-> P.map (transOatPosition . unOatPosition) >-> producePos pos0
-  PosFormatArtE -> udpSocketProducer 9000 sock
+  OatJSON       -> let posProducerNoHistory = udpJsonProducer 9000 sock
+                   in  posProducerNoHistory
+                       >-> P.map (transOatPosition . unOatPosition)
+                       >-> producePos pos0
+  ArteBinary    -> udpSocketProducer 9000 sock
 
 newtype OatPosition = OatPosition { unOatPosition :: Position }
 
@@ -501,8 +502,17 @@ instance A.FromJSON OatPosition where
     posConf         <- oatPosConvert <$> v .: "pos_ok"
     [pos_x,pos_y]   <- v .: "pos_xy"
     [vel_x,vel_y]   <- v .: "vel_xy"
-    return . OatPosition $ (Position (-200) (Location pos_x pos_y 0) (Angle 0 0 0)
-            (atan2 vel_y vel_x) (-300) posConf [] [] (-400) (Location 0 0 0))
+    return . OatPosition $ (Position
+                            (-200)
+                            (Location pos_x pos_y 0)
+                            (Angle 0 0 0)
+                            (atan2 vel_y vel_x)
+                            (-300)
+                            posConf
+                            []
+                            []
+                            (-400)
+                            (Location 0 0 0))
 
 oatPosConvert True = ConfSure
 oatPosConvert False = ConfUnsure
