@@ -35,7 +35,7 @@ trackPosPicture :: TrackPos -> Picture
 trackPosPicture (TrackPos bin bir ecc) = trackBinFrame bin lineLoop
 
 -- | Drawing-style flexible picture for a single track bin (units: Meters)
-trackBinFrame :: TrackBin  -- ^ Bin to draw
+trackBinFrame :: TrackBin                     -- ^ Bin to draw
               -> ([(Float,Float)] -> Picture) -- ^ Drawing method
               -> Picture
 trackBinFrame b f = trackBinFrameDilated b f 1
@@ -89,8 +89,8 @@ drawTrackPos :: TrackPos
              -> Float  -- ^ Value at pos (0 to 1)
              -> Picture
 drawTrackPos (TrackPos bin dir ecc) alpha =
---  Color (setAlpha col alpha) $
-  Color (setAlpha col (0.1)) $
+  Color (setAlpha col alpha) $
+--  Color (setAlpha col (0.1)) $
   trackBinFrameDilated bin Polygon dilation
   where
     baseCol  = if dir == Outbound then blue    else red

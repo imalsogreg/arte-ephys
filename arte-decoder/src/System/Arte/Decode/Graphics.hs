@@ -111,8 +111,8 @@ fieldPic :: Field -> Picture
 fieldPic = drawNormalizedField . V.zip (trackBins0 defTrack)
 
 spikeScale, trackScale :: Float
-spikeScale = 2000000
-trackScale = 400
+spikeScale = 2000000 -- px per volt
+trackScale = 200     -- px per meter
 
 
 

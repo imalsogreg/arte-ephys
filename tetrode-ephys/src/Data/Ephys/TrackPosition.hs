@@ -219,7 +219,7 @@ radialArmMaze (x0,y0) a0 rPlat nArm lenArm h w binLen = Track $ plat : arms
                    nSeg    = floor ((lenArm - rPlat) / binLen)
                    binLen' = (lenArm - rPlat) / fI nSeg
                    seg m   =
-                     let r = (fI m+0.5)*binLen'
+                     let r = (fI m+0.5)*binLen' + rPlat
                      in if m < nSeg - 1
                         then
                          TrackBin (show n <> "." <> show n)

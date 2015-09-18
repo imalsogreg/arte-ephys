@@ -21,6 +21,7 @@ import           Data.Aeson                         (Object(..), (.:))
 import qualified Data.ByteString.Char8              as BS
 import qualified Data.ByteString.Lazy               as BSL
 import qualified Data.Foldable                      as F
+import qualified Data.List                          as L
 import qualified Data.Map.Strict                    as Map
 import           Data.Maybe
 import qualified Data.Text                          as Text
@@ -128,9 +129,12 @@ main = do
   posAsync <- async $ runEffect $ interpretPos opts posSock >->
               (forever $ do
                   p <- await
+                  occ <- liftIO $ atomically $ readTVar (ds'^.occupancy)
+                  liftIO $ print (V.take 5 . V.fromList . L.reverse . L.sort .  V.toList $ occ)
                   lift . atomically $ do
                     occ <- readTVar (ds^.occupancy)
-                    let posField = posToField defTrack p kernel
+                    -- TODO property of the camera: 30 fps
+                    let posField = V.map (/30) $ posToField defTrack p kernel
                     writeTVar (ds'^.pos) p
                     writeTVar (ds'^.trackPos)  posField
                     when (p^.speed > runningThresholdSpeed)

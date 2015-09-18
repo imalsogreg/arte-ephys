@@ -9,6 +9,7 @@ import Options.Applicative
 import Types
 import System.Arte.MockData.StreamTTFile
 import System.Arte.MockData.StreamPFile
+import System.Arte.MockData.FakeRat
 
 
 main :: IO ()
@@ -23,6 +24,7 @@ runStreamer :: DataSourceOpts -> IO ()
 runStreamer opts = case extension $ fileName opts of
   "p" -> streamP opts
   "tt" -> streamTT opts
+  "pfake" -> streamFakePos opts
 
 extension :: String -> String
 extension = reverse . takeWhile ((/=) '.') . reverse
