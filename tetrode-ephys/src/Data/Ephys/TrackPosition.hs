@@ -201,6 +201,7 @@ circularTrack (cX,cY) r h w tau =
       w
       (CapFlat (thetaIncr/(-2), thetaIncr/2))
 
+-- | A maze with a central platform and arms radiating outward
 radialArmMaze :: (Double, Double) -- ^ Center of track in room coords
               -> Double           -- ^ Start arm angle from x axis (radians)
               -> Double           -- ^ Home platform radius
