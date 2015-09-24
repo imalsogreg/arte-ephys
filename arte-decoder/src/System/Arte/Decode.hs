@@ -1,3 +1,14 @@
+{-|
+Module      : System.Arte.Decode
+Description : Main loop for decoding a single trode
+Copyright   : (c) Greg Hale, 2015
+                  Shea Levy, 2015
+License     : BSD3
+Maintainer  : imalsogreg@gmail.com
+Stability   : experimental
+Portability : GHC, Linux
+-}
+
 {-# LANGUAGE DeriveDataTypeable        #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
@@ -16,6 +27,7 @@ import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Lens
 import           Control.Monad
+import           Data.Bool
 import qualified Data.Aeson                         as A
 import           Data.Aeson                         (Object(..), (.:))
 import qualified Data.ByteString.Char8              as BS
@@ -68,16 +80,18 @@ import           System.Arte.Decode.Types
 
 
 ------------------------------------------------------------------------------
-focusCursor :: DecoderState -> TrodeDrawOption
+-- | Get the view option that is currently selected.
+focusCursor :: DecoderState -- ^ The current decoding state
+            -> TrodeDrawOption
 focusCursor ds = fromMaybe (DrawError "Couldn't index at cursor") $
                  (ds^.trodeDrawOpt) ^? ix (ds^.trodeInd) . ix (ds^.clustInd)
 
-atCursor ds = trodeDrawOpt . ix (ds^.trodeInd) . ix (ds^.clustInd)
-
 
 ------------------------------------------------------------------------------
-draw :: TVar DecoderState -> DecoderState -> IO Picture
-draw _ ds = do
+-- | Generate a 'Picture' displaying the current state.
+draw :: DecoderState -- ^ The current decoder state
+     -> IO Picture
+draw ds = do
 
   !p    <- readTVarIO $ ds^.pos
   !occ  <- readTVarIO $ ds^.occupancy
@@ -105,21 +119,14 @@ draw _ ds = do
 
 
 ------------------------------------------------------------------------------
+-- | Main action for single-trode decoding
 main :: IO ()
 main = do
   opts <- execParser decoderOpts
   print opts
   ds   <- initialState opts
   dsT  <- newTVarIO ds
-  (logSpikes,logDecoding) <- case (doLogging opts) of
-    False -> return (Nothing, Nothing)
-    True  -> do
-      s <- openFile "spikes.txt" WriteMode
-      d <- openFile "decoding.txt" WriteMode
-      return (Just s, Just d)
   incomingSpikesChan <- atomically newTQueue
-
-  let ((pX0,pY0),pixPerM,h) = posShortcut
 
   putStrLn "Start pos async"
   posSock <- socket AF_INET Datagram defaultProtocol
@@ -156,7 +163,7 @@ main = do
             pos2 <- lift . atomically $ readTVar (ds^.trackPos)
             p    <- lift . atomically $ readTVar (ds^.pos)
             when (clessKeepSpike spike) $
-              lift (clusterlessAddSpike ds2 trodeName p pos2 spike logSpikes)
+              lift (clusterlessAddSpike ds2 trodeName p pos2 spike)
         )
 
     False -> do
@@ -186,7 +193,7 @@ main = do
                   ds2  <- lift . atomically $ readTVar dsT
                   pos2 <- lift . atomically $ readTVar (ds^.trackPos)
                   p    <- lift . atomically $ readTVar (ds^.pos)
-                  lift (fanoutSpikeToCells ds2 trodeName pcTrode p pos2 spike logSpikes)
+                  lift (fanoutSpikeToCells ds2 pcTrode p pos2 spike)
                 return ()
             )
 
@@ -195,14 +202,12 @@ main = do
   reconstructionA <-
     async $ if clusterless opts
             then runClusterlessReconstruction
-                 defaultClusterlessOpts   0.020 dsT logDecoding
-            else runClusterReconstruction undefined 0.020 dsT logDecoding
+                 defaultClusterlessOpts   0.020 dsT
+            else runClusterReconstruction undefined 0.020 dsT
 
   fakeMaster <- atomically newTQueue
   let spikeAsyncs = map fst asyncsAndTrodes
   runGloss opts dsT
-  maybe (return ()) hClose logSpikes
-  maybe (return ()) hClose logDecoding
   putStrLn "Closed filehandles"
   putStrLn "wait for asyncs to finish"
   _ <- wait posAsync
@@ -211,28 +216,31 @@ main = do
   return ()
 
 ------------------------------------------------------------------------------
-clessKeepSpike :: TrodeSpike -> Bool
+-- | Predicate to drop spikes with low enough amplitudes (< amplutdeThreshold)
+--   and short enough widths (< spikeWidthThreshold) in clusterless decoding.
+clessKeepSpike :: TrodeSpike -- ^ The spike to consider dropping
+               -> Bool
 clessKeepSpike s = amp && wid
   where
     opt = defaultClusterlessOpts
     amp = V.maximum (spikeAmplitudes s) >= amplitudeThreshold opt
     wid = spikeWidth s                  >= spikeWidthThreshold opt
 
-
-runGloss :: DecoderArgs -> TVar DecoderState -> IO ()
+-- | Launch gloss window displaying decoding state.
+runGloss :: DecoderArgs -- ^ Decoding parameters
+         -> TVar DecoderState -- ^ Decoder state
+         -> IO ()
 runGloss opts dsT = do
   ds <- initialState opts
   playIO (InWindow "ArteDecoder" (700,700) (10,10))
-    white 100 ds (draw dsT) (glossInputs dsT) (stepIO defTrack dsT)
-
-
--- caillou/112812clip2 MWL-to-SIUnits TODO make general
-posShortcut :: ((Double,Double),Double,Double)
-posShortcut = ((166,140),156.6, 0.5)
-
+    white 100 ds draw (glossInputs dsT) (stepIO dsT)
 
 ------------------------------------------------------------------------------
-glossInputs :: TVar DecoderState -> Event -> DecoderState -> IO DecoderState
+-- | Gloss callback to handle input events
+glossInputs :: TVar DecoderState -- ^ Shared decoder state
+            -> Event -- ^ Gloss event
+            -> DecoderState -- ^ Pure decoder state from gloss
+            -> IO DecoderState
 glossInputs dsT e ds =
   let drawOpt = focusCursor ds in
   case e of
@@ -271,17 +279,26 @@ glossInputs dsT e ds =
 
 
 ------------------------------------------------------------------------------
-stepIO :: Track -> TVar DecoderState ->
-          Float -> DecoderState -> IO DecoderState
-stepIO track dsT t ds = do
+-- | Step the state one iteration by replacing the pure decoder state handled
+--   by gloss with the mutable shared decoder state.
+stepIO :: TVar DecoderState -- ^ Shared decoder state
+       -> Float -- ^ Time since last step
+       -> DecoderState -- ^ Decoder state from gloss
+       -> IO DecoderState
+stepIO dsT _ _ = do
   ds' <- readTVarIO dsT
   return ds'
 
 
 
 ------------------------------------------------------------------------------
-setTrodeClusters :: Track -> TVar DecoderState -> TrodeName
-                    -> Map.Map PlaceCellName ClusterMethod -> IO ()
+-- | Insert a set of cluster boundaries into the state
+setTrodeClusters :: Track -- ^ Track definition
+                 -> TVar DecoderState -- ^ Decoder state
+                 -> TrodeName -- ^ The name of the trode being clustered
+                 -> Map.Map PlaceCellName ClusterMethod
+                    -- ^ The cluster bounds by place cell name
+                 -> IO ()
 setTrodeClusters track dsT trodeName clusts  =
   let foldF d (cName,cMethod) =
         setTrodeCluster track d trodeName cName cMethod in
@@ -292,8 +309,10 @@ setTrodeClusters track dsT trodeName clusts  =
 
 
 ------------------------------------------------------------------------------
-addClusterlessTrode ::
-  TVar DecoderState -> TrodeName -> IO (TVar ClusterlessTrode)
+-- | Add a clusterless trode to the state
+addClusterlessTrode :: TVar DecoderState -- ^ The decoder state
+                    -> TrodeName -- ^ The name of the trode to add
+                    -> IO (TVar ClusterlessTrode)
 addClusterlessTrode dsT tName = do
   clusterlessTrode <- newTVarIO $ ClusterlessTrode KDEmpty []
   atomically . modifyTVar dsT $ \ds' ->
@@ -310,7 +329,11 @@ addClusterlessTrode dsT tName = do
 
 
 ------------------------------------------------------------------------------
-updatePos :: TVar DecoderState -> Position -> IO ()
+-- | Apply the point spread function to a position and insert it into the
+--   occupancy map and the current position.
+updatePos :: TVar DecoderState -- ^ The shared decoder state
+          -> Position -- ^ The position to spread
+          -> IO ()
 updatePos dsT p = let trackPos' = posToField defTrack p kernel in
   atomically $ do
     ds <- readTVar dsT
@@ -320,10 +343,15 @@ updatePos dsT p = let trackPos' = posToField defTrack p kernel in
 {-# INLINE updatePos #-}
 
 ------------------------------------------------------------------------------
-fanoutSpikeToCells :: DecoderState -> TrodeName -> PlaceCellTrode ->
-                      Position -> Field -> TrodeSpike -> Maybe Handle -> IO ()
-fanoutSpikeToCells ds trodeName trode pos trackPos spike p =
- -- H.timeAction (ds^.encodeProf) $ do
+-- | Increment each cluster's place field based on whether a spike falls in
+--   its bounds.
+fanoutSpikeToCells :: DecoderState -- ^ The decoding state
+                   -> PlaceCellTrode -- ^ The trode of interest
+                   -> Position -- ^ The most recently seen position
+                   -> Field -- ^ Occupancy map
+                   -> TrodeSpike -- ^ The spike of interest
+                   -> IO ()
+fanoutSpikeToCells ds trode pos trackPos spike =
  do
   flip F.mapM_ (trode^.dUnits) $ \dpcT -> do
     DecodablePlaceCell pc tauN <- readTVarIO dpcT
@@ -332,58 +360,21 @@ fanoutSpikeToCells ds trodeName trode pos trackPos spike p =
                 then pc & countField %~ updateField (+) trackPos
                 else pc
           tauN' = tauN + 1
-      tNow <- getCurrentTime
       atomically $ writeTVar dpcT $ DecodablePlaceCell pc' tauN'
-      tNow2 <- getCurrentTime
---      when (doLog && (floor (utctDayTime tNow) `mod` 100 == 0)) $
---        BS.appendFile "spikes.txt" (toBS spike tNow)
-      when (isJust p) $ maybe (return ()) (flip BS.hPutStrLn (toBS spike tNow tNow2)) p
---      when (doLog && (floor (utctDayTime tNow) `mod` 20 == 0)) $
---        modifyMVar (ds^.logData) (flip BS.append (toBS spike tNow))
 {-# INLINE fanoutSpikeToCells #-}
-
-toBS :: TrodeSpike -> UTCTime -> UTCTime -> BS.ByteString
-toBS spike tNow tNow2 =
-  BS.concat [(BS.pack . show . spikeTime) spike
-            , ", "
-            , (BS.filter (/= 's') . BS.take 9 . BS.pack
-               . show . utctDayTime) tNow
-            , ", "
-            , (BS.filter (/= 's') . BS.take 9 . BS.pack
-               . show . utctDayTime) tNow2]
-
-
 ------------------------------------------------------------------------------
-fanoutSpikesToTrodes :: TVar DecoderState -> TQueue TrodeSpike -> Maybe Handle
-                     -> IO ()
-fanoutSpikesToTrodes dsT sQueue logSpikesH = forever $ do
-    s <- atomically $ readTQueue sQueue
-
-    ds <- readTVarIO dsT
-
-    let sName = spikeTrodeName s :: Int
-    -- TODO TrodeName is Int, but in TrodeSpike it's Text ..
-    case ds^.trodes of
-      Clustered tMap -> case Map.lookup (sName :: Int) tMap of
-        Nothing    -> do
-          --putStrLn ("Orphan spike: " ++ show sName)
-          return ()
-        Just trode -> do
-          p  <- readTVarIO (ds^.pos)
-          tp <- readTVarIO (ds^.trackPos)
-          fanoutSpikeToCells ds sName trode p tp s logSpikesH
-      Clusterless tMap -> return ()
-
-
-------------------------------------------------------------------------------
-clusterlessAddSpike :: DecoderState -> TrodeName -> Position -> Field
-                    -> TrodeSpike -> Maybe Handle -> IO ()
-clusterlessAddSpike ds tName p tPos spike log =
+-- | Add a spike in the clusterless case
+clusterlessAddSpike :: DecoderState -- ^ The decoding state
+                    -> TrodeName -- ^ The trode of interest
+                    -> Position -- ^ The most recently seen camera position
+                    -> Field -- ^ Most recently seen track position
+                    -> TrodeSpike -- ^ The spike to add
+                    -> IO ()
+clusterlessAddSpike ds tName p tPos spike =
   case Map.lookup tName (ds^.trodes._Clusterless) of
     Nothing -> putStrLn "Orphan spike"
     Just t' -> H.timeAction (ds^.encodeProf) $ do
       atomically $ do
-        tPos <- readTVar (ds^.trackPos)
         let forKDE = (p^.speed) >= runningThresholdSpeed
         let spike' = (makeCPoint spike tPos,
                       MostRecentTime $ spikeTime spike,
@@ -393,7 +384,11 @@ clusterlessAddSpike ds tName p tPos spike log =
 {-# INLINE clusterlessAddSpike #-}
 
 ------------------------------------------------------------------------------
-makeCPoint :: TrodeSpike -> Field -> ClusterlessPoint
+-- | Convert a spike and spread position into a point for the clusterless
+--   KD tree.
+makeCPoint :: TrodeSpike -- ^ The spike
+           -> Field -- ^ The position
+           -> ClusterlessPoint
 makeCPoint spike tPos = ClusterlessPoint {
     _pAmplitude = U.convert . spikeAmplitudes $ spike
   , _pWeight    = 1
@@ -401,16 +396,13 @@ makeCPoint spike tPos = ClusterlessPoint {
   }
 
 ------------------------------------------------------------------------------
-stepSpikeHistory :: TrodeSpike -> SpikeHistory -> SpikeHistory
-stepSpikeHistory s sHist = sHist + 1 -- TODO real function
-
-
-------------------------------------------------------------------------------
-setTrodeCluster :: Track
-                -> DecoderState
-                -> TrodeName
-                -> PlaceCellName
-                -> ClusterMethod
+-- | Add a cluster to a given trode's list of clusters, creating the trode
+--   first if it does not exist.
+setTrodeCluster :: Track -- ^ The track model
+                -> DecoderState -- ^ The decoding state
+                -> TrodeName -- ^ The trode of interest
+                -> PlaceCellName -- ^ The name of the cluster
+                -> ClusterMethod -- ^ The bounds of the cluster
                 -> STM DecoderState
 setTrodeCluster track ds trodeName placeCellName clustMethod =
   case ds^.trodes of
@@ -423,7 +415,7 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
         Nothing      -> do
           dpc' <- newTVar $
                   DecodablePlaceCell
-                  (newPlaceCell track ds trodeName clustMethod) 0
+                  (newPlaceCell track clustMethod) 0
           let newTrode =
                 PlaceCellTrode
                 (Map.fromList [(placeCellName, dpc')]) nullHistory
@@ -432,14 +424,14 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
           case Map.lookup placeCellName pcs of
             Nothing -> do
               dpc' <- newTVar $ DecodablePlaceCell
-                      (newPlaceCell track ds trodeName clustMethod) 0
+                      (newPlaceCell track clustMethod) 0
               let newTrode =
                     PlaceCellTrode (Map.insert placeCellName dpc' pcs) sHist
               return $ (ds & trodes . _Clustered . at trodeName  ?~ newTrode)
             Just dpc -> do
               _ <- swapTVar dpc $
                 DecodablePlaceCell
-                (newPlaceCell track ds trodeName clustMethod) 0
+                (newPlaceCell track clustMethod) 0
               return ds
       let drawOpts' = clistTrodes $ dsNewClusts^.trodes
       return $
@@ -447,45 +439,26 @@ setTrodeCluster track ds trodeName placeCellName clustMethod =
 
 
 ------------------------------------------------------------------------------
-newPlaceCell :: Track
-             -> DecoderState
-             -> TrodeName
-             -> ClusterMethod
+-- | Create a new cluster from a given set of bounds
+newPlaceCell :: Track -- ^ Track model
+             -> ClusterMethod -- ^ The cluster bounds
              -> PlaceCell
-newPlaceCell track ds trodeName cMethod = do
-  case ds^.trodes of
-    Clusterless tMap -> error "Tried to newPlaceCell in clusterless context"
-    Clustered   tMap ->
-      case Map.lookup trodeName tMap of
-        -- No trode by that name, so no history
-        Nothing -> PlaceCell cMethod
-                   (V.replicate (V.length $ allTrackPos track) 0)
-        -- Found that trode, build cell to that name from history
-        Just (PlaceCellTrode dpc sHist) ->
-          PlaceCell cMethod
-          (V.replicate (V.length $ allTrackPos track) 0)
-          -- TODO: Build from spike history!
+newPlaceCell track cMethod =
+  PlaceCell cMethod
+  (V.replicate (V.length $ allTrackPos track) 0)
 
 
 ------------------------------------------------------------------------------
-orderClusters :: FilePath -> FilePath -> IO ()
-orderClusters cFile ttFile = do
-  let trodeName = Text.unpack $ mwlTrodeNameFromPath ttFile
-  cExists <- doesFileExist cFile
-  when cExists $ do
-    clusters' <- getClusters cFile ttFile
-    case clusters' of
-      Left _         -> return ()
-      --Right clusts -> atomically . writeTQueue queue $
-      --                (ArteMessage 0 "" Nothing (Request $ TrodeSetAllClusters (read trodeName) clusts))
-      Right _ -> error "Got rid of ArteMessage"
-  -- TODO: safeRead instead
-
-
-endsIn :: FilePath -> String -> Bool
+-- | Does a given file path end in a certain string?
+endsIn :: FilePath -- ^ The path of interest
+       -> String -- ^ The suffix
+       -> Bool
 endsIn fp str = take (length str) (reverse fp) == reverse str
 
-interpretPos :: DecoderArgs -> Socket -> Producer Position IO ()
+-- | Create a position producer based on the input format
+interpretPos :: DecoderArgs -- ^ Arguments for decoding
+             -> Socket -- ^ Socket to listen on
+             -> Producer Position IO ()
 interpretPos DecoderArgs{..} sock = case psPosFormat posSource of
   OatJSON       -> let posProducerNoHistory = udpJsonProducer 9000 sock
                    in  posProducerNoHistory
@@ -493,9 +466,13 @@ interpretPos DecoderArgs{..} sock = case psPosFormat posSource of
                        >-> producePos pos0
   ArteBinary    -> udpSocketProducer 9000 sock
 
+-- | Newtype wrapper around Position for different fromJSON instance
 newtype OatPosition = OatPosition { unOatPosition :: Position }
 
-transOatPosition :: Position -> Position
+-- Hack! OAT will eventually just do the right thing
+-- | Translate OAT position coordinates to arte position coordinates
+transOatPosition :: Position -- ^ Position in OAT coordinates
+                 -> Position
 transOatPosition p = let x' = (_x . _location $ p) / 4000 + 229
                          y' = (_y . _location $ p) / 4000 + 21.5
                          z' = (_z . _location $ p)
@@ -503,7 +480,7 @@ transOatPosition p = let x' = (_x . _location $ p) / 4000 + 229
 
 instance A.FromJSON OatPosition where
   parseJSON (A.Object v) = do
-    posConf         <- oatPosConvert <$> v .: "pos_ok"
+    posConf         <- bool ConfUnsure ConfSure <$> v .: "pos_ok"
     [pos_x,pos_y]   <- v .: "pos_xy"
     [vel_x,vel_y]   <- v .: "vel_xy"
     return . OatPosition $ (Position
@@ -517,16 +494,3 @@ instance A.FromJSON OatPosition where
                             []
                             (-400)
                             (Location 0 0 0))
-
-oatPosConvert True = ConfSure
-oatPosConvert False = ConfUnsure
-
-    -- {"ID":"NA"
-    -- ,"unit":0
-    -- ,"pos_ok":true
-    -- ,"pos_xy":[-393085.1284289367,-32104.866198798318]
-    -- ,"vel_ok":true
-    -- ,"vel_xy":[-86.56935814544997,-35.44021106250909]
-    -- ,"head_ok":false
-    -- ,"reg_ok":false
-    -- }

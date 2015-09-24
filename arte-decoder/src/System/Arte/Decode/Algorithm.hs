@@ -43,9 +43,9 @@ pcFieldRate occ field = V.zipWith (/) field occ
 
 ------------------------------------------------------------------------------
 runClusterReconstruction :: DecoderArgs -> Double ->
-                      TVar DecoderState -> Maybe Handle ->
+                      TVar DecoderState ->
                       IO ()
-runClusterReconstruction args rTauSec dsT h = do
+runClusterReconstruction args rTauSec dsT = do
   ds <- readTVarIO $ dsT
   sock <- initSock
   (timeSyncStateVar, _) <- setupTimeSync $ tsOptions args
@@ -156,8 +156,8 @@ showPosterior f (UTCTime _ sec) =
 
 ------------------------------------------------------------------------------
 runClusterlessReconstruction :: ClusterlessOpts -> Double -> TVar DecoderState
-                             -> Maybe Handle -> IO ()
-runClusterlessReconstruction rOpts rTauSec dsT _ = do
+                             -> IO ()
+runClusterlessReconstruction rOpts rTauSec dsT = do
   ds <- readTVarIO dsT
   t0 <- getCurrentTime
   go ds t0
