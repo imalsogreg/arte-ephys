@@ -1,6 +1,6 @@
-{ mkDerivation, base, bytestring, cereal, errors, network
-, optparse-applicative, pipes, pipes-rt, safe, stdenv
-, tetrode-ephys, text, transformers, vector
+{ mkDerivation, aeson, async, base, bytestring, cereal, errors
+, network, optparse-applicative, pipes, pipes-rt, random, safe
+, stdenv, stm, tetrode-ephys, text, time, transformers, vector
 }:
 mkDerivation {
   pname = "arte-mock-data";
@@ -8,9 +8,15 @@ mkDerivation {
   src = ./.;
   isLibrary = true;
   isExecutable = true;
-  buildDepends = [
-    base bytestring cereal errors network optparse-applicative pipes
-    pipes-rt safe tetrode-ephys text transformers vector
+  libraryHaskellDepends = [
+    aeson async base bytestring cereal errors network
+    optparse-applicative pipes pipes-rt random safe stm tetrode-ephys
+    text time transformers vector
+  ];
+  executableHaskellDepends = [
+    aeson async base bytestring cereal errors network
+    optparse-applicative pipes pipes-rt random safe stm tetrode-ephys
+    text time transformers vector
   ];
   license = stdenv.lib.licenses.bsd3;
 }
