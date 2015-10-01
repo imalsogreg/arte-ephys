@@ -84,7 +84,7 @@ import           System.Arte.Decode.Types
 focusCursor :: DecoderState -- ^ The current decoding state
             -> TrodeDrawOption
 focusCursor ds = fromMaybe (DrawError "Couldn't index at cursor") $
-                 (ds^.trodeDrawOpt) ^? ix (ds^.trodeInd) . ix (ds^.clustInd)
+                 (ds^.trodeDrawOpt) ^? ix (ds^.clustInd)
 
 
 ------------------------------------------------------------------------------
@@ -112,7 +112,7 @@ draw ds = do
     DrawPlaceCell _ dUnit' ->  do
       u <- readTVarIO dUnit'
       return . trackToScreen . fieldPic $ placeField (u^.dpCell) occ
-    cl@(DrawClusterless _ _ _)  -> mkClusterlessScreenPic cl ds
+    cl@(DrawClusterless _ _)  -> mkClusterlessScreenPic cl ds
     DrawError e -> return . scale 50 50 $ text e
 
   return $ Pictures [trackPicture, posPicture, optsPicture, selectionPic] --, eHist, dHist]
@@ -154,8 +154,6 @@ main = do
 
   a <- case clusterless opts of
     True -> do
-      let trodeName = 14
-      _ <- addClusterlessTrode dsT trodeName
       async $ runEffect $ udpSocketProducer 9000 sock >->
         (forever $ do
             spike <- await
@@ -163,13 +161,12 @@ main = do
             pos2 <- lift . atomically $ readTVar (ds^.trackPos)
             p    <- lift . atomically $ readTVar (ds^.pos)
             when (clessKeepSpike spike) $
-              lift (clusterlessAddSpike ds2 trodeName p pos2 spike)
+              lift (clusterlessAddSpike ds2 p pos2 spike)
         )
 
     False -> do
       let cbFilePath = ttDir opts
           cbFile     = cbFilePath </> "cbfile-run"
-          trodeName  = 14  -- TODO Ok to name tetrode 0?
       ttFiles <-  getDirectoryContents (ttDir opts)
       print $ "TTFiles: " ++ show ttFiles
       ttFilePath <- (head .  -- TODO s/head/safeHead
@@ -179,14 +176,12 @@ main = do
       clusters' <- getClusters cbFile ttFilePath
       case clusters' of
        Right clusters -> do
-         setTrodeClusters defTrack dsT trodeName clusters
+         setTrodeClusters defTrack dsT clusters
          ds' <- readTVarIO dsT
-         case Map.lookup trodeName (ds' ^. trodes._Clustered) of
-          Nothing -> error ("shouldn't happen, couldn't find trode named "
-                            ++ show trodeName)
-          Just pcTrode ->
-            async $ runEffect $ udpSocketProducer 9000 sock >->
-            (forever $ do
+         case ds'^.trode of
+           Clustered pcTrode ->
+             async $ runEffect $ udpSocketProducer 9000 sock >->
+             (forever $ do
                 spike <- await
                 let minWid = spikeWidthThreshold defaultClusterlessOpts
                 when (spikeWidth spike >= minWid && clessKeepSpike spike) $ do
@@ -195,7 +190,8 @@ main = do
                   p    <- lift . atomically $ readTVar (ds^.pos)
                   lift (fanoutSpikeToCells ds2 pcTrode p pos2 spike)
                 return ()
-            )
+             )
+           _ -> error "Clusterless in clustered context"
 
   let asyncsAndTrodes = [ (a, undefined) ]
 
@@ -257,7 +253,7 @@ glossInputs dsT e ds =
     EventKey _ Down _ _ -> return ds
     EventKey (MouseButton LeftButton) Up _ (mouseX,mouseY) ->
       case drawOpt of
-        (DrawClusterless tName tTrode
+        (DrawClusterless tTrode
          (ClessDraw (XChan cX) (YChan cY))) ->
           let (treeX, treeY) = screenToSpikes mouseX mouseY
               p'  = fromMaybe ((ClusterlessPoint
@@ -270,7 +266,7 @@ glossInputs dsT e ds =
         _ -> putStrLn "Ignoring left click" >> return ds
     EventKey (MouseButton RightButton) Up _ _ ->
       case drawOpt of
-        (DrawClusterless tName tTrode (ClessDraw cX cY)) ->
+        (DrawClusterless tTrode (ClessDraw cX cY)) ->
           let ds' = ds & samplePoint .~ Nothing
           in  atomically (writeTVar dsT ds') >> return ds'
         _ -> putStrLn "Ignoring right click" >> return ds
@@ -295,37 +291,16 @@ stepIO dsT _ _ = do
 -- | Insert a set of cluster boundaries into the state
 setTrodeClusters :: Track -- ^ Track definition
                  -> TVar DecoderState -- ^ Decoder state
-                 -> TrodeName -- ^ The name of the trode being clustered
                  -> Map.Map PlaceCellName ClusterMethod
                     -- ^ The cluster bounds by place cell name
                  -> IO ()
-setTrodeClusters track dsT trodeName clusts  =
+setTrodeClusters track dsT clusts  =
   let foldF d (cName,cMethod) =
-        setTrodeCluster track d trodeName cName cMethod in
+        setTrodeCluster track d cName cMethod in
   atomically $ do
     ds  <- readTVar dsT
     ds' <- F.foldlM foldF ds (Map.toList clusts)
     writeTVar dsT ds'
-
-
-------------------------------------------------------------------------------
--- | Add a clusterless trode to the state
-addClusterlessTrode :: TVar DecoderState -- ^ The decoder state
-                    -> TrodeName -- ^ The name of the trode to add
-                    -> IO (TVar ClusterlessTrode)
-addClusterlessTrode dsT tName = do
-  clusterlessTrode <- newTVarIO $ ClusterlessTrode KDEmpty []
-  atomically . modifyTVar dsT $ \ds' ->
-    let trodes' = Clusterless $ Map.insert tName clusterlessTrode
-                    (ds'^.trodes._Clusterless)
-    in
-    ds' {_trodes = trodes'
-        ,_trodeDrawOpt = clistTrodes trodes'}
-  ds' <- atomically $ readTVar dsT
-  putStrLn $ unwords ["length: ", show (Map.size $ ds'^.trodes._Clusterless)]
-
-  putStrLn $ unwords ["Added clusterless trode", show tName] -- "trodes:", show t]
-  return $! clusterlessTrode
 
 
 ------------------------------------------------------------------------------
@@ -365,15 +340,13 @@ fanoutSpikeToCells ds trode pos trackPos spike =
 ------------------------------------------------------------------------------
 -- | Add a spike in the clusterless case
 clusterlessAddSpike :: DecoderState -- ^ The decoding state
-                    -> TrodeName -- ^ The trode of interest
                     -> Position -- ^ The most recently seen camera position
                     -> Field -- ^ Most recently seen track position
                     -> TrodeSpike -- ^ The spike to add
                     -> IO ()
-clusterlessAddSpike ds tName p tPos spike =
-  case Map.lookup tName (ds^.trodes._Clusterless) of
-    Nothing -> putStrLn "Orphan spike"
-    Just t' -> H.timeAction (ds^.encodeProf) $ do
+clusterlessAddSpike ds p tPos spike =
+  case ds^.trode of
+    Clusterless t' -> H.timeAction (ds^.encodeProf) $ do
       atomically $ do
         let forKDE = (p^.speed) >= runningThresholdSpeed
         let spike' = (makeCPoint spike tPos,
@@ -381,6 +354,7 @@ clusterlessAddSpike ds tName p tPos spike =
                       forKDE)
         modifyTVar t' $ \(t::ClusterlessTrode) -> t & dtTauN %~ (spike':)
         return ()
+    _ -> error "Clustered in clusterless context"
 {-# INLINE clusterlessAddSpike #-}
 
 ------------------------------------------------------------------------------
@@ -400,40 +374,26 @@ makeCPoint spike tPos = ClusterlessPoint {
 --   first if it does not exist.
 setTrodeCluster :: Track -- ^ The track model
                 -> DecoderState -- ^ The decoding state
-                -> TrodeName -- ^ The trode of interest
                 -> PlaceCellName -- ^ The name of the cluster
                 -> ClusterMethod -- ^ The bounds of the cluster
                 -> STM DecoderState
-setTrodeCluster track ds trodeName placeCellName clustMethod =
-  case ds^.trodes of
+setTrodeCluster track ds placeCellName clustMethod =
+  case ds^.trode of
     Clusterless _ -> error "Tried to set cluster in a clusterless context"
-    Clustered tMap -> do
-      dsNewClusts <- case Map.lookup trodeName tMap of
-        -- if trode doesn't exist, make a new one.  there's no history,
-        -- so make an empty history
-        -- and build a new place cell from that empty history
-        Nothing      -> do
-          dpc' <- newTVar $
-                  DecodablePlaceCell
+    Clustered (PlaceCellTrode pcs sHist) -> do
+      dsNewClusts <- case Map.lookup placeCellName pcs of
+        Nothing -> do
+          dpc' <- newTVar $ DecodablePlaceCell
                   (newPlaceCell track clustMethod) 0
           let newTrode =
-                PlaceCellTrode
-                (Map.fromList [(placeCellName, dpc')]) nullHistory
-          return $ (ds & trodes . _Clustered . at trodeName ?~ newTrode)
-        Just (PlaceCellTrode pcs sHist) -> do
-          case Map.lookup placeCellName pcs of
-            Nothing -> do
-              dpc' <- newTVar $ DecodablePlaceCell
-                      (newPlaceCell track clustMethod) 0
-              let newTrode =
-                    PlaceCellTrode (Map.insert placeCellName dpc' pcs) sHist
-              return $ (ds & trodes . _Clustered . at trodeName  ?~ newTrode)
-            Just dpc -> do
-              _ <- swapTVar dpc $
-                DecodablePlaceCell
-                (newPlaceCell track clustMethod) 0
-              return ds
-      let drawOpts' = clistTrodes $ dsNewClusts^.trodes
+                PlaceCellTrode (Map.insert placeCellName dpc' pcs) sHist
+          return $ (ds { _trode = Clustered newTrode })
+        Just dpc -> do
+          _ <- swapTVar dpc $
+            DecodablePlaceCell
+            (newPlaceCell track clustMethod) 0
+          return ds
+      let drawOpts' = clistTrodes $ dsNewClusts^.trode
       return $
         dsNewClusts { _trodeDrawOpt = drawOpts' }
 

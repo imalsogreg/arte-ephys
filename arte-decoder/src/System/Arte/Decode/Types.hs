@@ -38,7 +38,7 @@ data DecoderState = DecoderState
                     { _pos           :: TVar Position
                     , _trackPos      :: TVar (Field)
                     , _occupancy     :: TVar (Field)
-                    , _trodes        :: Trodes
+                    , _trode         :: Trode
                     , _decodedPos    :: TVar (Field)
                     , _trodeDrawOpt  :: TrodeDrawOptions
                     , _trodeInd      :: Int
@@ -78,10 +78,8 @@ data ClusterlessTrode = ClusterlessTrode
                         } deriving (Eq, Show)
 
 
-data Trodes = Clusterless (Map.Map TrodeName (TVar ClusterlessTrode))
-            | Clustered   (Map.Map TrodeName PlaceCellTrode)
-
-
+data Trode = Clusterless (TVar ClusterlessTrode)
+           | Clustered PlaceCellTrode
 
 ------------------------------------------------------------------------------
 type TrodeCollection a = Map.Map TrodeName (Map.Map PlaceCellName a)
@@ -144,7 +142,7 @@ data ClessDraw = ClessDraw XChan YChan
 ------------------------------------------------------------------------------
 data TrodeDrawOption =
     DrawPlaceCell   PlaceCellName (TVar DecodablePlaceCell)
-  | DrawClusterless TrodeName     (TVar ClusterlessTrode) ClessDraw
+  | DrawClusterless (TVar ClusterlessTrode) ClessDraw
   | DrawOccupancy
   | DrawDecoding
   | DrawError String
@@ -154,18 +152,18 @@ data TrodeDrawOption =
 ------------------------------------------------------------------------------
 instance Show TrodeDrawOption where
   show (DrawPlaceCell n _)     = "DrawPlaceCell " ++ show n
-  show (DrawClusterless n _ _) = "DrawClusterless " ++ show n
+  show (DrawClusterless _ _)   = "DrawClusterless"
   show DrawOccupancy           = "DrawOccupancy"
   show DrawDecoding            = "DrawDecoding"
   show (DrawError s)           = "DrawError " ++ s
 
-type TrodeDrawOptions = [[TrodeDrawOption]]
+type TrodeDrawOptions = [TrodeDrawOption]
 
 $(makeLenses ''PlaceCellTrode)
 $(makeLenses ''DecodablePlaceCell)
 $(makeLenses ''ClusterlessPoint)
-$(makeLenses ''Trodes)
-$(makePrisms ''Trodes)
+$(makeLenses ''Trode)
+$(makePrisms ''Trode)
 $(makeLenses ''ClusterlessTrode)
 
 

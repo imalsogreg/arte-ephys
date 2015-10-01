@@ -12,6 +12,7 @@ import           Control.Lens
 import qualified Data.Map.Strict                as Map
 import           Data.Time.Clock
 import qualified Data.Vector                    as V
+import           Data.Map.KDMap
 ------------------------------------------------------------------------------
 import           Data.Ephys.EphysDefs
 import           Data.Ephys.Position            (Angle (..), Location (..),
@@ -64,17 +65,19 @@ field0 = V.replicate (V.length $ allTrackPos defTrack) 0
 ------------------------------------------------------------------------------
 initialState :: DecoderArgs -> IO DecoderState
 initialState DecoderArgs{..} = do
-  let clusts    = if clusterless
-                  then clistTrodes $ Clusterless Map.empty
-                  else clistTrodes $ Clustered Map.empty
+  newTrode <- case clusterless of
+                 False -> return . Clustered $
+                          PlaceCellTrode Map.empty nullHistory
+                 True -> Clusterless <$>
+                         (newTVarIO $ ClusterlessTrode KDEmpty [])
   t0       <- getCurrentTime
   DecoderState <$>
     newTVarIO pos0
     <*> newTVarIO field0
     <*> newTVarIO field0
-    <*> return (Clustered Map.empty)
+    <*> return newTrode
     <*> newTVarIO field0
-    <*> pure clusts
+    <*> pure (clistTrodes newTrode)
     <*> pure 0
     <*> pure 0
     <*> pure False
@@ -85,21 +88,8 @@ initialState DecoderArgs{..} = do
 
 
 ------------------------------------------------------------------------------
-clistTrodes :: Trodes -> TrodeDrawOptions
-clistTrodes (Clustered tMap) =
-  (map f $ Map.toList tMap) ++
-  [[DrawOccupancy], [DrawDecoding]]
-    where
-      f :: (TrodeName, PlaceCellTrode) -> [TrodeDrawOption]
-      f (tName, PlaceCellTrode units _) = map (\(n,u) -> DrawPlaceCell n u)
-                                          (Map.toList units)
-clistTrodes (Clusterless tMap) =
-  (map f $ Map.toList tMap)
-  ++ [[DrawOccupancy], [DrawDecoding] ]
-  where
-    f :: (TrodeName,TVar ClusterlessTrode) -> [TrodeDrawOption]
-    f (n,t) = [ DrawClusterless n t
-                (ClessDraw (XChan x) (YChan y))
-              | x <- [0  ..3]
-              , y <- [x+1..3]
-              ]
+clistTrodes :: Trode -> TrodeDrawOptions
+clistTrodes (Clustered (PlaceCellTrode units _)) =
+  map (\(n,u) -> DrawPlaceCell n u) (Map.toList units) ++ [DrawOccupancy, DrawDecoding]
+clistTrodes (Clusterless t) =
+  [ DrawClusterless t (ClessDraw (XChan x) (YChan y)) | x <- [0..3], y <- [x+1..3] ] ++  [DrawOccupancy, DrawDecoding]

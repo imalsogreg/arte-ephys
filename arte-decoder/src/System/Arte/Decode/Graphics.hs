@@ -28,25 +28,21 @@ import           System.Arte.Decode.Algorithm
 ------------------------------------------------------------------------------
 drawOptionsStatePic :: DecoderState -> Picture
 drawOptionsStatePic ds =
-  let filledCol = ds^.trodeInd
-      filledRow = ds^.clustInd
-      drawCol :: Int -> [TrodeDrawOption] -> Picture
-      drawCol cInd col = pictures $
-                         map (drawDot cInd col) [0..length col - 1]
-      drawDot        = \cInd c rInd ->
-        translate (fromIntegral cInd) (fromIntegral rInd) $
-        if filledCol `mod` nOpts     == cInd &&
-           filledRow `mod` length c == rInd :: Bool
+  let filledRow = ds^.clustInd
+      drawCol :: TrodeDrawOptions -> Picture
+      drawCol col = pictures $
+                         map (drawDot col) [0..length col - 1]
+      drawDot        = \c rInd ->
+        translate 0 (fromIntegral rInd) $
+        if filledRow `mod` length c == rInd :: Bool
         then color blue $ Circle 0.5 :: Picture
         else color red  $ ThickCircle 0.1 0.4 :: Picture
-      nOpts          = length optsList
-      optsList       = ds^.trodeDrawOpt
-  in  pictures $ zipWith drawCol [0..nOpts-1] optsList
+  in  drawCol $ ds^.trodeDrawOpt
 
 
 ------------------------------------------------------------------------------
 mkClusterlessScreenPic :: TrodeDrawOption -> DecoderState -> IO Picture
-mkClusterlessScreenPic (DrawClusterless tName kdT (ClessDraw x y)) ds =
+mkClusterlessScreenPic (DrawClusterless kdT (ClessDraw x y)) ds =
   do
     tNow <- (ds^.toExpTime) <$> getCurrentTime
     kd   <- atomically $ readTVar kdT

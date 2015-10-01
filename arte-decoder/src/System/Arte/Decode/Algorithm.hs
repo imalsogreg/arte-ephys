@@ -50,11 +50,11 @@ runClusterReconstruction args rTauSec dsT = do
   sock <- initSock
   (timeSyncStateVar, _) <- setupTimeSync $ tsOptions args
   let occT = ds ^. occupancy
-      Clustered clusteredTrodes = ds^.trodes
+      Clustered clusteredTrode = ds^.trode
       go lastFields = do
         -- H.timeAction (ds^.decodeProf) $ do  -- <-- Slow space leak here (why?)
         do
-          (fields,counts) <- unzip <$> clusteredUnTVar clusteredTrodes
+          (fields,counts) <- unzip <$> clusteredUnTVar clusteredTrode
           occ <- readTVarIO occT
           let !estimate = clusteredReconstruction rTauSec lastFields counts occ
           ntNow <- getCurrentNetworkTime timeSyncStateVar
@@ -62,7 +62,7 @@ runClusterReconstruction args rTauSec dsT = do
           streamData sock p
           atomically $ writeTVar (ds^.decodedPos) estimate
 
-          resetClusteredSpikeCounts clusteredTrodes
+          resetClusteredSpikeCounts clusteredTrode
 
           binEndInterval <-
             timeToNextTick (realToFrac $ decodingInterval args) timeSyncStateVar
@@ -115,12 +115,9 @@ normalize f = let fieldSum = V.foldl' (+) 0 f
 {-# INLINE normalize #-}
 
 ------------------------------------------------------------------------------
-clusteredUnTVar :: Map.Map PlaceCellName PlaceCellTrode -> IO [(Field,Int)]
-clusteredUnTVar pcMap = fmap concat $ atomically . mapM trodeFields . Map.elems $ pcMap
+clusteredUnTVar :: PlaceCellTrode -> IO [(Field,Int)]
+clusteredUnTVar pct = atomically $ mapM countsOneCell (Map.elems $ _dUnits pct)
   where
-    trodeFields :: PlaceCellTrode -> STM [(Field,Int)]
-    trodeFields pct = mapM countsOneCell
-                      (Map.elems . _dUnits $ pct)
     countsOneCell :: TVar DecodablePlaceCell -> STM (Field, Int)
     countsOneCell dpcT = do
       dpc <- readTVar dpcT
@@ -128,14 +125,9 @@ clusteredUnTVar pcMap = fmap concat $ atomically . mapM trodeFields . Map.elems 
 
 
 ------------------------------------------------------------------------------
-resetClusteredSpikeCounts :: Map.Map TrodeName PlaceCellTrode
-                    -> IO ()
-resetClusteredSpikeCounts clusteredTrodes =
-  atomically $ mapM_ (\dpc -> resetOneTrode dpc) (Map.elems clusteredTrodes)
-  where resetOneTrode t = mapM_ resetOneCell (Map.elems . _dUnits $ t)
-        resetOneCell pc = modifyTVar pc $ dpCellTauN .~ 0
-
-
+resetClusteredSpikeCounts :: PlaceCellTrode -> IO ()
+resetClusteredSpikeCounts t = atomically $ mapM_ resetOneCell (Map.elems $ _dUnits t)
+  where resetOneCell pc = modifyTVar pc $ dpCellTauN .~ 0
 
 ------------------------------------------------------------------------------
 keyFilter :: (Ord k) => (k -> Bool) -> Map.Map k a -> Map.Map k a
@@ -164,11 +156,11 @@ runClusterlessReconstruction rOpts rTauSec dsT = do
   where go ds binStartTime = do
           let binEndTime = addUTCTime (realToFrac rTauSec) binStartTime
           H.timeAction (ds^.decodeProf) $ do
-            !trodeEstimates <- forM
-                              (Map.elems $ ds^.trodes._Clusterless) $
-                              (stepTrode rOpts)
-            let !fieldProduct = collectFields trodeEstimates
-            atomically . writeTVar (ds^.decodedPos) .  normalize $ fieldProduct
+            let t = case ds^.trode of
+                        Clusterless x -> x
+                        _             -> error "Clustered used in a clusterless context"
+            !trodeEstimate <- stepTrode rOpts t
+            atomically . writeTVar (ds^.decodedPos) .  normalize $ trodeEstimate
           performGC
           tNow <- getCurrentTime
           let tRemaining = diffUTCTime tNow binEndTime
