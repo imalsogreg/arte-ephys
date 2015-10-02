@@ -425,6 +425,7 @@ interpretPos DecoderArgs{..} sock = case psPosFormat posSource of
                        >-> P.map (transOatPosition . unOatPosition)
                        >-> producePos pos0
   ArteBinary    -> udpSocketProducer 9000 sock
+  ArteJSON      -> udpJsonProducer 9000 sock
 
 -- | Newtype wrapper around Position for different fromJSON instance
 newtype OatPosition = OatPosition { unOatPosition :: Position }

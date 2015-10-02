@@ -211,7 +211,7 @@ posSrcArgs = PosSource
                   <> help "Pos source UDP port")
              <*> option auto
                  (long "posformat"
-                  <> value OatJSON
+                  <> value ArteJSON
                   <> help "Format for pos {OatJSON|ArteBinary|ArteJSON}")
 
 spikeSrcArgs :: Parser SpikeSource

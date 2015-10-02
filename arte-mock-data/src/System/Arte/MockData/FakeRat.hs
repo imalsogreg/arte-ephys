@@ -7,13 +7,13 @@ import           Control.Monad
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
-import qualified Data.Aeson           as A
-import           Data.Bool            (bool)
-import qualified Data.ByteString      as BS
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Aeson            as A
+import           Data.Bool             (bool)
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy  as BSL
 import           Data.List
 import           Data.Maybe
-import qualified Data.Serialize       as S
+import qualified Data.Serialize        as S
 import           Data.Time
 import           GHC.Word
 import           Network
@@ -93,6 +93,7 @@ streamFakePos DataSourceOpts{..} = withSocketsDo $ do
                  let t' = realToFrac (diffUTCTime now t0) +
                           realToFrac expStartTime
                      p' = stepPos p t' (sPos s') (Angle 0 0 0) ConfSure
+                 print $ "Message: " ++ BS.unpack (enc p')
                  BS.sendAllTo sock (enc (p')) destAddr
                  threadDelay 30000
                  go p' s'
