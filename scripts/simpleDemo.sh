@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 DATADIR="$HOME/data/caillou/112812clip2"
 STARTTIME="4492"
